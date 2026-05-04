@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { enviarVoto } from "@/lib/voteApi"
+import { getDeviceId } from "@/lib/deviceId"
 
 type ResultadoCerrado = {
   id: string
@@ -58,7 +60,10 @@ export default function Dashboard() {
   const [votosEmitidos, setVotosEmitidos] = useState(0)
   const [votosAFavor, setVotosAFavor] = useState(0)
   const [votosEnContra, setVotosEnContra] = useState(0)
+  const [yaVoto, setYaVoto] = useState(false)
   const [resultadosCerrados, setResultadosCerrados] = useState<ResultadoCerrado[]>([])
+
+  const TOKEN_PRUEBA = "73aa5ce855193248c6b92e518afd5c0e"
 
   const calcularNecesarios = (total: number, tipo: string) => {
     if (total === 0) return 0
@@ -111,8 +116,7 @@ export default function Dashboard() {
       .from("asambleas")
       .select("*")
       .eq("estado", "abierta")
-      .limit(1)
-      .maybeSingle()
+      .single()
 
     if (error || !data) {
       setAsambleaId(null)
@@ -147,39 +151,6 @@ export default function Dashboard() {
     setNuevoAnio("")
     setNuevoLugar("")
     await cargarAsambleaActiva()
-  }
-
-  const cerrarAsamblea = async () => {
-    if (!asambleaId) return
-
-    await supabase.from("votaciones").update({ estado: "cerrada" }).eq("asamblea_id", asambleaId)
-    await generarPDFAsamblea()
-
-    const { error } = await supabase
-      .from("asambleas")
-      .update({ estado: "cerrada" })
-      .eq("id", asambleaId)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setAsambleaId(null)
-    setAnioAsamblea("")
-    setLugarAsamblea("")
-    setEstado("cerrada")
-    setVotacionId(null)
-    setTitulo("")
-    setTipoMayoria("")
-    setTipoVotacion("resolucion")
-    setRonda(1)
-    setCandidatos([])
-    setConteoCandidatos([])
-    setVotosEmitidos(0)
-    setVotosAFavor(0)
-    setVotosEnContra(0)
-    setResultadosCerrados([])
   }
 
   const cargarVotacionActiva = async () => {
@@ -238,10 +209,7 @@ export default function Dashboard() {
       .eq("votacion_id", id)
       .order("nombre", { ascending: true })
 
-    const { data: votosData } = await supabase
-      .from("votos")
-      .select("*")
-      .eq("votacion_id", id)
+    const { data: votosData } = await supabase.from("votos").select("*").eq("votacion_id", id)
 
     const conteo =
       candidatosData?.map((candidato) => ({
@@ -256,7 +224,7 @@ export default function Dashboard() {
   const cargarVotos = async (id: string) => {
     const { data, error } = await supabase.from("votos").select("*").eq("votacion_id", id)
 
-    if (error) return
+    if (error || !data) return
 
     setVotosEmitidos(data.length)
     setVotosAFavor(data.filter((v) => v.opcion === "favor").length)
@@ -371,9 +339,7 @@ export default function Dashboard() {
         nombre,
       }))
 
-      const { error: errorCandidatos } = await supabase
-        .from("candidatos")
-        .insert(candidatosParaGuardar)
+      const { error: errorCandidatos } = await supabase.from("candidatos").insert(candidatosParaGuardar)
 
       if (errorCandidatos) {
         alert(errorCandidatos.message)
@@ -473,33 +439,18 @@ export default function Dashboard() {
     if (ronda === 1) {
       if (conteoOrdenado.length > 3) {
         const top3 = conteoOrdenado.slice(0, 3)
-
-        await supabase
-          .from("votaciones")
-          .update({ resultado: "segunda_ronda" })
-          .eq("id", votacionId)
-
+        await supabase.from("votaciones").update({ resultado: "segunda_ronda" }).eq("id", votacionId)
         await crearSiguienteRonda(top3, 2)
         alert("Ningún candidato obtuvo mayoría simple. Se creó segunda ronda con los tres candidatos más votados.")
       } else {
         const top2 = conteoOrdenado.slice(0, 2)
-
-        await supabase
-          .from("votaciones")
-          .update({ resultado: "tercera_ronda" })
-          .eq("id", votacionId)
-
+        await supabase.from("votaciones").update({ resultado: "tercera_ronda" }).eq("id", votacionId)
         await crearSiguienteRonda(top2, 3)
         alert("Ningún candidato obtuvo mayoría simple. Se creó una nueva ronda con los dos candidatos más votados.")
       }
     } else if (ronda === 2) {
       const top2 = conteoOrdenado.slice(0, 2)
-
-      await supabase
-        .from("votaciones")
-        .update({ resultado: "tercera_ronda" })
-        .eq("id", votacionId)
-
+      await supabase.from("votaciones").update({ resultado: "tercera_ronda" }).eq("id", votacionId)
       await crearSiguienteRonda(top2, 3)
       alert("Ningún candidato obtuvo mayoría simple. Se creó tercera ronda con los dos candidatos más votados.")
     } else if (ronda === 3) {
@@ -507,27 +458,15 @@ export default function Dashboard() {
       const hayEmpate = top2.length === 2 && top2[0].votos === top2[1].votos
 
       if (hayEmpate) {
-        await supabase
-          .from("votaciones")
-          .update({ resultado: "cuarta_ronda_empate" })
-          .eq("id", votacionId)
-
+        await supabase.from("votaciones").update({ resultado: "cuarta_ronda_empate" }).eq("id", votacionId)
         await crearSiguienteRonda(top2, 4)
         alert("Hubo empate. Se creó cuarta ronda.")
       } else {
-        await supabase
-          .from("votaciones")
-          .update({ resultado: "sin_mayoria" })
-          .eq("id", votacionId)
-
+        await supabase.from("votaciones").update({ resultado: "sin_mayoria" }).eq("id", votacionId)
         alert("No hubo mayoría. La votación quedó cerrada sin ganador.")
       }
     } else {
-      await supabase
-        .from("votaciones")
-        .update({ resultado: "empate_persistente" })
-        .eq("id", votacionId)
-
+      await supabase.from("votaciones").update({ resultado: "empate_persistente" }).eq("id", votacionId)
       alert("La cuarta ronda cerró sin mayoría clara. Se requiere decisión parlamentaria.")
     }
 
@@ -555,134 +494,182 @@ export default function Dashboard() {
   }
 
   const simularVoto = async () => {
-    if (estado !== "abierta" || !votacionId || !asambleaId) return
+    if (estado !== "abierta" || !votacionId) return
 
     if (tipoVotacion === "eleccion_lideres") {
       alert("Para elecciones usa los botones de cada candidato.")
       return
     }
 
-    const esFavor = Math.random() > 0.4
-    const opcion = esFavor ? "favor" : "contra"
+    const deviceId = getDeviceId()
 
-    await supabase.from("votos").insert([
-      {
-        votacion_id: votacionId,
-        opcion,
-      },
-    ])
+    const res = await enviarVoto({
+      token: TOKEN_PRUEBA,
+      votacionId,
+      opcion: "favor",
+      candidatoId: null,
+      deviceId,
+    })
+
+    if (!res.ok) {
+  if (res.code === "YA_VOTO") {
+    alert("Ya usted ha emitido su voto.")
+  } else {
+    alert(res.code)
+  }
+  return
+}
+
+    alert("Voto registrado correctamente.")
   }
 
   const votarPorCandidato = async (candidatoId: string) => {
     if (estado !== "abierta" || !votacionId) return
 
-    const { error } = await supabase.from("votos").insert([
-      {
-        votacion_id: votacionId,
-        candidato_id: candidatoId,
-      },
-    ])
+    const deviceId = getDeviceId()
 
-    if (error) alert(error.message)
-  }
-  const generarPDFAsamblea = async () => {
-  if (!asambleaId) return
+    const res = await enviarVoto({
+      token: TOKEN_PRUEBA,
+      votacionId,
+      opcion: null,
+      candidatoId,
+      deviceId,
+    })
 
-  const doc = new jsPDF()
-
-  // 🔹 Obtener votaciones cerradas
-  const { data: votaciones } = await supabase
-    .from("votaciones")
-    .select("*")
-    .eq("asamblea_id", asambleaId)
-    .eq("estado", "cerrada")
-
-  let filas: any[] = []
-
-  for (const votacion of votaciones || []) {
-    const { data: votos } = await supabase
-      .from("votos")
-      .select("*")
-      .eq("votacion_id", votacion.id)
-
-    const total = votos?.length || 0
-    const favor = votos?.filter((v) => v.opcion === "favor").length || 0
-    const contra = votos?.filter((v) => v.opcion === "contra").length || 0
-
-    const necesarios =
-      votacion.tipo_mayoria === "dos_tercios"
-        ? Math.ceil((2 / 3) * total)
-        : Math.floor(total / 2) + 1
-
-    let resultado = "No aprobado"
-
-    if (votacion.tipo_votacion === "eleccion_lideres") {
-      if (votacion.ganador_id) {
-        const { data: ganador } = await supabase
-          .from("candidatos")
-          .select("*")
-          .eq("id", votacion.ganador_id)
-          .maybeSingle()
-
-        resultado = ganador?.nombre || "Ganador"
-      } else {
-        resultado = votacion.resultado || "Sin resultado"
-      }
-    } else {
-      resultado = favor >= necesarios ? "Aprobado" : "No aprobado"
+    if (!res.ok) {
+      alert(res.code)
+      return
     }
 
-    filas.push([
-      votacion.titulo,
-      votacion.tipo_votacion,
-      votacion.tipo_mayoria,
-      total,
-      favor,
-      contra,
-      necesarios,
-      resultado,
-    ])
+    alert("Voto registrado correctamente.")
   }
 
-  // 🔹 Título
-  doc.setFontSize(16)
-  doc.text("Informe de Resultados de Asamblea", 14, 15)
+  const generarPDFAsamblea = async () => {
+    if (!asambleaId) return
 
-  doc.setFontSize(11)
-  doc.text(`Año: ${anioAsamblea}`, 14, 25)
-  doc.text(`Lugar: ${lugarAsamblea}`, 14, 32)
-  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 39)
+    const doc = new jsPDF()
 
-  // 🔹 Tabla
-  autoTable(doc, {
-    startY: 45,
-    head: [[
-      "Votación",
-      "Tipo",
-      "Mayoría",
-      "Emitidos",
-      "A favor",
-      "En contra",
-      "Necesarios",
-      "Resultado"
-    ]],
-    body: filas,
-  })
+    const { data: votaciones } = await supabase
+      .from("votaciones")
+      .select("*")
+      .eq("asamblea_id", asambleaId)
+      .eq("estado", "cerrada")
 
-  // 🔹 Firmas
-  const finalY = (doc as any).lastAutoTable.finalY || 60
+    const filas: any[] = []
 
-  doc.text("Firmas oficiales", 14, finalY + 20)
+    for (const votacion of votaciones || []) {
+      const { data: votos } = await supabase
+        .from("votos")
+        .select("*")
+        .eq("votacion_id", votacion.id)
 
-  doc.line(14, finalY + 35, 90, finalY + 35)
-  doc.text("Comité de Voto Electrónico", 14, finalY + 42)
+      const total = votos?.length || 0
+      const favor = votos?.filter((v) => v.opcion === "favor").length || 0
+      const contra = votos?.filter((v) => v.opcion === "contra").length || 0
 
-  doc.line(110, finalY + 35, 190, finalY + 35)
-  doc.text("Presidente Regional", 110, finalY + 42)
+      const necesarios =
+        votacion.tipo_mayoria === "dos_tercios"
+          ? Math.ceil((2 / 3) * total)
+          : Math.floor(total / 2) + 1
 
-  // 🔹 Guardar PDF
-  doc.save(`Asamblea_${anioAsamblea}.pdf`)
-}
+      let resultado = "No aprobado"
+
+      if (votacion.tipo_votacion === "eleccion_lideres") {
+        if (votacion.ganador_id) {
+          const { data: ganador } = await supabase
+            .from("candidatos")
+            .select("*")
+            .eq("id", votacion.ganador_id)
+            .maybeSingle()
+
+          resultado = ganador?.nombre || "Ganador"
+        } else {
+          resultado = votacion.resultado || "Sin resultado"
+        }
+      } else {
+        resultado = favor >= necesarios ? "Aprobado" : "No aprobado"
+      }
+
+      filas.push([
+        votacion.titulo,
+        votacion.tipo_votacion,
+        votacion.tipo_mayoria,
+        total,
+        favor,
+        contra,
+        necesarios,
+        resultado,
+      ])
+    }
+
+    doc.setFontSize(16)
+    doc.text("Informe de Resultados de Asamblea", 14, 15)
+
+    doc.setFontSize(11)
+    doc.text(`Año: ${anioAsamblea}`, 14, 25)
+    doc.text(`Lugar: ${lugarAsamblea}`, 14, 32)
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 39)
+
+    autoTable(doc, {
+      startY: 45,
+      head: [[
+        "Votación",
+        "Tipo",
+        "Mayoría",
+        "Emitidos",
+        "A favor",
+        "En contra",
+        "Necesarios",
+        "Resultado",
+      ]],
+      body: filas,
+    })
+
+    const finalY = (doc as any).lastAutoTable.finalY || 60
+
+    doc.text("Firmas oficiales", 14, finalY + 20)
+
+    doc.line(14, finalY + 35, 90, finalY + 35)
+    doc.text("Comité de Voto Electrónico", 14, finalY + 42)
+
+    doc.line(110, finalY + 35, 190, finalY + 35)
+    doc.text("Presidente Regional", 110, finalY + 42)
+
+    doc.save(`Asamblea_${anioAsamblea}.pdf`)
+  }
+
+  const cerrarAsamblea = async () => {
+    if (!asambleaId) return
+
+    await supabase.from("votaciones").update({ estado: "cerrada" }).eq("asamblea_id", asambleaId)
+    await generarPDFAsamblea()
+
+    const { error } = await supabase
+      .from("asambleas")
+      .update({ estado: "cerrada" })
+      .eq("id", asambleaId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setAsambleaId(null)
+    setAnioAsamblea("")
+    setLugarAsamblea("")
+    setEstado("cerrada")
+    setVotacionId(null)
+    setTitulo("")
+    setTipoMayoria("")
+    setTipoVotacion("resolucion")
+    setRonda(1)
+    setCandidatos([])
+    setConteoCandidatos([])
+    setVotosEmitidos(0)
+    setVotosAFavor(0)
+    setVotosEnContra(0)
+    setResultadosCerrados([])
+  }
 
   useEffect(() => {
     cargarAsambleaActiva()
@@ -810,9 +797,7 @@ export default function Dashboard() {
             <p>Tipo de votación: {mostrarTipoVotacion(tipoVotacion)}</p>
             <p>Mayoría requerida: {tipoMayoria ? mostrarTipoMayoria(tipoMayoria) : "N/A"}</p>
 
-            {tipoVotacion === "eleccion_lideres" && (
-              <p className="text-xl font-bold">Ronda #{ronda}</p>
-            )}
+            {tipoVotacion === "eleccion_lideres" && <p className="text-xl font-bold">Ronda #{ronda}</p>}
 
             <p>
               Estado:{" "}
@@ -827,7 +812,7 @@ export default function Dashboard() {
                 {candidatos.map((c) => (
                   <div key={c.id} className="flex items-center justify-between rounded-lg border p-3">
                     <span className="font-medium">{c.nombre}</span>
-                    <Button onClick={() => votarPorCandidato(c.id)} disabled={estado !== "abierta"}>Votar</Button>
+                    <Button onClick={() => votarPorCandidato(c.id)} disabled={estado !== "abierta" || yaVoto}>Votar</Button>
                   </div>
                 ))}
               </div>
@@ -840,7 +825,7 @@ export default function Dashboard() {
             <CardTitle>Acciones</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
-            <Button onClick={simularVoto} disabled={estado !== "abierta"}>+1 voto resolución</Button>
+            <Button onClick={simularVoto} disabled={estado !== "abierta" || yaVoto}>+1 voto resolución</Button>
             <Button variant="destructive" onClick={cerrarVotacion} disabled={estado !== "abierta"}>Cerrar votación</Button>
           </CardContent>
         </Card>
@@ -853,14 +838,8 @@ export default function Dashboard() {
             {tipoVotacion === "eleccion_lideres" ? (
               <>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                  <div>
-                    <p>Votos emitidos</p>
-                    <p className="text-2xl font-bold">{votosEmitidos}</p>
-                  </div>
-                  <div>
-                    <p>Votos necesarios</p>
-                    <p className="text-2xl font-bold">{votosNecesarios}</p>
-                  </div>
+                  <div><p>Votos emitidos</p><p className="text-2xl font-bold">{votosEmitidos}</p></div>
+                  <div><p>Votos necesarios</p><p className="text-2xl font-bold">{votosNecesarios}</p></div>
                   <div>
                     <p>Resultado provisional</p>
                     <p className={`text-xl font-bold ${ganadorTieneMayoria ? "text-green-600" : "text-red-600"}`}>
@@ -872,9 +851,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   {rankingCandidatos.map((c, index) => (
                     <div key={c.id} className={`flex items-center justify-between rounded-lg border p-3 ${claseRanking(index)}`}>
-                      <span className="font-medium">
-                        #{index + 1} {c.nombre}
-                      </span>
+                      <span className="font-medium">#{index + 1} {c.nombre}</span>
                       <span className="text-xl font-bold">{c.votos}</span>
                     </div>
                   ))}
