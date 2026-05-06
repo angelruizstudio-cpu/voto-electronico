@@ -14,6 +14,11 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.https://vynyjzkmdemausnmqemp.supabase.co }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.sb_publishable_xuO_-ETvdMJE6_kE8GKl9g_EMLIwPWQ }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bnlqemttZGVtYXVzbm1xZW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzA0MjU2NiwiZXhwIjoyMDkyNjE4NTY2fQ.eSJV0fXvAt_TfLPvcLrvVnjyTH-xlOjy8EJz-5ohPas }}
+        MODERADOR_PASSWORD: ${{ secrets.admin123 }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -22,11 +27,6 @@ jobs:
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
-         env:
-            NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.https://vynyjzkmdemausnmqemp.supabase.co }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.sb_publishable_xuO_-ETvdMJE6_kE8GKl9g_EMLIwPWQ }}
-            SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bnlqemttZGVtYXVzbm1xZW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzA0MjU2NiwiZXhwIjoyMDkyNjE4NTY2fQ.eSJV0fXvAt_TfLPvcLrvVnjyTH-xlOjy8EJz-5ohPas }}
-            MODERADOR_PASSWORD: ${{ secrets.admin123 }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LIVELY_WATER_0117ED31E }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
