@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get("user-agent") || "unknown"
     const forwardedFor = req.headers.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
-
+   
     const { data, error } = await supabaseAdmin.rpc("registrar_voto", {
       p_token: token,
       p_votacion_id: votacionId,

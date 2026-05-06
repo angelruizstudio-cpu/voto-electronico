@@ -42,7 +42,9 @@ export default function Moderador() {
     crearVotacion,
   } = useCrearVotacion(asambleaId, cargarVotacionActiva)
 
-  const porcentaje = votosEmitidos > 0 ? 100 : 0
+  const totalValidos = votosAFavor + votosEnContra
+  const porcentajeAprobacion =
+    totalValidos > 0 ? Math.round((votosAFavor / totalValidos) * 100) : 0
 
   const cerrarVotacion = async () => {
     if (!votacionId) {
@@ -198,13 +200,13 @@ export default function Moderador() {
             <p className="font-semibold">{titulo || "No hay votación activa"}</p>
             <p>Tipo: {tipoVotacion}</p>
             <p>Votos emitidos: {votosEmitidos}</p>
-            <p>Porciento de participación: {porcentaje}%</p>
 
             {tipoVotacion === "resolucion" && (
               <>
                 <p>
                   A favor: {votosAFavor} — En contra: {votosEnContra}
                 </p>
+                <p>Porcentaje a favor: {porcentajeAprobacion}%</p>
               </>
             )}
 
