@@ -122,9 +122,9 @@ export default function LoginPage() {
               width={760}
               height={420}
               priority
-              className="h-40 w-[34rem] max-w-full object-contain object-left drop-shadow-[0_22px_42px_rgba(0,0,0,0.55)] sm:h-48 sm:w-[40rem] lg:h-[11.2rem] lg:w-[31.5rem]"
+              className="h-52 w-[44rem] max-w-full object-contain object-left drop-shadow-[0_22px_42px_rgba(0,0,0,0.55)] sm:h-60 sm:w-[50rem] lg:h-[16rem] lg:w-[45rem] xl:h-[17.5rem] xl:w-[49rem]"
             />
-            <div className="mt-9 flex max-w-[28rem] items-center gap-3 text-[#d8b65f]">
+            <div className="-mt-14 flex max-w-[28rem] items-center gap-3 text-[#d8b65f] sm:-mt-16 lg:-mt-20">
               <div className="h-px flex-1 bg-[#d8b65f]" />
               <div className="h-2 w-2 rotate-45 border border-[#d8b65f]" />
               <div className="h-px flex-1 bg-[#d8b65f]" />
@@ -133,17 +133,16 @@ export default function LoginPage() {
 
           <div className="relative z-20 max-w-[35rem] py-12 lg:py-0">
             <h1 className="text-5xl font-black leading-[1.08] tracking-tight text-white drop-shadow sm:text-6xl lg:text-[4.05rem]">
-              Sistema de
+              Sistema de Gestión
               <br />
-              Votación de Asamblea
+              de Asambleas
             </h1>
             <p className="mt-5 max-w-[31rem] text-2xl font-bold leading-snug text-[#f2d77a] lg:text-[1.72rem]">
-              Registro, participación y reportes oficiales en tiempo real
+              Todo el control de su asamblea en una sola plataforma
             </p>
             <div className="mt-7 h-px w-72 bg-[#d8b65f]" />
             <p className="mt-5 max-w-[31rem] text-lg leading-8 text-white/82 lg:text-[1.22rem]">
-              Plataforma segura para la gestión parlamentaria de asambleas,
-              votaciones y resultados oficiales.
+              Registro, votaciones, asistencia y reportes oficiales en tiempo real.
             </p>
           </div>
 
@@ -152,19 +151,22 @@ export default function LoginPage() {
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <Gavel className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Control parlamentario</p>
+              <p className="text-lg font-black">Votaciones seguras</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">Administre procesos oficiales con resultados instantáneos.</p>
             </div>
             <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <Users className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Registro y presencia</p>
+              <p className="text-lg font-black">Control de participantes</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">Registro y verificación de asistencia en tiempo real.</p>
             </div>
             <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <FileText className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Actas y reportes</p>
+              <p className="text-lg font-black">Reportes automáticos</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">Actas y resultados listos para descargar y archivar.</p>
             </div>
           </div>
         </section>
