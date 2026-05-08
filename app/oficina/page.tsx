@@ -8,6 +8,9 @@ type Asambleista = {
   id: string
   nombre: string
   credencial: string
+  email: string | null
+  credencial_email_enviado_en: string | null
+  credencial_email_error: string | null
   iglesia: string | null
   distrito: string | null
   registrado: boolean
@@ -23,6 +26,7 @@ export default function OficinaRegionalPage() {
   const [cargando, setCargando] = useState(false)
 
   const [nuevoNombre, setNuevoNombre] = useState("")
+  const [nuevoEmail, setNuevoEmail] = useState("")
   const [nuevaIglesia, setNuevaIglesia] = useState("")
   const [nuevoDistrito, setNuevoDistrito] = useState("")
 
@@ -110,6 +114,7 @@ export default function OficinaRegionalPage() {
       body: JSON.stringify({
         asambleaId,
         nombre: nuevoNombre,
+        email: nuevoEmail,
         iglesia: nuevaIglesia,
         distrito: nuevoDistrito,
       }),
@@ -125,12 +130,23 @@ export default function OficinaRegionalPage() {
     }
 
     setNuevoNombre("")
+    setNuevoEmail("")
     setNuevaIglesia("")
     setNuevoDistrito("")
 
     await cargarAsambleistas()
 
-    alert(`Asambleísta creado: ${data.asambleista.credencial}`)
+    if (data.credencialEmail?.enviado) {
+      alert(`Asambleísta creado y credencial enviada: ${data.asambleista.credencial}`)
+    } else if (nuevoEmail.trim()) {
+      alert(
+        `Asambleísta creado: ${data.asambleista.credencial}\nNo se pudo enviar el email: ${
+          data.credencialEmail?.error || "revisa la configuración de Resend"
+        }`
+      )
+    } else {
+      alert(`Asambleísta creado: ${data.asambleista.credencial}`)
+    }
   }
 
   return (
@@ -178,13 +194,21 @@ export default function OficinaRegionalPage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">Nuevo asambleísta</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
 
           <input
             type="text"
             placeholder="Nombre y apellido"
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}
+            className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
+          />
+
+          <input
+            type="email"
+            placeholder="Email"
+            value={nuevoEmail}
+            onChange={(e) => setNuevoEmail(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
           />
 
@@ -233,6 +257,9 @@ export default function OficinaRegionalPage() {
                       Credencial: {a.credencial}
                     </p>
                     <p className="text-sm text-slate-500">
+                      Email: {a.email || "N/A"}
+                    </p>
+                    <p className="text-sm text-slate-500">
                       Iglesia: {a.iglesia || "N/A"} | Distrito:{" "}
                       {a.distrito || "N/A"}
                     </p>
@@ -249,6 +276,19 @@ export default function OficinaRegionalPage() {
                       <span className={a.presente ? "rounded-full bg-green-50 px-2 py-1 text-green-700" : "rounded-full bg-red-50 px-2 py-1 text-red-700"}>
                         {a.presente ? "Presente" : "Fuera"}
                       </span>
+                      {a.email && (
+                        <span
+                          className={
+                            a.credencial_email_enviado_en
+                              ? "rounded-full bg-emerald-50 px-2 py-1 text-emerald-700"
+                              : "rounded-full bg-red-50 px-2 py-1 text-red-700"
+                          }
+                        >
+                          {a.credencial_email_enviado_en
+                            ? "Credencial enviada"
+                            : "Email no enviado"}
+                        </span>
+                      )}
                     </p>
                   </div>
 

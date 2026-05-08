@@ -105,72 +105,77 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f4efe5] text-slate-950">
-      <div className="grid min-h-screen lg:grid-cols-[minmax(560px,0.95fr)_minmax(700px,1.05fr)]">
-        <section className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#062f26] px-8 py-10 text-white sm:px-12 lg:min-h-screen lg:px-16">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_16%,rgba(49,117,93,0.5),transparent_34%),linear-gradient(145deg,rgba(0,0,0,0.12),rgba(0,0,0,0.45))]" />
-          <div className="absolute inset-x-0 bottom-0 h-[48%] bg-[radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.12),transparent_45%)] opacity-50" />
-          <div className="absolute left-[-18%] top-[-16%] h-[58%] w-[110%] rounded-[50%] border border-white/8 bg-white/[0.035]" />
-          <div className="absolute right-[-96px] top-0 z-10 hidden h-full w-[142px] rounded-l-[55%] border-l-4 border-[#d7b257] bg-[#f4efe5] shadow-[-10px_0_0_rgba(215,178,87,0.25)] lg:block" />
+      <div className="grid min-h-screen lg:grid-cols-[47.5%_52.5%]">
+        <section className="relative flex min-h-[520px] flex-col justify-between overflow-hidden bg-[#062f26] px-8 py-10 text-white sm:px-14 lg:min-h-screen lg:px-[6.6vw] lg:py-[7.8vh]">
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,48,39,0.66),rgba(0,25,20,0.9)),radial-gradient(circle_at_30%_7%,rgba(55,122,97,0.62),transparent_32%),radial-gradient(ellipse_at_bottom,rgba(7,78,62,0.46),transparent_58%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[48%] bg-[linear-gradient(0deg,rgba(0,0,0,0.55),transparent),radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.12),transparent_54%)] opacity-70" />
+          <div className="absolute inset-x-0 bottom-0 h-[38%] opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:56px_56px]" />
+          <div className="absolute left-[-8%] top-[-18%] h-[46%] w-[112%] rounded-[50%] border border-white/8 bg-white/[0.035]" />
+          <div className="absolute left-[-20%] top-[-12%] h-[46%] w-[122%] rounded-[50%] border border-white/10" />
+          <div className="absolute bottom-[24%] left-0 h-[28%] w-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.09),transparent_58%)]" />
+          <div className="absolute right-[-82px] top-0 z-10 hidden h-full w-[150px] rounded-l-[55%] border-l-[5px] border-[#d7b257] bg-[#f4efe5] shadow-[-12px_0_0_rgba(215,178,87,0.3)] lg:block" />
 
           <div className="relative z-20">
             <Image
-              src="/kingdom_tech_group_logo.png"
+              src="/KTG_Logo.png"
               alt="Logo Kingdom Tech Group"
-              width={480}
-              height={260}
+              width={760}
+              height={420}
               priority
-              className="h-36 w-[28rem] max-w-full object-contain drop-shadow-[0_18px_35px_rgba(0,0,0,0.45)]"
+              className="h-40 w-[34rem] max-w-full object-contain object-left drop-shadow-[0_22px_42px_rgba(0,0,0,0.55)] sm:h-48 sm:w-[40rem] lg:h-[11.2rem] lg:w-[31.5rem]"
             />
-            <div className="mt-7 flex max-w-md items-center gap-3 text-[#d8b65f]">
+            <div className="mt-9 flex max-w-[28rem] items-center gap-3 text-[#d8b65f]">
               <div className="h-px flex-1 bg-[#d8b65f]" />
               <div className="h-2 w-2 rotate-45 border border-[#d8b65f]" />
               <div className="h-px flex-1 bg-[#d8b65f]" />
             </div>
           </div>
 
-          <div className="relative z-20 max-w-xl py-14 lg:py-0">
-            <h1 className="text-5xl font-black leading-[1.08] tracking-tight text-white drop-shadow sm:text-6xl">
+          <div className="relative z-20 max-w-[35rem] py-12 lg:py-0">
+            <h1 className="text-5xl font-black leading-[1.08] tracking-tight text-white drop-shadow sm:text-6xl lg:text-[4.05rem]">
               Sistema de
               <br />
               Votación de Asamblea
             </h1>
-            <p className="mt-5 max-w-lg text-2xl font-bold leading-snug text-[#f2d77a]">
+            <p className="mt-5 max-w-[31rem] text-2xl font-bold leading-snug text-[#f2d77a] lg:text-[1.72rem]">
               Registro, participación y reportes oficiales en tiempo real
             </p>
             <div className="mt-7 h-px w-72 bg-[#d8b65f]" />
-            <p className="mt-5 max-w-lg text-lg leading-8 text-white/82">
+            <p className="mt-5 max-w-[31rem] text-lg leading-8 text-white/82 lg:text-[1.22rem]">
               Plataforma segura para la gestión parlamentaria de asambleas,
               votaciones y resultados oficiales.
             </p>
           </div>
 
-          <div className="relative z-20 grid gap-4 text-center text-white sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-            <div className="rounded-xl border border-[#d8b65f]/65 bg-[#062f26]/70 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)]">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
-                <Gavel className="h-8 w-8" />
+          <div className="relative z-20 grid gap-4 text-center text-white sm:grid-cols-3">
+            <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
+              <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
+                <Gavel className="h-9 w-9" />
               </div>
               <p className="text-lg font-black">Control parlamentario</p>
             </div>
-            <div className="rounded-xl border border-[#d8b65f]/65 bg-[#062f26]/70 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)]">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
-                <Users className="h-8 w-8" />
+            <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
+              <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
+                <Users className="h-9 w-9" />
               </div>
               <p className="text-lg font-black">Registro y presencia</p>
             </div>
-            <div className="rounded-xl border border-[#d8b65f]/65 bg-[#062f26]/70 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)]">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
-                <FileText className="h-8 w-8" />
+            <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
+              <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
+                <FileText className="h-9 w-9" />
               </div>
               <p className="text-lg font-black">Actas y reportes</p>
             </div>
           </div>
         </section>
 
-        <section className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-16">
+        <section className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-[6vw]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgba(215,178,87,0.18),transparent_22%),radial-gradient(circle_at_85%_70%,rgba(6,47,38,0.08),transparent_26%)]" />
           <div className="absolute right-0 top-0 h-full w-full opacity-35 [background-image:radial-gradient(#d7b257_1px,transparent_1px)] [background-size:18px_18px]" />
+          <div className="absolute bottom-[-18%] right-[-10%] h-[62%] w-[70%] rounded-[50%] border border-[#d7b257]/18" />
+          <div className="absolute bottom-[-24%] right-[-18%] h-[70%] w-[84%] rounded-[50%] border border-[#d7b257]/14" />
 
-          <div className="relative w-full max-w-4xl rounded-xl border border-[#dbc891] bg-white/96 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.18)] sm:p-8 lg:p-10">
+          <div className="relative w-full max-w-[56rem] rounded-xl border border-[#dbc891] bg-white/96 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.18)] sm:p-8 lg:p-10">
             <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-[#d7b257]" />
 
             <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
@@ -186,11 +191,11 @@ export default function LoginPage() {
                 </div>
               </div>
               <Image
-                src="/kingdom_tech_group_logo.png"
+                src="/KTG_Logo.png"
                 alt="Logo Kingdom Tech Group"
                 width={190}
                 height={92}
-                className="h-16 w-44 object-contain"
+                className="h-16 w-44 object-contain object-right"
               />
             </div>
 

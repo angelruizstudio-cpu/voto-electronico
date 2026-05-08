@@ -19,10 +19,13 @@ export default function Moderador() {
     asambleaId,
     anioAsamblea,
     lugarAsamblea,
+    organizacionAsamblea,
     nuevoAnio,
     nuevoLugar,
+    nuevaOrganizacion,
     setNuevoAnio,
     setNuevoLugar,
+    setNuevaOrganizacion,
     abrirAsamblea,
     cerrarAsamblea,
   } = useAsamblea()
@@ -41,6 +44,7 @@ export default function Moderador() {
     votosEmitidos,
     votosAFavor,
     votosEnContra,
+    votosAbstencion,
     cargarVotacionActiva,
   } = useVotacion(asambleaId)
 
@@ -96,8 +100,15 @@ export default function Moderador() {
   }, [cargarMociones])
 
   const totalValidos = votosAFavor + votosEnContra
+  const totalResolucion = votosAFavor + votosEnContra + votosAbstencion
   const porcentajeAprobacion =
     totalValidos > 0 ? Math.round((votosAFavor / totalValidos) * 100) : 0
+  const porcentajeFavorResolucion =
+    totalResolucion > 0 ? Math.round((votosAFavor / totalResolucion) * 100) : 0
+  const porcentajeContraResolucion =
+    totalResolucion > 0 ? Math.round((votosEnContra / totalResolucion) * 100) : 0
+  const porcentajeAbstencionResolucion =
+    totalResolucion > 0 ? Math.round((votosAbstencion / totalResolucion) * 100) : 0
   const votosNecesariosResolucion = calcularNecesarios(totalValidos, tipoMayoria)
   const mocionPadreActual = mociones.find((m) => m.id === mocionPadreId)
   const mocionesPadreDisponibles = mociones.filter((m) =>
@@ -109,6 +120,24 @@ export default function Moderador() {
   const candidatosOrdenados = conteoCandidatos
     .slice()
     .sort((a, b) => b.votos - a.votos)
+  const candidatosVistaPrevia = candidatosInput
+    .map((nombre, index) => ({
+      id: `preview-${index}`,
+      nombre: nombre.trim() || `Candidato ${index + 1}`,
+      votos: 0,
+      porcentaje: 0,
+    }))
+    .filter((c) => c.nombre.trim().length > 0)
+  const tipoPanelResultados = votacionId ? tipoVotacion : nuevoTipoVotacion
+  const tituloPanelResultados = votacionId
+    ? titulo || "Votación activa"
+    : nuevoTipoVotacion === "eleccion_lideres"
+    ? nuevoTitulo || "Elección de líderes en preparación"
+    : nuevoTitulo || "No hay votación activa"
+  const candidatosParaGrafica =
+    tipoPanelResultados === "eleccion_lideres" && votacionId
+      ? candidatosOrdenados
+      : candidatosVistaPrevia
   const votosNecesariosLider = calcularNecesarios(votosEmitidos, "mayoria_simple")
   const candidatoElecto =
     votosEmitidos > 0
@@ -426,7 +455,7 @@ export default function Moderador() {
 
   return (
     <main className="min-h-screen bg-[#f4f6f1] p-6">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6f5b1d]">
             Panel del moderador
@@ -454,12 +483,21 @@ export default function Moderador() {
           </div>
         </header>
 
-        {!asambleaId && (
-          <Card className="rounded-lg border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle>Abrir Asamblea</CardTitle>
-            </CardHeader>
-            <CardContent className="flex gap-2">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(390px,0.78fr)] xl:items-start">
+          <div className="space-y-6">
+            {!asambleaId && (
+              <Card className="rounded-lg border-slate-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Abrir Asamblea</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-[1.2fr_0.7fr_1fr_auto]">
+              <input
+                type="text"
+                placeholder="Organización"
+                value={nuevaOrganizacion}
+                onChange={(e) => setNuevaOrganizacion(e.target.value)}
+                className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
+              />
               <input
                 type="text"
                 placeholder="Año"
@@ -474,14 +512,14 @@ export default function Moderador() {
                 onChange={(e) => setNuevoLugar(e.target.value)}
                 className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
               />
-              <Button onClick={abrirAsamblea} className="h-11 bg-[#16382f] px-5 hover:bg-[#0f2b24]">
-                Abrir
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                  <Button onClick={abrirAsamblea} className="h-11 bg-[#16382f] px-5 hover:bg-[#0f2b24]">
+                    Abrir
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-        <Card className="rounded-lg border-slate-200 shadow-sm">
+            <Card className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Asamblea activa</CardTitle>
           </CardHeader>
@@ -492,8 +530,12 @@ export default function Moderador() {
                   <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">
                     En curso
                   </p>
-                  <p className="mt-1 text-xl font-black">Asamblea {anioAsamblea}</p>
-                  <p className="text-slate-600">{lugarAsamblea}</p>
+                  <p className="mt-1 text-xl font-black">
+                    {organizacionAsamblea || "Organización no especificada"}
+                  </p>
+                  <p className="text-slate-600">
+                    Asamblea {anioAsamblea} · {lugarAsamblea}
+                  </p>
                 </div>
                 <div>
                   <Button onClick={cerrarAsambleaYActualizar} className="bg-[#16382f] hover:bg-[#0f2b24]">
@@ -507,13 +549,19 @@ export default function Moderador() {
               </p>
             )}
           </CardContent>
-        </Card>
+            </Card>
 
-        <Card ref={formularioVotacionRef} className="rounded-lg border-slate-200 shadow-sm">
+            <Card ref={formularioVotacionRef} className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Crear votación</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {votacionId && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                Hay una votación activa: {titulo}. Puedes preparar una moción, pero cierra la votación activa antes de abrir otra.
+              </div>
+            )}
+
             {enmiendaEnPreparacion && (
               <div className="rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
                 Preparando {nuevoTipoMocion === "enmienda" ? "enmienda" : "enmienda a la enmienda"} para:{" "}
@@ -628,9 +676,9 @@ export default function Moderador() {
                 : "Crear y abrir"}
             </Button>
           </CardContent>
-        </Card>
+            </Card>
 
-        <Card className="rounded-lg border-slate-200 shadow-sm">
+            <Card className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Flujo de resoluciones y enmiendas</CardTitle>
           </CardHeader>
@@ -713,38 +761,219 @@ export default function Moderador() {
               })
             )}
           </CardContent>
-        </Card>
+            </Card>
+          </div>
 
-        <Card className="rounded-lg border-slate-200 shadow-sm">
+          <aside className="space-y-6 xl:sticky xl:top-6">
+            <Card className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Resultados del moderador</CardTitle>
+            <CardTitle>
+              {tipoPanelResultados === "eleccion_lideres"
+                ? "Elección de líderes"
+                : "Resultados del moderador"}
+            </CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-3">
-            <p className="font-semibold">{titulo || "No hay votación activa"}</p>
-            <p>Tipo: {tipoVotacion}</p>
-            <p>Votos emitidos: {votosEmitidos}</p>
+            <p className="font-semibold">{tituloPanelResultados}</p>
+            <p>
+              Tipo:{" "}
+              {tipoPanelResultados === "eleccion_lideres"
+                ? "Elección de líderes"
+                : "Resolución"}
+            </p>
+            <p>Votos emitidos: {votacionId ? votosEmitidos : 0}</p>
 
-            {tipoVotacion === "resolucion" && (
-              <>
-                <p>Moción: {mostrarTipoMocion(tipoMocion)}</p>
+            {tipoPanelResultados === "resolucion" && (
+              <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Estado
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {votacionId
+                        ? estado === "abierta"
+                          ? "Abierta"
+                          : "Cerrada"
+                        : "En preparación"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Moción
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {mostrarTipoMocion(votacionId ? tipoMocion : nuevoTipoMocion)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Mayoría
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {tipoMayoria || nuevoTipoMayoria}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Necesarios
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {votacionId ? votosNecesariosResolucion : 0}
+                    </p>
+                  </div>
+                </div>
+
                 {mocionPadreActual && (
-                  <p>
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
                     Enmienda a: {mocionPadreActual.titulo}
                   </p>
                 )}
-                <p>
-                  A favor: {votosAFavor} — En contra: {votosEnContra}
-                </p>
-                <p>Porcentaje a favor: {porcentajeAprobacion}%</p>
-                <p>Votos necesarios: {votosNecesariosResolucion}</p>
-              </>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-emerald-100 bg-white p-4">
+                    <p className="text-sm font-bold text-emerald-700">A favor</p>
+                    <p className="mt-1 text-3xl font-black text-emerald-800">
+                      {votosAFavor}
+                    </p>
+                    <p className="text-sm text-slate-500">{porcentajeFavorResolucion}% del total</p>
+                  </div>
+                  <div className="rounded-lg border border-red-100 bg-white p-4">
+                    <p className="text-sm font-bold text-red-700">En contra</p>
+                    <p className="mt-1 text-3xl font-black text-red-800">
+                      {votosEnContra}
+                    </p>
+                    <p className="text-sm text-slate-500">{porcentajeContraResolucion}% del total</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-bold text-slate-700">Abstención</p>
+                    <p className="mt-1 text-3xl font-black text-slate-800">
+                      {votosAbstencion}
+                    </p>
+                    <p className="text-sm text-slate-500">{porcentajeAbstencionResolucion}% del total</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm font-bold">
+                      <span className="text-emerald-700">A favor</span>
+                      <span>{porcentajeFavorResolucion}%</span>
+                    </div>
+                    <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-600 transition-all"
+                        style={{ width: `${porcentajeFavorResolucion}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm font-bold">
+                      <span className="text-red-700">En contra</span>
+                      <span>{porcentajeContraResolucion}%</span>
+                    </div>
+                    <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-red-600 transition-all"
+                        style={{ width: `${porcentajeContraResolucion}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm font-bold">
+                      <span className="text-slate-700">Abstención</span>
+                      <span>{porcentajeAbstencionResolucion}%</span>
+                    </div>
+                    <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-slate-500 transition-all"
+                        style={{ width: `${porcentajeAbstencionResolucion}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={[
+                    "rounded-lg p-4 font-bold",
+                    votacionId && totalValidos > 0 && votosAFavor >= votosNecesariosResolucion
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-50 text-amber-900",
+                  ].join(" ")}
+                >
+                  {votacionId && totalValidos > 0
+                    ? votosAFavor >= votosNecesariosResolucion
+                      ? `La moción alcanza la mayoría requerida con ${porcentajeAprobacion}% de los votos válidos.`
+                      : `La moción aún no alcanza la mayoría requerida. Lleva ${porcentajeAprobacion}% de los votos válidos.`
+                    : "Cuando se abra la votación, aquí verás el progreso de la resolución en tiempo real."}
+                </div>
+              </div>
             )}
 
-            {tipoVotacion === "eleccion_lideres" && (
-              <div className="space-y-3 rounded-lg border bg-slate-50 p-4">
-                <p className="font-semibold">Ronda {rondaNumero}</p>
-                <p>Votos necesarios para elección: {votosNecesariosLider}</p>
+            {tipoPanelResultados === "eleccion_lideres" && (
+              <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Estado
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {votacionId
+                        ? estado === "abierta"
+                          ? "Abierta"
+                          : "Cerrada"
+                        : "En preparación"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Ronda
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {votacionId ? rondaNumero : 1}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Votos necesarios
+                    </p>
+                    <p className="mt-1 font-black text-slate-950">
+                      {votacionId && votosEmitidos > 0
+                        ? votosNecesariosLider
+                        : "Pendiente de votos"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {candidatosParaGrafica.length === 0 ? (
+                    <p className="rounded-lg bg-white p-4 text-slate-600">
+                      Añade candidatos para ver la gráfica de la elección.
+                    </p>
+                  ) : (
+                    candidatosParaGrafica.map((c, index) => (
+                      <div key={c.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="font-black text-slate-950">
+                            #{index + 1} {c.nombre}
+                          </p>
+                          <p className="shrink-0 text-sm font-black text-[#16382f]">
+                            {c.porcentaje}% · {c.votos} votos
+                          </p>
+                        </div>
+                        <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-[#16382f] transition-all"
+                            style={{ width: `${Math.min(c.porcentaje, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
 
                 {candidatoElecto && (
                   <p className="rounded bg-green-100 p-3 font-bold text-green-700">
@@ -785,26 +1014,19 @@ export default function Moderador() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button onClick={cerrarVotacion}>Cerrar votación</Button>
-              <Button onClick={publicarResultados}>Publicar resultados</Button>
-              {requiereNuevaRonda && (
-                <Button onClick={crearSiguienteRonda}>Crear siguiente ronda</Button>
-              )}
-            </div>
-
-            {tipoVotacion === "eleccion_lideres" &&
-              candidatosOrdenados.map((c, index) => (
-                  <div key={c.id} className="border rounded p-3">
-                    <p className="font-semibold">
-                      #{index + 1} {c.nombre}
-                    </p>
-                    <p>Votos: {c.votos}</p>
-                    <p>Porciento: {c.porcentaje}%</p>
-                  </div>
-                ))}
+            {votacionId && (
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={cerrarVotacion}>Cerrar votación</Button>
+                <Button onClick={publicarResultados}>Publicar resultados</Button>
+                {requiereNuevaRonda && (
+                  <Button onClick={crearSiguienteRonda}>Crear siguiente ronda</Button>
+                )}
+              </div>
+            )}
           </CardContent>
-        </Card>
+            </Card>
+          </aside>
+        </div>
       </div>
     </main>
   )

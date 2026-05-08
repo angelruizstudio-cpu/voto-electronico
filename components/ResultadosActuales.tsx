@@ -11,7 +11,7 @@ import {
 } from "@/lib/votacionHelpers"
 
 export function ResultadosActuales() {
-  const { asambleaId, anioAsamblea, lugarAsamblea } = useAsamblea()
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
   const {
     estado,
     titulo,
@@ -41,7 +41,7 @@ export function ResultadosActuales() {
           <h1 className="text-3xl font-bold">Resultados de la asamblea actual</h1>
           <p className="text-slate-600">
             {asambleaId
-              ? `Asamblea ${anioAsamblea} · ${lugarAsamblea}`
+              ? `${organizacionAsamblea || "Organización no especificada"} · Asamblea ${anioAsamblea} · ${lugarAsamblea}`
               : "No hay asamblea activa"}
           </p>
         </div>

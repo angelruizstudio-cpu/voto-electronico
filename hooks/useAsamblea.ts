@@ -1,13 +1,27 @@
-import { useCallback, useEffect, useState } from "react"
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { generarReporteCierreAsamblea } from "@/lib/reporteAsamblea"
 
-export function useAsamblea() {
+type AsambleaContextValue = ReturnType<typeof useAsambleaState>
+
+const AsambleaContext = createContext<AsambleaContextValue | null>(null)
+
+function useAsambleaState() {
   const [asambleaId, setAsambleaId] = useState<string | null>(null)
   const [anioAsamblea, setAnioAsamblea] = useState("")
   const [lugarAsamblea, setLugarAsamblea] = useState("")
+  const [organizacionAsamblea, setOrganizacionAsamblea] = useState("")
   const [nuevoAnio, setNuevoAnio] = useState("")
   const [nuevoLugar, setNuevoLugar] = useState("")
+  const [nuevaOrganizacion, setNuevaOrganizacion] = useState("")
 
   const cargarAsambleaActiva = useCallback(async () => {
     const { data, error } = await supabase
@@ -20,16 +34,18 @@ export function useAsamblea() {
       setAsambleaId(null)
       setAnioAsamblea("")
       setLugarAsamblea("")
+      setOrganizacionAsamblea("")
       return
     }
 
     setAsambleaId(data.id)
     setAnioAsamblea(String(data.anio))
     setLugarAsamblea(data.lugar)
+    setOrganizacionAsamblea(data.organizacion || "")
   }, [])
 
   const abrirAsamblea = async () => {
-    if (!nuevoAnio.trim() || !nuevoLugar.trim()) return
+    if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
     await supabase
       .from("asambleas")
@@ -38,8 +54,9 @@ export function useAsamblea() {
 
     const { error } = await supabase.from("asambleas").insert([
       {
+        organizacion: nuevaOrganizacion.trim(),
         anio: Number(nuevoAnio),
-        lugar: nuevoLugar,
+        lugar: nuevoLugar.trim(),
         estado: "abierta",
       },
     ])
@@ -49,6 +66,7 @@ export function useAsamblea() {
       return
     }
 
+    setNuevaOrganizacion("")
     setNuevoAnio("")
     setNuevoLugar("")
     await cargarAsambleaActiva()
@@ -112,6 +130,7 @@ export function useAsamblea() {
     setAsambleaId(null)
     setAnioAsamblea("")
     setLugarAsamblea("")
+    setOrganizacionAsamblea("")
   }
 
   useEffect(() => {
@@ -143,13 +162,29 @@ export function useAsamblea() {
     asambleaId,
     anioAsamblea,
     lugarAsamblea,
+    organizacionAsamblea,
     nuevoAnio,
     nuevoLugar,
+    nuevaOrganizacion,
     setNuevoAnio,
     setNuevoLugar,
+    setNuevaOrganizacion,
     cargarAsambleaActiva,
     abrirAsamblea,
     cerrarAsamblea,
     cerrarAsambleaLocal,
   }
+}
+
+export function AsambleaProvider({ children }: { children: ReactNode }) {
+  const value = useAsambleaState()
+
+  return createElement(AsambleaContext.Provider, { value }, children)
+}
+
+export function useAsamblea() {
+  const context = useContext(AsambleaContext)
+  const fallback = useAsambleaState()
+
+  return context || fallback
 }

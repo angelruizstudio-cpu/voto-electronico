@@ -14,7 +14,7 @@ import {
   Shield,
 } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useAsamblea } from "@/hooks/useAsamblea"
+import { AsambleaProvider, useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { mostrarTipoVotacion } from "@/lib/votacionHelpers"
 
@@ -40,10 +40,18 @@ const navByRole = {
 }
 
 export function AdminShell({ children, role }: AdminShellProps) {
+  return (
+    <AsambleaProvider>
+      <AdminShellContent role={role}>{children}</AdminShellContent>
+    </AsambleaProvider>
+  )
+}
+
+function AdminShellContent({ children, role }: AdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string } | null>(null)
-  const { asambleaId, anioAsamblea, lugarAsamblea } = useAsamblea()
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
   const navItems = navByRole[role].filter(
     (item) => item.href !== "/admin" || usuario?.rol === "admin"
@@ -148,10 +156,12 @@ export function AdminShell({ children, role }: AdminShellProps) {
                 </span>
               </div>
               <p className="mt-2 font-black">
-                {asambleaId ? "Asamblea " + anioAsamblea : "Sin asamblea activa"}
+                {asambleaId
+                  ? organizacionAsamblea || "Organización no especificada"
+                  : "Sin asamblea activa"}
               </p>
               <p className="mt-1 line-clamp-2 text-sm text-white/64">
-                {lugarAsamblea || "No iniciada"}
+                {asambleaId ? `Asamblea ${anioAsamblea} · ${lugarAsamblea}` : "No iniciada"}
               </p>
             </div>
 

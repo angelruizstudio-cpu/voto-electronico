@@ -21,6 +21,7 @@ export function useVotacion(asambleaId: string | null) {
   const [votosEmitidos, setVotosEmitidos] = useState(0)
   const [votosAFavor, setVotosAFavor] = useState(0)
   const [votosEnContra, setVotosEnContra] = useState(0)
+  const [votosAbstencion, setVotosAbstencion] = useState(0)
   const [yaVoto, setYaVoto] = useState(false)
 
   const [resultadosCerrados, setResultadosCerrados] = useState<ResultadoCerrado[]>([])
@@ -44,6 +45,7 @@ export function useVotacion(asambleaId: string | null) {
     setVotosEmitidos(0)
     setVotosAFavor(0)
     setVotosEnContra(0)
+    setVotosAbstencion(0)
     setYaVoto(false)
   }, [])
 
@@ -112,9 +114,11 @@ export function useVotacion(asambleaId: string | null) {
 
     const votosFavor = votos.filter((voto) => voto.opcion === "favor").length
     const votosContra = votos.filter((voto) => voto.opcion === "contra").length
+    const abstenciones = votos.filter((voto) => voto.opcion === "abstencion").length
 
     setVotosAFavor(votosFavor)
     setVotosEnContra(votosContra)
+    setVotosAbstencion(abstenciones)
 
     if (data.tipo_votacion === "eleccion_lideres") {
       const { data: candidatosData } = await supabase
@@ -254,6 +258,8 @@ export function useVotacion(asambleaId: string | null) {
     setVotosAFavor,
     votosEnContra,
     setVotosEnContra,
+    votosAbstencion,
+    setVotosAbstencion,
     yaVoto,
     setYaVoto,
     resultadosCerrados,

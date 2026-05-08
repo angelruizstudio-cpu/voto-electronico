@@ -44,7 +44,7 @@ const MENSAJES_NOMINACION: Record<string, string> = {
 }
 
 export default function AsambleistaPage() {
-  const { asambleaId, anioAsamblea, lugarAsamblea } = useAsamblea()
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
 
   const {
     estado,
@@ -215,9 +215,13 @@ export default function AsambleistaPage() {
                   Voto electrónico
                 </p>
                 <h1 className="mt-1 truncate text-lg font-black">
-                  {asambleaId ? `Asamblea ${anioAsamblea}` : "Sin asamblea activa"}
-                </h1>
-                <p className="truncate text-sm text-white/68">{lugarAsamblea || "No iniciada"}</p>
+                {asambleaId
+                  ? organizacionAsamblea || `Asamblea ${anioAsamblea}`
+                  : "Sin asamblea activa"}
+              </h1>
+              <p className="truncate text-sm text-white/68">
+                {asambleaId ? `Asamblea ${anioAsamblea} · ${lugarAsamblea}` : "No iniciada"}
+              </p>
               </div>
             </div>
 
