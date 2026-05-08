@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import type { ConteoCandidato, ResultadoCerrado } from "@/lib/types"
+import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
 export function useVotacion(asambleaId: string | null) {
   const [estado, setEstado] = useState("cerrada")
@@ -8,9 +8,14 @@ export function useVotacion(asambleaId: string | null) {
   const [titulo, setTitulo] = useState("")
   const [tipoMayoria, setTipoMayoria] = useState("")
   const [tipoVotacion, setTipoVotacion] = useState("resolucion")
+  const [tipoMocion, setTipoMocion] = useState("resolucion_principal")
+  const [mocionPadreId, setMocionPadreId] = useState<string | null>(null)
+  const [resolucionRaizId, setResolucionRaizId] = useState<string | null>(null)
   const [publicada, setPublicada] = useState(false)
+  const [rondaNumero, setRondaNumero] = useState(1)
+  const [eleccionGrupoId, setEleccionGrupoId] = useState<string | null>(null)
 
-  const [candidatos, setCandidatos] = useState<any[]>([])
+  const [candidatos, setCandidatos] = useState<Candidato[]>([])
   const [conteoCandidatos, setConteoCandidatos] = useState<ConteoCandidato[]>([])
 
   const [votosEmitidos, setVotosEmitidos] = useState(0)
@@ -28,7 +33,12 @@ export function useVotacion(asambleaId: string | null) {
     setTitulo("")
     setTipoMayoria("")
     setTipoVotacion("resolucion")
+    setTipoMocion("resolucion_principal")
+    setMocionPadreId(null)
+    setResolucionRaizId(null)
     setPublicada(false)
+    setRondaNumero(1)
+    setEleccionGrupoId(null)
     setCandidatos([])
     setConteoCandidatos([])
     setVotosEmitidos(0)
@@ -43,7 +53,7 @@ export function useVotacion(asambleaId: string | null) {
       return
     }
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from("votaciones")
       .select("*")
       .eq("asamblea_id", asambleaId)
@@ -51,20 +61,6 @@ export function useVotacion(asambleaId: string | null) {
       .order("creada_en", { ascending: false })
       .limit(1)
       .maybeSingle()
-
-    if (!data) {
-      const resultadoCerrada = await supabase
-        .from("votaciones")
-        .select("*")
-        .eq("asamblea_id", asambleaId)
-        .eq("estado", "cerrada")
-        .order("creada_en", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      data = resultadoCerrada.data
-      error = resultadoCerrada.error
-    }
 
     if (error || !data) {
       limpiarVotacion()
@@ -76,7 +72,12 @@ export function useVotacion(asambleaId: string | null) {
     setTitulo(data.titulo)
     setTipoMayoria(data.tipo_mayoria || "")
     setTipoVotacion(data.tipo_votacion || "resolucion")
+    setTipoMocion(data.tipo_mocion || "resolucion_principal")
+    setMocionPadreId(data.mocion_padre_id || null)
+    setResolucionRaizId(data.resolucion_raiz_id || data.id)
     setPublicada(data.publicada || false)
+    setRondaNumero(data.ronda_numero || 1)
+    setEleccionGrupoId(data.eleccion_grupo_id || data.id)
 
     const { data: votosData } = await supabase
       .from("votos")
@@ -154,14 +155,16 @@ export function useVotacion(asambleaId: string | null) {
   }, [cargarVotacionActiva])
 
   useEffect(() => {
-    cargarVotacionActiva()
+    queueMicrotask(() => {
+      void cargarVotacionActiva()
+    })
   }, [cargarVotacionActiva])
 
   useEffect(() => {
     if (!asambleaId) return
 
     const canalVotaciones = supabase
-      .channel(`realtime-votaciones-${asambleaId}`)
+      .channel(`realtime-votaciones-${asambleaId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -183,7 +186,7 @@ export function useVotacion(asambleaId: string | null) {
     if (!votacionId) return
 
     const canalVotos = supabase
-      .channel(`realtime-votos-${votacionId}`)
+      .channel(`realtime-votos-${votacionId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -199,7 +202,7 @@ export function useVotacion(asambleaId: string | null) {
       .subscribe()
 
     const canalCandidatos = supabase
-      .channel(`realtime-candidatos-${votacionId}`)
+      .channel(`realtime-candidatos-${votacionId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -229,8 +232,18 @@ export function useVotacion(asambleaId: string | null) {
     setTipoMayoria,
     tipoVotacion,
     setTipoVotacion,
+    tipoMocion,
+    setTipoMocion,
+    mocionPadreId,
+    setMocionPadreId,
+    resolucionRaizId,
+    setResolucionRaizId,
     publicada,
     setPublicada,
+    rondaNumero,
+    setRondaNumero,
+    eleccionGrupoId,
+    setEleccionGrupoId,
     candidatos,
     setCandidatos,
     conteoCandidatos,

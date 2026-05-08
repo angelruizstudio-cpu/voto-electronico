@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { calcularNecesarios, mostrarTipoMayoria, mostrarTipoVotacion } from "@/lib/votacionHelpers"
@@ -21,11 +22,23 @@ export default function ResultadosPage() {
   // Bug #10 corregido: página muestra datos reales cuando están publicados
   if (!publicada) {
     return (
-      <div className="p-6 text-center">
-        <p className="text-lg font-semibold text-slate-600">
+      <main className="min-h-screen bg-[#f4f6f1] px-4 py-6 pb-28">
+        <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <Image
+          src="/logo_voto_electronico.png"
+          alt="Logo oficial"
+          width={96}
+          height={96}
+          className="mx-auto mb-4 size-20 rounded-lg object-cover"
+        />
+        <p className="text-lg font-black text-slate-950">
+          Resultados no publicados
+        </p>
+        <p className="mt-2 text-sm text-slate-600">
           Los resultados aún no han sido publicados.
         </p>
-      </div>
+        </div>
+      </main>
     )
   }
 
@@ -34,12 +47,24 @@ export default function ResultadosPage() {
   const aprobado = votosAFavor >= necesarios && totalValidos > 0
 
   return (
-    <div className="p-6 space-y-6 pb-24">
-      <h1 className="text-2xl font-bold text-slate-900">{titulo}</h1>
-
-      <p className="text-slate-500 text-sm">
-        {mostrarTipoVotacion(tipoVotacion)} · {mostrarTipoMayoria(tipoMayoria)}
-      </p>
+    <main className="min-h-screen bg-[#f4f6f1] px-4 py-6 pb-28">
+      <div className="mx-auto max-w-md space-y-4">
+        <header className="rounded-2xl bg-[#16382f] p-5 text-white">
+          <Image
+            src="/logo_voto_electronico.png"
+            alt="Logo oficial"
+            width={72}
+            height={72}
+            className="size-14 rounded-lg bg-white object-cover"
+          />
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-[#d7c27a]">
+            Resultados publicados
+          </p>
+          <h1 className="mt-2 text-2xl font-black leading-tight">{titulo}</h1>
+          <p className="mt-2 text-sm text-white/70">
+            {mostrarTipoVotacion(tipoVotacion)} · {mostrarTipoMayoria(tipoMayoria)}
+          </p>
+        </header>
 
       {tipoVotacion === "resolucion" && (
         <div className="space-y-4">
@@ -54,7 +79,7 @@ export default function ResultadosPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-slate-50 border p-4 space-y-1 text-sm text-slate-600">
+          <div className="rounded-2xl border bg-white p-4 space-y-1 text-sm text-slate-600">
             <p>Votos emitidos: <span className="font-semibold">{votosEmitidos}</span></p>
             <p>Votos necesarios: <span className="font-semibold">{necesarios}</span></p>
           </div>
@@ -88,7 +113,7 @@ export default function ResultadosPage() {
               >
                 <div>
                   <p className="font-bold text-slate-900">
-                    {index === 0 && "🏆 "}{c.nombre}
+                    {index === 0 ? "Primer lugar: " : ""}{c.nombre}
                   </p>
                   <p className="text-sm text-slate-500">{c.porcentaje}% de los votos</p>
                 </div>
@@ -97,6 +122,7 @@ export default function ResultadosPage() {
             ))}
         </div>
       )}
-    </div>
+      </div>
+    </main>
   )
 }

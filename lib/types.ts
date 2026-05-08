@@ -15,6 +15,7 @@ export type ResultadoCerrado = {
 export type Candidato = {
   id: string
   nombre: string
+  votacion_id?: string
 }
 
 export type ConteoCandidato = {
@@ -22,4 +23,20 @@ export type ConteoCandidato = {
   nombre: string
   votos: number
   porcentaje: number
+}
+
+export type TipoMocion =
+  | "resolucion_principal"
+  | "enmienda"
+  | "enmienda_a_enmienda"
+
+export type Mocion = {
+  id: string
+  titulo: string
+  tipo_mocion: TipoMocion
+  mocion_padre_id: string | null
+  resolucion_raiz_id: string | null
+  estado: string
+  estado_parlamentario: string | null
+  resultado: string | null
 }

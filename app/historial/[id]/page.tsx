@@ -1,8 +1,15 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
+import { use, useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
+import {
+  calcularNecesarios,
+  mostrarEstadoParlamentario,
+  mostrarTipoMayoria,
+  mostrarTipoMocion,
+  mostrarTipoVotacion,
+} from "@/lib/votacionHelpers"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 
@@ -18,9 +25,15 @@ type VotacionDetalle = {
   titulo: string
   tipo_votacion: string
   tipo_mayoria: string
+  tipo_mocion: string
+  estado_parlamentario: string | null
   estado: string
   resultado?: string
   ganadorNombre?: string
+  ronda_numero?: number
+  eleccion_grupo_id?: string | null
+  mocion_padre_id?: string | null
+  resolucion_raiz_id?: string | null
   emitidos: number
   favor: number
   contra: number
@@ -33,6 +46,30 @@ type VotacionDetalle = {
   }[]
 }
 
+type PdfConAutoTable = jsPDF & {
+  lastAutoTable?: {
+    finalY?: number
+  }
+}
+
+const cargarLogoOficial = async () => {
+  try {
+    const res = await fetch("/logo_voto_electronico.png")
+    if (!res.ok) return null
+
+    const blob = await res.blob()
+
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
 export default function DetalleAsamblea({
   params,
 }: {
@@ -43,23 +80,29 @@ export default function DetalleAsamblea({
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [votaciones, setVotaciones] = useState<VotacionDetalle[]>([])
 
-  const calcularNecesarios = (total: number, tipo: string) => {
-    if (total === 0) return 0
-    if (tipo === "dos_tercios") return Math.ceil((2 / 3) * total)
-    return Math.floor(total / 2) + 1
+  const mostrarResultado = (v: VotacionDetalle) => {
+    if (v.resultado === "electo_por_sorteo") {
+      return `Electo por sorteo físico${v.ganadorNombre ? `: ${v.ganadorNombre}` : ""}`
+    }
+
+    if (v.resultado === "electo") {
+      return `Electo${v.ganadorNombre ? `: ${v.ganadorNombre}` : ""}`
+    }
+
+    if (v.resultado === "empate_sorteo") return "Empate final: sorteo físico pendiente"
+    if (v.resultado === "requiere_nueva_ronda") return "Requiere nueva ronda"
+    if (v.resultado === "rechazada_sin_segundo") return "Rechazada por falta de segundo"
+    if (v.resultado === "aprobada") return "Aprobada"
+    if (v.resultado === "rechazada") return "Rechazada"
+
+    if (v.tipo_votacion === "resolucion") {
+      return v.aprobado ? "Aprobada" : "No aprobada"
+    }
+
+    return v.ganadorNombre || "Procesado"
   }
 
-  const mostrarTipoVotacion = (tipo: string) => {
-    if (tipo === "eleccion_lideres") return "Elección de Líderes Regionales"
-    return "Resolución"
-  }
-
-  const mostrarTipoMayoria = (tipo: string) => {
-    if (tipo === "dos_tercios") return "Dos terceras partes"
-    return "Mayoría simple"
-  }
-
-  const cargarDetalle = async () => {
+  const cargarDetalle = useCallback(async () => {
     const { data: asambleaData } = await supabase
       .from("asambleas")
       .select("*")
@@ -128,9 +171,15 @@ export default function DetalleAsamblea({
           titulo: votacion.titulo,
           tipo_votacion: votacion.tipo_votacion || "resolucion",
           tipo_mayoria: votacion.tipo_mayoria,
+          tipo_mocion: votacion.tipo_mocion || "resolucion_principal",
+          estado_parlamentario: votacion.estado_parlamentario || null,
           estado: votacion.estado,
           resultado: votacion.resultado,
           ganadorNombre,
+          ronda_numero: votacion.ronda_numero || undefined,
+          eleccion_grupo_id: votacion.eleccion_grupo_id || null,
+          mocion_padre_id: votacion.mocion_padre_id || null,
+          resolucion_raiz_id: votacion.resolucion_raiz_id || null,
           emitidos,
           favor,
           contra,
@@ -143,41 +192,48 @@ export default function DetalleAsamblea({
     )
 
     setVotaciones(detalles)
-  }
+  }, [id])
 
-  const descargarPDF = () => {
+  const elecciones = votaciones.filter((v) => v.tipo_votacion === "eleccion_lideres")
+  const resoluciones = votaciones.filter((v) => v.tipo_votacion === "resolucion")
+
+  const descargarPDF = async () => {
     if (!asamblea) return
 
     const doc = new jsPDF()
+    const logoOficial = await cargarLogoOficial()
+
+    if (logoOficial) {
+      doc.addImage(logoOficial, "PNG", 14, 9, 32, 18)
+    }
 
     doc.setFontSize(16)
-    doc.text("Informe de Resultados de Asamblea", 14, 15)
+    doc.text("Informe Histórico de Asamblea", logoOficial ? 52 : 14, 15)
 
     doc.setFontSize(11)
-    doc.text(`Año: ${asamblea.anio}`, 14, 25)
-    doc.text(`Lugar: ${asamblea.lugar}`, 14, 32)
-    doc.text(`Estado: ${asamblea.estado}`, 14, 39)
-    doc.text('Documento: ARCHIVO HISTÓRICO', 14, 46)
+    doc.text(`Año: ${asamblea.anio}`, logoOficial ? 52 : 14, 25)
+    doc.text(`Lugar: ${asamblea.lugar}`, logoOficial ? 52 : 14, 32)
+    doc.text(`Estado: ${asamblea.estado}`, 14, 42)
+    doc.text("Documento: ARCHIVO HISTÓRICO", 14, 49)
+    doc.text(`Total de asuntos registrados: ${votaciones.length}`, 14, 56)
 
     const filas = votaciones.map((v) => [
       v.titulo,
-      mostrarTipoVotacion(v.tipo_votacion),
+      v.tipo_votacion === "resolucion"
+        ? mostrarTipoMocion(v.tipo_mocion)
+        : `${mostrarTipoVotacion(v.tipo_votacion)}${v.ronda_numero ? ` - Ronda ${v.ronda_numero}` : ""}`,
       mostrarTipoMayoria(v.tipo_mayoria),
       v.emitidos,
       v.tipo_votacion === "eleccion_lideres" ? "-" : v.favor,
       v.tipo_votacion === "eleccion_lideres" ? "-" : v.contra,
       v.necesarios,
-      v.tipo_votacion === "eleccion_lideres"
-        ? v.ganadorNombre || v.resultado || "Procesado"
-        : v.aprobado
-        ? "Aprobado"
-        : "No aprobado",
+      mostrarResultado(v),
     ])
 
     autoTable(doc, {
-      startY: 50,
+      startY: 64,
       head: [[
-        "Votación",
+        "Asunto",
         "Tipo",
         "Mayoría",
         "Emitidos",
@@ -187,24 +243,49 @@ export default function DetalleAsamblea({
         "Resultado",
       ]],
       body: filas,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [20, 45, 85] },
     })
 
-    const finalY = (doc as any).lastAutoTable.finalY || 70
+    const finalY = (doc as PdfConAutoTable).lastAutoTable?.finalY || 70
 
-    doc.text("Firmas oficiales", 14, finalY + 20)
+    const eleccionesConDetalle = elecciones.flatMap((v) =>
+      (v.candidatos || []).map((c) => [
+        v.titulo,
+        `Ronda ${v.ronda_numero || 1}`,
+        c.nombre,
+        c.votos,
+      ])
+    )
 
-    doc.line(14, finalY + 35, 90, finalY + 35)
-    doc.text("Presidente Comité de Escrutinio", 14, finalY + 42)
+    if (eleccionesConDetalle.length > 0) {
+      autoTable(doc, {
+        startY: finalY + 12,
+        head: [["Elección", "Ronda", "Candidato", "Votos"]],
+        body: eleccionesConDetalle,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [20, 45, 85] },
+      })
+    }
 
-    doc.line(110, finalY + 35, 190, finalY + 35)
-    doc.text("Presidente", 110, finalY + 42)
+    const firmasY = (doc as PdfConAutoTable).lastAutoTable?.finalY || finalY
+
+    doc.text("Firmas oficiales", 14, firmasY + 20)
+
+    doc.line(14, firmasY + 35, 90, firmasY + 35)
+    doc.text("Presidente Comité de Escrutinio", 14, firmasY + 42)
+
+    doc.line(110, firmasY + 35, 190, firmasY + 35)
+    doc.text("Presidente", 110, firmasY + 42)
 
     doc.save(`Asamblea_${asamblea.anio}_${asamblea.lugar}.pdf`)
   }
 
   useEffect(() => {
-    cargarDetalle()
-  }, [id])
+    queueMicrotask(() => {
+      void cargarDetalle()
+    })
+  }, [cargarDetalle])
 
   return (
     <div className="space-y-6">
@@ -227,25 +308,26 @@ export default function DetalleAsamblea({
       {votaciones.length === 0 ? (
         <p>No hay votaciones en esta asamblea.</p>
       ) : (
-        <div className="space-y-4">
-          {votaciones.map((v) => (
-            <div key={v.id} className="p-4 bg-white rounded-lg border space-y-3">
-              <p className="font-bold text-lg">{v.titulo}</p>
+        <div className="space-y-8">
+          {elecciones.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-xl font-bold">Elecciones de líderes</h2>
+              {elecciones.map((v) => (
+                <div key={v.id} className="p-4 bg-white rounded-lg border space-y-3">
+                  <div>
+                    <p className="font-bold text-lg">{v.titulo}</p>
+                    <p className="text-sm text-slate-600">
+                      Ronda {v.ronda_numero || 1} · {mostrarTipoMayoria(v.tipo_mayoria)}
+                    </p>
+                  </div>
 
-              <p>Tipo: {mostrarTipoVotacion(v.tipo_votacion)}</p>
-              <p>Mayoría: {mostrarTipoMayoria(v.tipo_mayoria)}</p>
-              <p>
-                Estado:{" "}
-                <span className="font-bold text-red-600">{v.estado}</span>
-              </p>
-
-              {v.tipo_votacion === "eleccion_lideres" ? (
-                <>
-                  <p className="font-bold text-green-600">
-                    {v.ganadorNombre
-                      ? `Ganador: ${v.ganadorNombre}`
-                      : `Resultado: ${v.resultado || "Procesado"}`}
-                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <p>Emitidos: <span className="font-bold">{v.emitidos}</span></p>
+                    <p>Necesarios: <span className="font-bold">{v.necesarios}</span></p>
+                    <p className="col-span-2">
+                      Resultado: <span className="font-bold">{mostrarResultado(v)}</span>
+                    </p>
+                  </div>
 
                   <div className="space-y-2">
                     {v.candidatos?.map((c) => (
@@ -258,27 +340,41 @@ export default function DetalleAsamblea({
                       </div>
                     ))}
                   </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  <p>Emitidos: {v.emitidos}</p>
-                  <p>A favor: {v.favor}</p>
-                  <p>En contra: {v.contra}</p>
-                  <p>Abstención: {v.abstencion}</p>
-                  <p>Necesarios: {v.necesarios}</p>
-                  <p
-                    className={
-                      v.aprobado
-                        ? "font-bold text-green-600"
-                        : "font-bold text-red-600"
-                    }
-                  >
-                    {v.aprobado ? "Aprobado" : "No aprobado"}
-                  </p>
                 </div>
-              )}
-            </div>
-          ))}
+              ))}
+            </section>
+          )}
+
+          {resoluciones.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-xl font-bold">Resoluciones y enmiendas</h2>
+              {resoluciones.map((v) => (
+                <div key={v.id} className="p-4 bg-white rounded-lg border space-y-3">
+                  <div>
+                    <p className="font-bold text-lg">{v.titulo}</p>
+                    <p className="text-sm text-slate-600">
+                      {mostrarTipoMocion(v.tipo_mocion)} ·{" "}
+                      {mostrarEstadoParlamentario(v.estado_parlamentario)}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+                    <p>Emitidos: <span className="font-bold">{v.emitidos}</span></p>
+                    <p>A favor: <span className="font-bold">{v.favor}</span></p>
+                    <p>En contra: <span className="font-bold">{v.contra}</span></p>
+                    <p>Abstención: <span className="font-bold">{v.abstencion}</span></p>
+                    <p>Necesarios: <span className="font-bold">{v.necesarios}</span></p>
+                    <p>
+                      Resultado:{" "}
+                      <span className={v.aprobado ? "font-bold text-green-600" : "font-bold text-red-600"}>
+                        {mostrarResultado(v)}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
         </div>
       )}
     </div>

@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     env:
-        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.https://vynyjzkmdemausnmqemp.supabase.co }}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.sb_publishable_xuO_-ETvdMJE6_kE8GKl9g_EMLIwPWQ }}
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bnlqemttZGVtYXVzbm1xZW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzA0MjU2NiwiZXhwIjoyMDkyNjE4NTY2fQ.eSJV0fXvAt_TfLPvcLrvVnjyTH-xlOjy8EJz-5ohPas }}
-        MODERADOR_PASSWORD: ${{ secrets.admin123 }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODERADOR_PASSWORD: ${{ secrets.MODERADOR_PASSWORD }}
     steps:
       - uses: actions/checkout@v3
         with:

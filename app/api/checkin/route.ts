@@ -29,13 +29,33 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("id")
+      .select("id, habilitado")
+      .eq("asamblea_id", asamblea.id)
       .eq("credencial", credencialNormalizada)
       .single()
-
     if (!asambleista) {
-      return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
+      return NextResponse.json(
+        { ok: false, error: "NO_EXISTE" },
+        { status: 404 }
+      )
     }
+
+    if (!asambleista.habilitado) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "NO_HABILITADO",
+        },
+        { status: 403 }
+      )
+    }
+    await supabaseAdmin
+      .from("asambleistas")
+      .update({
+        presente: true,
+        checkin_en: new Date().toISOString(),
+      })
+      .eq("id", asambleista.id)
 
     const token = crypto.randomUUID().replace(/-/g, "")
 

@@ -1,5 +1,5 @@
 import { HistorialAsambleas } from "@/components/HistorialAsambleas"
 
-export default function HistorialPage() {
+export default function HistorialModeradorPage() {
   return <HistorialAsambleas />
 }
