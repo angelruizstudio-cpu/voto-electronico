@@ -17,6 +17,7 @@ import { useEffect, useState } from "react"
 import { AsambleaProvider, useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { mostrarTipoVotacion } from "@/lib/votacionHelpers"
+import { supabase } from "@/lib/supabaseClient"
 
 type AdminShellProps = {
   children: React.ReactNode
@@ -51,6 +52,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string } | null>(null)
+  const [quorum, setQuorum] = useState(0)
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
   const navItems = navByRole[role].filter(
@@ -65,6 +67,45 @@ function AdminShellContent({ children, role }: AdminShellProps) {
       if (data.ok) setUsuario({ nombre: data.nombre, rol: data.rol })
     })
   }, [])
+
+  useEffect(() => {
+    if (!asambleaId) {
+      queueMicrotask(() => setQuorum(0))
+      return
+    }
+
+    const cargarQuorum = async () => {
+      const { count } = await supabase
+        .from("asambleistas")
+        .select("id", { count: "exact", head: true })
+        .eq("asamblea_id", asambleaId)
+        .eq("presente", true)
+
+      setQuorum(count || 0)
+    }
+
+    void cargarQuorum()
+
+    const canalQuorum = supabase
+      .channel(`realtime-quorum-${asambleaId}-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "asambleistas",
+          filter: `asamblea_id=eq.${asambleaId}`,
+        },
+        () => {
+          void cargarQuorum()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(canalQuorum)
+    }
+  }, [asambleaId])
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -163,6 +204,13 @@ function AdminShellContent({ children, role }: AdminShellProps) {
               <p className="mt-1 line-clamp-2 text-sm text-white/64">
                 {asambleaId ? `Asamblea ${anioAsamblea} · ${lugarAsamblea}` : "No iniciada"}
               </p>
+              <div className="mt-3 rounded-md border border-white/10 bg-white/8 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#d7c27a]">
+                  Quórum
+                </p>
+                <p className="mt-1 text-2xl font-black text-white">{quorum}</p>
+                <p className="text-xs text-white/56">asambleístas presentes</p>
+              </div>
             </div>
 
             <div className="mt-3 rounded-lg border border-white/10 bg-white/6 p-3">
