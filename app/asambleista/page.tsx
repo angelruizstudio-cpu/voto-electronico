@@ -230,7 +230,7 @@ export default function AsambleistaPage() {
             </div>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#d7c27a]">
               Participación
             </p>
@@ -279,7 +279,7 @@ export default function AsambleistaPage() {
               {estado === "abierta" ? "VOTACIÓN ACTIVA" : "EN ESPERA"}
             </div>
 
-            <h2 className="text-2xl font-black leading-tight text-slate-950">
+            <h2 className="text-center text-2xl font-black leading-tight text-slate-950">
               {titulo || "Sin votación activa"}
             </h2>
 
@@ -379,16 +379,18 @@ export default function AsambleistaPage() {
                   </div>
                 )}
 
-                {conteoCandidatos.map((c, index) => (
-                  <Button
-                    key={c.id}
-                    onClick={() => votarCandidato(c.id)}
-                    disabled={!token || estado !== "abierta" || yaVoto || cargando}
-                    className={`h-16 w-full justify-start rounded-xl border-2 px-4 text-left text-base font-black text-slate-800 ${claseRanking(index)}`}
-                  >
-                    {c.nombre}
-                  </Button>
-                ))}
+                <div className={conteoCandidatos.length > 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+                  {conteoCandidatos.map((c, index) => (
+                    <Button
+                      key={c.id}
+                      onClick={() => votarCandidato(c.id)}
+                      disabled={!token || estado !== "abierta" || yaVoto || cargando}
+                      className={["min-h-16 w-full justify-center whitespace-normal rounded-xl border-2 px-3 py-3 text-center text-base font-black leading-tight text-slate-800", claseRanking(index)].join(" ")}
+                    >
+                      {c.nombre}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
 

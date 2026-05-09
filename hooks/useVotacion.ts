@@ -196,6 +196,7 @@ export function useVotacion(asambleaId: string | null) {
         {
           event: "*",
           schema: "public",
+
           table: "votos",
           filter: `votacion_id=eq.${votacionId}`,
         },
@@ -224,6 +225,16 @@ export function useVotacion(asambleaId: string | null) {
       supabase.removeChannel(canalCandidatos)
     }
   }, [votacionId])
+
+  useEffect(() => {
+    if (!votacionId || estado !== "abierta") return
+
+    const refresco = window.setInterval(() => {
+      cargarVotacionActivaRef.current()
+    }, 3000)
+
+    return () => window.clearInterval(refresco)
+  }, [votacionId, estado])
 
   return {
     estado,
