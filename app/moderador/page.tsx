@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
   mostrarEstadoParlamentario,
+  mostrarTipoMayoria,
   mostrarTipoMocion,
 } from "@/lib/votacionHelpers"
 import type { Mocion } from "@/lib/types"
@@ -129,6 +130,7 @@ export default function Moderador() {
     }))
     .filter((c) => c.nombre.trim().length > 0)
   const tipoPanelResultados = votacionId ? tipoVotacion : nuevoTipoVotacion
+  const tipoMayoriaPanelResultados = votacionId ? tipoMayoria : nuevoTipoMayoria
   const tituloPanelResultados = votacionId
     ? titulo || "Votación activa"
     : nuevoTipoVotacion === "eleccion_lideres"
@@ -812,7 +814,7 @@ export default function Moderador() {
                       Mayoría
                     </p>
                     <p className="mt-1 font-black text-slate-950">
-                      {tipoMayoria || nuevoTipoMayoria}
+                      {mostrarTipoMayoria(tipoMayoriaPanelResultados)}
                     </p>
                   </div>
                   <div className="rounded-lg bg-white p-3 shadow-sm">
