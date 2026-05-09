@@ -52,6 +52,11 @@ type PdfConAutoTable = jsPDF & {
   }
 }
 
+type GrupoEleccion = {
+  titulo: string
+  rondas: VotacionDetalle[]
+}
+
 const cargarLogoOficial = async () => {
   try {
     const res = await fetch("/logo_voto_electronico.png")
@@ -247,28 +252,204 @@ export default function DetalleAsamblea({
       headStyles: { fillColor: [20, 45, 85] },
     })
 
-    const finalY = (doc as PdfConAutoTable).lastAutoTable?.finalY || 70
+    let cursorY = (doc as PdfConAutoTable).lastAutoTable?.finalY || 70
 
-    const eleccionesConDetalle = elecciones.flatMap((v) =>
-      (v.candidatos || []).map((c) => [
-        v.titulo,
-        `Ronda ${v.ronda_numero || 1}`,
-        c.nombre,
-        c.votos,
-      ])
-    )
+    const gruposElecciones = elecciones
+      .reduce<GrupoEleccion[]>((grupos, votacion) => {
+        const llave = votacion.eleccion_grupo_id || votacion.id
+        const grupoExistente = grupos.find((grupo) =>
+          grupo.rondas.some((ronda) => (ronda.eleccion_grupo_id || ronda.id) === llave)
+        )
 
-    if (eleccionesConDetalle.length > 0) {
-      autoTable(doc, {
-        startY: finalY + 12,
-        head: [["Elección", "Ronda", "Candidato", "Votos"]],
-        body: eleccionesConDetalle,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [20, 45, 85] },
+        if (grupoExistente) {
+          grupoExistente.rondas.push(votacion)
+          return grupos
+        }
+
+        grupos.push({ titulo: votacion.titulo, rondas: [votacion] })
+        return grupos
+      }, [])
+      .map((grupo) => ({
+        ...grupo,
+        rondas: grupo.rondas.sort((a, b) => (a.ronda_numero || 1) - (b.ronda_numero || 1)),
+      }))
+
+    const dibujarActaEleccion = (grupo: GrupoEleccion, inicioY: number) => {
+      const etiquetaRonda = (numero: number) => {
+        if (numero === 1) return "1ra. Ronda"
+        if (numero === 2) return "2da. Ronda"
+        if (numero === 3) return "3ra. Ronda"
+        return `${numero}ta. Ronda`
+      }
+      const margenX = 14
+      const tablaAncho = 182
+      const colAnchos = [34, 34, 23, 34, 34, 23]
+      const altoTitulo = 7
+      const altoEncabezado = 12
+      const altoResultado = 8
+      const altoRonda = 7
+      const altoFila = 8
+      const filasMinimas = 7
+      const maxCandidatos = Math.max(
+        filasMinimas,
+        ...grupo.rondas.slice(0, 2).map((ronda) => ronda.candidatos?.length || 0)
+      )
+      const tablaAlto =
+        altoTitulo + altoEncabezado + altoResultado + altoRonda + maxCandidatos * altoFila
+
+      if (inicioY + tablaAlto > 270) {
+        doc.addPage()
+        inicioY = 18
+      }
+
+      const x = margenX
+      const y = inicioY
+      const grupoUnoX = x
+      const grupoDosX = x + colAnchos[0] + colAnchos[1] + colAnchos[2]
+      const grupoAncho = tablaAncho / 2
+      const titulo = grupo.titulo.toUpperCase()
+
+      doc.setDrawColor(70, 70, 70)
+      doc.setLineWidth(0.25)
+      doc.setFillColor(218, 218, 218)
+      doc.rect(x, y, tablaAncho, altoTitulo, "FD")
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      doc.text(titulo, x + tablaAncho / 2, y + 5, { align: "center" })
+
+      const headerY = y + altoTitulo
+      doc.setFontSize(7.5)
+      doc.setFont("helvetica", "bold")
+
+      let cursorX = x
+      colAnchos.forEach((ancho) => {
+        doc.rect(cursorX, headerY, ancho, altoEncabezado)
+        cursorX += ancho
+      })
+
+      const headers = [
+        ["Votos", "Emitidos"],
+        ["Votos", "Necesarios"],
+        ["Elección", "Sí - No"],
+        ["Votos", "Emitidos"],
+        ["Votos", "Necesarios"],
+        ["Elección", "Sí - No"],
+      ]
+
+      cursorX = x
+      headers.forEach((lineas, index) => {
+        const centro = cursorX + colAnchos[index] / 2
+        doc.text(lineas[0], centro, headerY + 5, { align: "center" })
+        doc.text(lineas[1], centro, headerY + 9, { align: "center" })
+        cursorX += colAnchos[index]
+      })
+
+      const resultadoY = headerY + altoEncabezado
+      cursorX = x
+      colAnchos.forEach((ancho) => {
+        doc.rect(cursorX, resultadoY, ancho, altoResultado)
+        cursorX += ancho
+      })
+
+      grupo.rondas.slice(0, 2).forEach((ronda, index) => {
+        const baseX = index === 0 ? grupoUnoX : grupoDosX
+        const baseCol = index === 0 ? 0 : 3
+        const resultadoEleccion = ronda.resultado === "electo" || ronda.resultado === "electo_por_sorteo"
+          ? "Sí"
+          : ronda.resultado
+          ? "No"
+          : "-"
+
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "bold")
+        doc.text(String(ronda.emitidos), baseX + colAnchos[baseCol] / 2, resultadoY + 5.8, {
+          align: "center",
+        })
+        doc.text(
+          String(ronda.necesarios),
+          baseX + colAnchos[baseCol] + colAnchos[baseCol + 1] / 2,
+          resultadoY + 5.8,
+          { align: "center" }
+        )
+        doc.text(
+          resultadoEleccion,
+          baseX + colAnchos[baseCol] + colAnchos[baseCol + 1] + colAnchos[baseCol + 2] / 2,
+          resultadoY + 5.8,
+          { align: "center" }
+        )
+      })
+
+      const rondaY = resultadoY + altoResultado
+      doc.setLineWidth(0.45)
+      doc.line(x, rondaY, x + tablaAncho, rondaY)
+      doc.setLineWidth(0.25)
+      doc.rect(grupoUnoX, rondaY, grupoAncho, altoRonda)
+      doc.rect(grupoDosX, rondaY, grupoAncho, altoRonda)
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.text(
+        etiquetaRonda(grupo.rondas[0]?.ronda_numero || 1),
+        grupoUnoX + grupoAncho / 2,
+        rondaY + 4.8,
+        { align: "center" }
+      )
+      doc.text(
+        grupo.rondas[1] ? etiquetaRonda(grupo.rondas[1].ronda_numero || 2) : "",
+        grupoDosX + grupoAncho / 2,
+        rondaY + 4.8,
+        { align: "center" }
+      )
+
+      const cuerpoY = rondaY + altoRonda
+      for (let fila = 0; fila < maxCandidatos; fila += 1) {
+        const filaY = cuerpoY + fila * altoFila
+        cursorX = x
+        colAnchos.forEach((ancho) => {
+          doc.rect(cursorX, filaY, ancho, altoFila)
+          cursorX += ancho
+        })
+      }
+
+      grupo.rondas.slice(0, 2).forEach((ronda, index) => {
+        const baseX = index === 0 ? grupoUnoX : grupoDosX
+        const candidatoX = baseX + 3
+        const votosX = baseX + colAnchos[index === 0 ? 0 : 3] + colAnchos[index === 0 ? 1 : 4] + colAnchos[index === 0 ? 2 : 5] / 2
+
+        doc.setFontSize(9)
+        doc.setFont("helvetica", "normal")
+        ;(ronda.candidatos || []).forEach((candidato, fila) => {
+          const filaY = cuerpoY + fila * altoFila + 5.2
+          doc.text(candidato.nombre, candidatoX, filaY, { maxWidth: grupoAncho - 28 })
+          doc.setFont("helvetica", "bold")
+          doc.text(String(candidato.votos), votosX, filaY, { align: "center" })
+          doc.setFont("helvetica", "normal")
+        })
+      })
+
+      return y + tablaAlto
+    }
+
+    if (gruposElecciones.length > 0) {
+      doc.setFontSize(13)
+      doc.setFont("helvetica", "bold")
+      doc.text("Acta de elecciones", 14, cursorY + 12)
+      cursorY += 18
+
+      gruposElecciones.forEach((grupo) => {
+        for (let index = 0; index < grupo.rondas.length; index += 2) {
+          cursorY =
+            dibujarActaEleccion(
+              {
+                titulo: grupo.titulo,
+                rondas: grupo.rondas.slice(index, index + 2),
+              },
+              cursorY
+            ) + 10
+        }
       })
     }
 
-    const firmasY = (doc as PdfConAutoTable).lastAutoTable?.finalY || finalY
+    const firmasY = cursorY
 
     doc.text("Firmas oficiales", 14, firmasY + 20)
 
