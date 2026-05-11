@@ -57,6 +57,33 @@ function escaparHtml(valor: string) {
   })
 }
 
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function obtenerErrorResend(res: Response) {
+  const contentType = res.headers.get("content-type") || ""
+
+  if (contentType.includes("application/json")) {
+    const data = await res.json().catch(() => null)
+    const mensaje =
+      data?.message ||
+      data?.error ||
+      data?.name ||
+      `RESEND_HTTP_${res.status}`
+
+    return String(mensaje).slice(0, 300)
+  }
+
+  await res.text().catch(() => "")
+
+  if (res.status >= 500) {
+    return `RESEND_TEMPORAL_${res.status}`
+  }
+
+  return `RESEND_HTTP_${res.status}`
+}
+
 async function enviarCredencialPorEmail({
   email,
   nombre,
@@ -81,39 +108,50 @@ async function enviarCredencialPorEmail({
     return { enviado: false, error: "FALTA_RESEND_API_KEY" }
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [email],
-      subject: "Credencial de asamblea",
-      text: `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-          <h1 style="font-size: 22px;">Credencial de asamblea</h1>
-          <p>Saludos ${nombreHtml},</p>
-          <p>Su credencial para hacer check-in en la asamblea es:</p>
-          <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.08em;">${credencialHtml}</p>
-          <div style="margin: 18px 0; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #ffffff;">
-            <img src="${qrUrl}" width="220" height="220" alt="Codigo QR de credencial ${credencialHtml}" style="display: block;" />
-          </div>
-          <p>Presente esta credencial o el código QR en la puerta para agilizar su check-in/check-out.</p>
-          <p style="color: #475569; font-size: 14px;">El token de votación se genera aparte durante el check-in.</p>
+  const payload = {
+    from,
+    to: [email],
+    subject: "Credencial de asamblea",
+    text: `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+        <h1 style="font-size: 22px;">Credencial de asamblea</h1>
+        <p>Saludos ${nombreHtml},</p>
+        <p>Su credencial para hacer check-in en la asamblea es:</p>
+        <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.08em;">${credencialHtml}</p>
+        <div style="margin: 18px 0; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #ffffff;">
+          <img src="${qrUrl}" width="220" height="220" alt="Codigo QR de credencial ${credencialHtml}" style="display: block;" />
         </div>
-      `,
-    }),
-  })
-
-  if (!res.ok) {
-    const detalle = await res.text()
-    return { enviado: false, error: detalle || "ERROR_RESEND" }
+        <p>Presente esta credencial o el código QR en la puerta para agilizar su check-in/check-out.</p>
+        <p style="color: #475569; font-size: 14px;">El token de votación se genera aparte durante el check-in.</p>
+      </div>
+    `,
   }
 
-  return { enviado: true }
+  for (let intento = 1; intento <= 2; intento += 1) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (res.ok) {
+      return { enviado: true }
+    }
+
+    const error = await obtenerErrorResend(res)
+
+    if (res.status < 500 || intento === 2) {
+      return { enviado: false, error }
+    }
+
+    await esperar(900)
+  }
+
+  return { enviado: false, error: "ERROR_RESEND" }
 }
 
 export async function GET(req: NextRequest) {

@@ -139,10 +139,22 @@ export default function OficinaRegionalPage() {
     if (data.credencialEmail?.enviado) {
       alert(`Asambleísta creado y credencial enviada: ${data.asambleista.credencial}`)
     } else if (nuevoEmail.trim()) {
+      const erroresEmail: Record<string, string> = {
+        FALTA_RESEND_API_KEY: "falta configurar RESEND_API_KEY",
+        RESEND_TEMPORAL_500: "Resend tuvo un error temporal 500; intenta reenviar más tarde",
+        RESEND_TEMPORAL_502: "Resend tuvo un error temporal 502; intenta reenviar más tarde",
+        RESEND_TEMPORAL_503: "Resend tuvo un error temporal 503; intenta reenviar más tarde",
+        RESEND_TEMPORAL_504: "Resend tuvo un error temporal 504; intenta reenviar más tarde",
+        RESEND_TEMPORAL_520: "Resend respondió con error temporal 520; intenta reenviar más tarde",
+      }
+      const errorEmail =
+        data.credencialEmail?.error &&
+        erroresEmail[data.credencialEmail.error]
+          ? erroresEmail[data.credencialEmail.error]
+          : data.credencialEmail?.error || "revisa la configuración de Resend"
+
       alert(
-        `Asambleísta creado: ${data.asambleista.credencial}\nNo se pudo enviar el email: ${
-          data.credencialEmail?.error || "revisa la configuración de Resend"
-        }`
+        `Asambleísta creado: ${data.asambleista.credencial}\nNo se pudo enviar el email: ${errorEmail}`
       )
     } else {
       alert(`Asambleísta creado: ${data.asambleista.credencial}`)
