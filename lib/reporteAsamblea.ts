@@ -41,6 +41,13 @@ type VotacionReporte = {
   }[]
 }
 
+type AsambleaEvento = {
+  id: string
+  tipo: string
+  descripcion: string | null
+  creado_en: string
+}
+
 type PdfConAutoTable = jsPDF & {
   lastAutoTable?: {
     finalY?: number
@@ -111,6 +118,25 @@ const mostrarRondaActa = (numero: number) => {
   if (numero === 3) return "3ra. Ronda"
   return `${numero}ta. Ronda`
 }
+
+const mostrarTipoEvento = (tipo: string) => {
+  if (tipo === "receso_iniciado") return "Receso iniciado"
+  if (tipo === "trabajos_reanudados") return "Trabajos reanudados"
+  return tipo
+}
+
+const formatearFechaEvento = (fecha: string) =>
+  new Date(fecha).toLocaleDateString("es-PR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+
+const formatearHoraEvento = (fecha: string) =>
+  new Date(fecha).toLocaleTimeString("es-PR", {
+    hour: "numeric",
+    minute: "2-digit",
+  })
 
 const agregarActaElecciones = (
   doc: jsPDF,
@@ -337,6 +363,19 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
     })
   )
 
+  const { data: eventosData, error: errorEventos } = await supabase
+    .from("asamblea_eventos")
+    .select("*")
+    .eq("asamblea_id", asambleaId)
+    .in("tipo", ["receso_iniciado", "trabajos_reanudados"])
+    .order("creado_en", { ascending: true })
+
+  if (errorEventos) {
+    throw new Error(errorEventos.message)
+  }
+
+  const eventos = (eventosData || []) as AsambleaEvento[]
+
   const doc = new jsPDF()
   const asambleaReporte = asamblea as Asamblea
   const fechaCierre = new Date().toLocaleString("es-PR")
@@ -384,8 +423,26 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
     headStyles: { fillColor: [20, 45, 85] },
   })
 
-  const primerFinalY = (doc as PdfConAutoTable).lastAutoTable?.finalY || 70
-  const firmasY = agregarActaElecciones(doc, votaciones, primerFinalY + 12)
+  let siguienteY = ((doc as PdfConAutoTable).lastAutoTable?.finalY || 70) + 12
+
+  if (eventos.length > 0) {
+    autoTable(doc, {
+      startY: siguienteY,
+      head: [["Evento", "Fecha", "Hora", "Detalle"]],
+      body: eventos.map((evento) => [
+        mostrarTipoEvento(evento.tipo),
+        formatearFechaEvento(evento.creado_en),
+        formatearHoraEvento(evento.creado_en),
+        evento.descripcion || "",
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [20, 45, 85] },
+    })
+
+    siguienteY = ((doc as PdfConAutoTable).lastAutoTable?.finalY || siguienteY) + 12
+  }
+
+  const firmasY = agregarActaElecciones(doc, votaciones, siguienteY)
 
   doc.text("Firmas oficiales", 14, firmasY + 20)
 

@@ -47,6 +47,23 @@ function useAsambleaState() {
     setEstadoAsamblea(data.estado === "receso" ? "receso" : "abierta")
   }, [])
 
+  const registrarEventoAsamblea = async (
+    tipo: "receso_iniciado" | "trabajos_reanudados",
+    descripcion: string
+  ) => {
+    if (!asambleaId) return
+
+    const { error } = await supabase.from("asamblea_eventos").insert({
+      asamblea_id: asambleaId,
+      tipo,
+      descripcion,
+    })
+
+    if (error) {
+      alert(`No se pudo registrar el evento en el acta: ${error.message}`)
+    }
+  }
+
   const abrirAsamblea = async () => {
     if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
@@ -176,6 +193,7 @@ function useAsambleaState() {
       return false
     }
 
+    await registrarEventoAsamblea("receso_iniciado", "Trabajos puestos en receso")
     await cargarAsambleaActiva()
     alert("Asamblea en receso")
     return true
@@ -202,6 +220,7 @@ function useAsambleaState() {
       return false
     }
 
+    await registrarEventoAsamblea("trabajos_reanudados", "Trabajos reanudados")
     await cargarAsambleaActiva()
     alert("Trabajos reanudados")
     return true
