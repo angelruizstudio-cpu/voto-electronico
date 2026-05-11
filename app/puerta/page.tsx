@@ -10,6 +10,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react"
+import jsQR from "jsqr"
 import { Button } from "@/components/ui/button"
 
 type Asambleista = {
@@ -24,18 +25,6 @@ type Asambleista = {
   presente: boolean
 }
 
-type BarcodeResult = {
-  rawValue?: string
-}
-
-type BarcodeDetectorInstance = {
-  detect: (source: HTMLVideoElement) => Promise<BarcodeResult[]>
-}
-
-type BarcodeDetectorConstructor = new (options?: {
-  formats?: string[]
-}) => BarcodeDetectorInstance
-
 function normalizarCredencial(valor: string) {
   return valor.trim().replace(/^VOTOAPP:/i, "").toUpperCase()
 }
@@ -48,6 +37,7 @@ export default function PuertaPage() {
   const [escaneando, setEscaneando] = useState(false)
   const [mensajeEscaneo, setMensajeEscaneo] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const frameRef = useRef<number | null>(null)
 
@@ -111,41 +101,52 @@ export default function PuertaPage() {
   const iniciarEscaner = async () => {
     setMensajeEscaneo("")
 
-    if (!("BarcodeDetector" in window)) {
-      setMensajeEscaneo("Este navegador no permite escanear QR aquí. Usa la búsqueda por credencial.")
-      return
-    }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
       })
       const video = videoRef.current
+      const canvas = canvasRef.current
 
-      if (!video) return
+      if (!video || !canvas) return
 
       streamRef.current = stream
       video.srcObject = stream
       await video.play()
       setEscaneando(true)
 
-      const Detector = window.BarcodeDetector as BarcodeDetectorConstructor
-      const detector = new Detector({ formats: ["qr_code"] })
-
       const escanear = async () => {
-        if (!videoRef.current || !streamRef.current) return
+        const videoActual = videoRef.current
+        const canvasActual = canvasRef.current
 
-        try {
-          const resultados = await detector.detect(videoRef.current)
-          const valor = resultados[0]?.rawValue
+        if (!videoActual || !canvasActual || !streamRef.current) return
 
-          if (valor) {
-            detenerEscaner()
-            seleccionarPorCredencial(valor)
-            return
+        if (videoActual.readyState === videoActual.HAVE_ENOUGH_DATA) {
+          const ancho = videoActual.videoWidth
+          const alto = videoActual.videoHeight
+
+          if (ancho > 0 && alto > 0) {
+            canvasActual.width = ancho
+            canvasActual.height = alto
+
+            const contexto = canvasActual.getContext("2d", { willReadFrequently: true })
+
+            if (contexto) {
+              contexto.drawImage(videoActual, 0, 0, ancho, alto)
+              const imagen = contexto.getImageData(0, 0, ancho, alto)
+              const resultado = jsQR(imagen.data, imagen.width, imagen.height)
+
+              if (resultado?.data) {
+                detenerEscaner()
+                seleccionarPorCredencial(resultado.data)
+                return
+              }
+            }
           }
-        } catch {
-          setMensajeEscaneo("No se pudo leer el QR. Intenta acercar o mejorar la luz.")
         }
 
         frameRef.current = requestAnimationFrame(escanear)
@@ -285,6 +286,7 @@ export default function PuertaPage() {
               muted
               playsInline
             />
+            <canvas ref={canvasRef} className="hidden" />
           </div>
 
           {mensajeEscaneo && (
