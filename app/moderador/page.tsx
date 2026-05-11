@@ -21,6 +21,7 @@ export default function Moderador() {
     anioAsamblea,
     lugarAsamblea,
     organizacionAsamblea,
+    estadoAsamblea,
     nuevoAnio,
     nuevoLugar,
     nuevaOrganizacion,
@@ -29,6 +30,8 @@ export default function Moderador() {
     setNuevaOrganizacion,
     abrirAsamblea,
     cerrarAsamblea,
+    ponerAsambleaEnReceso,
+    reanudarAsamblea,
   } = useAsamblea()
 
   const {
@@ -275,6 +278,11 @@ export default function Moderador() {
   const abrirVotacionMocion = async (mocionId: string) => {
     if (!asambleaId) return
 
+    if (estadoAsamblea === "receso") {
+      alert("La asamblea está en receso. Reanuda los trabajos antes de abrir una votación.")
+      return
+    }
+
     if (estado === "abierta" && votacionId && votacionId !== mocionId) {
       alert("Cierra la votación activa antes de abrir otra moción.")
       return
@@ -328,6 +336,11 @@ export default function Moderador() {
   }
 
   const crearSiguienteRonda = async () => {
+    if (estadoAsamblea === "receso") {
+      alert("La asamblea está en receso. Reanuda los trabajos antes de crear otra ronda.")
+      return
+    }
+
     if (!asambleaId || !votacionId || !requiereNuevaRonda) {
       alert("No hay una nueva ronda disponible")
       return
@@ -435,6 +448,11 @@ export default function Moderador() {
   }
 
   const crearVotacionYActualizar = async () => {
+    if (estadoAsamblea === "receso") {
+      alert("La asamblea está en receso. Reanuda los trabajos antes de crear una votación.")
+      return
+    }
+
     setProcesandoCreacion(true)
     const creada = await crearVotacion()
     setProcesandoCreacion(false)
@@ -530,7 +548,7 @@ export default function Moderador() {
               <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 p-4">
                 <div>
                   <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">
-                    En curso
+                    {estadoAsamblea === "receso" ? "En receso" : "En curso"}
                   </p>
                   <p className="mt-1 text-xl font-black">
                     {organizacionAsamblea || "Organización no especificada"}
@@ -540,9 +558,20 @@ export default function Moderador() {
                   </p>
                 </div>
                 <div>
-                  <Button onClick={cerrarAsambleaYActualizar} className="bg-[#16382f] hover:bg-[#0f2b24]">
-                    Cerrar asamblea
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {estadoAsamblea === "receso" ? (
+                      <Button onClick={reanudarAsamblea} className="bg-emerald-700 hover:bg-emerald-800">
+                        Reanudar trabajos
+                      </Button>
+                    ) : (
+                      <Button onClick={ponerAsambleaEnReceso} className="bg-amber-600 hover:bg-amber-700">
+                        Poner en receso
+                      </Button>
+                    )}
+                    <Button onClick={cerrarAsambleaYActualizar} className="bg-[#16382f] hover:bg-[#0f2b24]">
+                      Cerrar asamblea
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -561,6 +590,12 @@ export default function Moderador() {
             {votacionId && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
                 Hay una votación activa: {titulo}. Puedes preparar una moción, pero cierra la votación activa antes de abrir otra.
+              </div>
+            )}
+
+            {estadoAsamblea === "receso" && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                La asamblea está en receso. Puedes preparar información, pero no abrir votaciones hasta reanudar los trabajos.
               </div>
             )}
 
@@ -670,7 +705,11 @@ export default function Moderador() {
               </div>
             )}
 
-            <Button onClick={crearVotacionYActualizar} disabled={procesandoCreacion} className="bg-[#16382f] hover:bg-[#0f2b24]">
+            <Button
+              onClick={crearVotacionYActualizar}
+              disabled={procesandoCreacion || estadoAsamblea === "receso"}
+              className="bg-[#16382f] hover:bg-[#0f2b24]"
+            >
               {procesandoCreacion
                 ? "Procesando..."
                 : nuevoTipoVotacion === "resolucion"

@@ -60,6 +60,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "VOTACION_INVALIDA" }, { status: 400 })
     }
 
+    const { data: asamblea } = await supabaseAdmin
+      .from("asambleas")
+      .select("estado")
+      .eq("id", votacion.asamblea_id)
+      .maybeSingle()
+
+    if (asamblea?.estado === "receso") {
+      return NextResponse.json({ ok: false, error: "ASAMBLEA_RECESO" }, { status: 400 })
+    }
+
     if ((votacion.ronda_numero || 1) !== 1) {
       return NextResponse.json({ ok: false, error: "NOMINACION_CERRADA" }, { status: 400 })
     }

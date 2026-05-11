@@ -19,6 +19,7 @@ function useAsambleaState() {
   const [anioAsamblea, setAnioAsamblea] = useState("")
   const [lugarAsamblea, setLugarAsamblea] = useState("")
   const [organizacionAsamblea, setOrganizacionAsamblea] = useState("")
+  const [estadoAsamblea, setEstadoAsamblea] = useState<"abierta" | "receso" | "cerrada">("cerrada")
   const [nuevoAnio, setNuevoAnio] = useState("")
   const [nuevoLugar, setNuevoLugar] = useState("")
   const [nuevaOrganizacion, setNuevaOrganizacion] = useState("")
@@ -27,7 +28,7 @@ function useAsambleaState() {
     const { data, error } = await supabase
       .from("asambleas")
       .select("*")
-      .eq("estado", "abierta")
+      .in("estado", ["abierta", "receso"])
       .maybeSingle()
 
     if (error || !data) {
@@ -35,6 +36,7 @@ function useAsambleaState() {
       setAnioAsamblea("")
       setLugarAsamblea("")
       setOrganizacionAsamblea("")
+      setEstadoAsamblea("cerrada")
       return
     }
 
@@ -42,6 +44,7 @@ function useAsambleaState() {
     setAnioAsamblea(String(data.anio))
     setLugarAsamblea(data.lugar)
     setOrganizacionAsamblea(data.organizacion || "")
+    setEstadoAsamblea(data.estado === "receso" ? "receso" : "abierta")
   }, [])
 
   const abrirAsamblea = async () => {
@@ -50,7 +53,7 @@ function useAsambleaState() {
     await supabase
       .from("asambleas")
       .update({ estado: "cerrada" })
-      .eq("estado", "abierta")
+      .in("estado", ["abierta", "receso"])
 
     const { error } = await supabase.from("asambleas").insert([
       {
@@ -126,11 +129,90 @@ function useAsambleaState() {
     return true
   }
 
+  const ponerAsambleaEnReceso = async () => {
+    if (!asambleaId) {
+      alert("No hay asamblea activa")
+      return false
+    }
+
+    if (estadoAsamblea === "receso") {
+      alert("La asamblea ya está en receso")
+      return false
+    }
+
+    const { data: votacionAbierta, error: errorVotacion } = await supabase
+      .from("votaciones")
+      .select("id, titulo")
+      .eq("asamblea_id", asambleaId)
+      .eq("estado", "abierta")
+      .limit(1)
+      .maybeSingle()
+
+    if (errorVotacion) {
+      alert(errorVotacion.message)
+      return false
+    }
+
+    if (votacionAbierta) {
+      alert(
+        `Debe cerrar la votación activa antes de poner la asamblea en receso: ${votacionAbierta.titulo}`
+      )
+      return false
+    }
+
+    const confirmar = window.confirm(
+      "¿Poner la asamblea en receso? Puerta y Oficina seguirán funcionando, pero no se podrán abrir votaciones hasta reanudar."
+    )
+
+    if (!confirmar) return false
+
+    const { error } = await supabase
+      .from("asambleas")
+      .update({ estado: "receso" })
+      .eq("id", asambleaId)
+
+    if (error) {
+      alert(error.message)
+      return false
+    }
+
+    await cargarAsambleaActiva()
+    alert("Asamblea en receso")
+    return true
+  }
+
+  const reanudarAsamblea = async () => {
+    if (!asambleaId) {
+      alert("No hay asamblea activa")
+      return false
+    }
+
+    if (estadoAsamblea !== "receso") {
+      alert("La asamblea no está en receso")
+      return false
+    }
+
+    const { error } = await supabase
+      .from("asambleas")
+      .update({ estado: "abierta" })
+      .eq("id", asambleaId)
+
+    if (error) {
+      alert(error.message)
+      return false
+    }
+
+    await cargarAsambleaActiva()
+    alert("Trabajos reanudados")
+    return true
+  }
+
   const cerrarAsambleaLocal = () => {
     setAsambleaId(null)
     setAnioAsamblea("")
     setLugarAsamblea("")
     setOrganizacionAsamblea("")
+    setEstadoAsamblea("cerrada")
   }
 
   useEffect(() => {
@@ -163,6 +245,7 @@ function useAsambleaState() {
     anioAsamblea,
     lugarAsamblea,
     organizacionAsamblea,
+    estadoAsamblea,
     nuevoAnio,
     nuevoLugar,
     nuevaOrganizacion,
@@ -172,6 +255,8 @@ function useAsambleaState() {
     cargarAsambleaActiva,
     abrirAsamblea,
     cerrarAsamblea,
+    ponerAsambleaEnReceso,
+    reanudarAsamblea,
     cerrarAsambleaLocal,
   }
 }

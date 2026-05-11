@@ -22,6 +22,32 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get("user-agent") || "unknown"
     const forwardedFor = req.headers.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
+
+    const { data: votacion } = await supabaseAdmin
+      .from("votaciones")
+      .select("id, asamblea_id, estado")
+      .eq("id", votacionId)
+      .maybeSingle()
+
+    if (!votacion || votacion.estado !== "abierta") {
+      return NextResponse.json(
+        { ok: false, code: "VOTACION_CERRADA" },
+        { status: 400 }
+      )
+    }
+
+    const { data: asamblea } = await supabaseAdmin
+      .from("asambleas")
+      .select("estado")
+      .eq("id", votacion.asamblea_id)
+      .maybeSingle()
+
+    if (asamblea?.estado === "receso") {
+      return NextResponse.json(
+        { ok: false, code: "ASAMBLEA_RECESO" },
+        { status: 400 }
+      )
+    }
    
     const { data, error } = await supabaseAdmin.rpc("registrar_voto", {
       p_token: token,

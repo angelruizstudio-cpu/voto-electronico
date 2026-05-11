@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
   const { data: asambleaActiva, error: errorAsamblea } = await supabaseAdmin
     .from("asambleas")
     .select("id")
-    .eq("estado", "abierta")
+    .in("estado", ["abierta", "receso"])
     .maybeSingle()
 
   if (errorAsamblea) {

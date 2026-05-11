@@ -56,7 +56,8 @@ function AdminShellContent({ children, role }: AdminShellProps) {
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string } | null>(null)
   const [quorum, setQuorum] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
+    useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
   const navItems = navByRole[role].filter(
     (item) => item.href !== "/admin" || usuario?.rol === "admin"
@@ -187,7 +188,8 @@ function AdminShellContent({ children, role }: AdminShellProps) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-black">{usuario?.nombre || "Usuario"}</p>
                 <p className="text-xs text-white/56">
-                  Quórum: {quorum} · {asambleaId ? "Activa" : "Inactiva"}
+                  Quórum: {quorum} ·{" "}
+                  {asambleaId ? (estadoAsamblea === "receso" ? "Receso" : "Activa") : "Inactiva"}
                 </p>
               </div>
               <button
@@ -278,10 +280,14 @@ function AdminShellContent({ children, role }: AdminShellProps) {
                 <span
                   className={[
                     "rounded-full px-2 py-1 text-xs font-bold",
-                    asambleaId ? "bg-emerald-400/14 text-emerald-100" : "bg-white/10 text-white/64",
+                    asambleaId
+                      ? estadoAsamblea === "receso"
+                        ? "bg-amber-400/14 text-amber-100"
+                        : "bg-emerald-400/14 text-emerald-100"
+                      : "bg-white/10 text-white/64",
                   ].join(" ")}
                 >
-                  {asambleaId ? "Activa" : "Inactiva"}
+                  {asambleaId ? (estadoAsamblea === "receso" ? "Receso" : "Activa") : "Inactiva"}
                 </span>
               </div>
               <p className="mt-2 font-black">

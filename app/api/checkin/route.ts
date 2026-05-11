@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const { data: asamblea } = await supabaseAdmin
       .from("asambleas")
       .select("id")
-      .eq("estado", "abierta")
+      .in("estado", ["abierta", "receso"])
       .single()
 
     if (!asamblea) {

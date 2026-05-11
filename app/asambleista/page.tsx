@@ -25,6 +25,7 @@ const MENSAJES_VOTO: Record<string, string> = {
   YA_VOTO: "Ya registraste tu voto en esta votación",
   TOKEN_INVALIDO: "Tu sesión no es válida, vuelve a hacer check-in",
   VOTACION_CERRADA: "La votación ya fue cerrada",
+  ASAMBLEA_RECESO: "La asamblea está en receso. Espera a que se reanuden los trabajos.",
   ASAMBLEISTA_INVALIDO: "No se pudo validar tu registro de asambleísta",
   NO_HABILITADO: "No estás habilitado para votar. Pasa por la mesa de registro.",
   NO_PRESENTE: "No puedes votar porque ya no figuras presente en la asamblea.",
@@ -41,10 +42,12 @@ const MENSAJES_NOMINACION: Record<string, string> = {
   NO_PRESENTE: "No puedes nominar porque no figuras presente en la asamblea.",
   VOTACION_INVALIDA: "No hay una elección de líderes abierta para nominar",
   NOMINACION_CERRADA: "Las nominaciones para esta ronda ya fueron cerradas",
+  ASAMBLEA_RECESO: "La asamblea está en receso. Espera a que se reanuden los trabajos.",
 }
 
 export default function AsambleistaPage() {
-  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
+    useAsamblea()
 
   const {
     estado,
@@ -289,12 +292,18 @@ export default function AsambleistaPage() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`mb-5 flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-black tracking-wide ${
-              estado === "abierta"
+              estadoAsamblea === "receso"
+                ? "bg-amber-50 text-amber-700"
+                : estado === "abierta"
                 ? "bg-emerald-50 text-emerald-700"
                 : "bg-amber-50 text-amber-700"
             }`}>
-              <span className={`size-2.5 rounded-full ${estado === "abierta" ? "bg-emerald-500" : "bg-amber-500"}`} />
-              {estado === "abierta" ? "VOTACIÓN ACTIVA" : "EN ESPERA"}
+              <span className={`size-2.5 rounded-full ${estado === "abierta" && estadoAsamblea !== "receso" ? "bg-emerald-500" : "bg-amber-500"}`} />
+              {estadoAsamblea === "receso"
+                ? "ASAMBLEA EN RECESO"
+                : estado === "abierta"
+                  ? "VOTACIÓN ACTIVA"
+                  : "EN ESPERA"}
             </div>
 
             <h2 className="text-center text-2xl font-black leading-tight text-slate-950">
@@ -323,6 +332,12 @@ export default function AsambleistaPage() {
               </p>
             )}
 
+            {estadoAsamblea === "receso" && (
+              <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
+                La asamblea está en receso. La votación continuará cuando el moderador reanude los trabajos.
+              </p>
+            )}
+
             {yaVoto && (
               <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-center text-sm font-bold text-emerald-700">
                 Tu voto ya fue registrado.
@@ -335,7 +350,7 @@ export default function AsambleistaPage() {
               </p>
             )}
 
-            {tipoVotacion === "resolucion" && estado === "abierta" && (
+            {tipoVotacion === "resolucion" && estado === "abierta" && estadoAsamblea !== "receso" && (
               <div className="mt-5 space-y-3">
                 <Button
                   onClick={() => votarResolucion("favor")}
@@ -371,7 +386,7 @@ export default function AsambleistaPage() {
               </div>
             )}
 
-            {tipoVotacion === "eleccion_lideres" && estado === "abierta" && (
+            {tipoVotacion === "eleccion_lideres" && estado === "abierta" && estadoAsamblea !== "receso" && (
               <div className="mt-5 space-y-3">
                 {rondaNumero === 1 && votosEmitidos === 0 && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
