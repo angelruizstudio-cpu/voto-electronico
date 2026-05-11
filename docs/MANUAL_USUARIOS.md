@@ -1,313 +1,583 @@
-# Manual de Usuarios
+# Manual del Sistema
 
-## Sistema de Asamblea y Votación Electrónica
+## Sistema de Gestion de Asambleas y Votacion Electronica
 
-Este manual describe el uso básico del sistema de asamblea para los distintos roles: Administrador, Moderador, Oficina, Puerta y Asambleísta.
+Este manual describe el uso del sistema para administrar asambleas, participantes, asistencia, votaciones, elecciones, resultados y reportes oficiales.
 
-El sistema permite administrar una asamblea completa, incluyendo registro, control de asistencia, votaciones, resoluciones, enmiendas, elecciones de líderes, publicación de resultados, historial y reportes oficiales.
-
----
-
-## 1. Acceso al Sistema
-
-El acceso principal se realiza desde:
-
-```text
-/login
-```
-
-En la pantalla inicial se debe seleccionar el área de trabajo:
+El sistema esta organizado por roles:
 
 - Administrador
 - Moderador
 - Oficina
 - Puerta
-- Asambleísta
+- Asambleista
 
-Luego se ingresa el usuario y la contraseña asignados.
-
-Para el rol Asambleísta, el acceso se realiza desde la pantalla móvil mediante credencial de asamblea.
+Cada rol ve las pantallas necesarias para cumplir su funcion dentro de la asamblea.
 
 ---
 
-## 2. Administrador del Sistema
+## 1. Pantalla de Acceso
 
-El Administrador tiene acceso a la configuración de usuarios y permisos.
+Ruta:
 
-### Funciones principales
+```text
+/login
+```
 
-- Crear usuarios del sistema.
+La pantalla de acceso permite seleccionar el area de trabajo antes de iniciar sesion.
+
+Areas disponibles:
+
+- Administrador
+- Moderador
+- Oficina
+- Puerta
+- Asambleista
+
+Para usuarios administrativos se requiere usuario y contrasena. Para asambleistas, el acceso se realiza con credencial desde la pantalla movil.
+
+Uso:
+
+1. Seleccionar el area correspondiente.
+2. Escribir usuario y contrasena si aplica.
+3. Presionar el boton de entrada.
+
+Notas:
+
+- Cada usuario solo debe entrar al area autorizada.
+- El asambleista no usa usuario administrativo; usa su credencial.
+- Si la pantalla muestra informacion anterior, refrescar con `Ctrl + F5`.
+
+---
+
+## 2. Administrador
+
+Ruta:
+
+```text
+/admin
+```
+
+El Administrador controla los usuarios internos del sistema.
+
+Funciones principales:
+
+- Crear usuarios.
 - Asignar roles.
 - Activar o desactivar usuarios.
-- Cambiar contraseñas.
-- Controlar quién puede acceder a cada área.
+- Cambiar contrasenas.
+- Administrar permisos de acceso.
 
-### Crear un usuario
+Roles administrativos:
 
-1. Entrar al sistema como Administrador.
-2. Ir al área **Administrador**.
-3. Completar:
-   - Nombre completo
-   - Usuario
-   - Contraseña inicial
-   - Roles permitidos
-4. Presionar **Crear usuario**.
+- Administrador: usuarios y permisos.
+- Moderador: control de asamblea, mociones, votaciones y resultados.
+- Oficina: registro, pagos, habilitacion e historial.
+- Puerta: check-in y check-out.
 
-### Roles disponibles
+Flujo recomendado:
 
-- **Administrador:** Maneja usuarios y permisos.
-- **Moderador:** Controla asamblea, votaciones, resoluciones y resultados.
-- **Oficina:** Maneja registro, pagos, habilitación e historial.
-- **Puerta:** Maneja check-in y check-out.
+1. Crear los usuarios antes del dia de la asamblea.
+2. Asignar solo los roles necesarios.
+3. Probar acceso de cada rol.
+4. Desactivar usuarios que ya no deben entrar.
 
 ---
 
-## 3. Oficina
+## 3. Moderador
 
-El área de Oficina se usa para preparar y administrar los asambleístas.
+Ruta principal:
 
-### Funciones principales
+```text
+/moderador
+```
 
-- Crear asambleístas.
-- Registrar pago.
-- Confirmar registro.
-- Habilitar asambleístas para votar.
-- Ver resultados actuales.
-- Ver historial de asambleas.
+El Moderador dirige el proceso parlamentario y controla las votaciones.
 
-### Crear asambleísta
+### Pantalla del Moderador
 
-1. Entrar como usuario con rol Oficina.
-2. Ir a **Oficina**.
-3. Escribir:
-   - Nombre y apellido
-   - Iglesia
-   - Distrito
-4. Presionar **Crear Asambleísta**.
+La pantalla esta organizada en dos columnas:
 
-El sistema generará una credencial automáticamente.
+- Columna izquierda: asamblea activa, creacion de votaciones, resoluciones y enmiendas.
+- Columna derecha: resultados del moderador, graficas, cierre, publicacion y rondas.
 
-### Habilitar asambleísta
+### Sidebar del Moderador
 
-Para que una persona pueda votar debe cumplir el flujo:
+El panel lateral muestra:
 
-1. Registrar.
-2. Confirmar pago.
-3. Habilitar.
+- Usuario conectado.
+- Estado de la asamblea.
+- Organizacion.
+- Ano y lugar.
+- Quorum.
+- Votacion actual.
 
-Una persona no debe ser habilitada si no completó el registro y la confirmación de pago.
+El quorum se calcula con la cantidad de asambleistas que estan marcados como presentes por Puerta.
 
----
+### Abrir Asamblea
 
-## 4. Puerta
-
-El área de Puerta es para el equipo que controla entrada y salida.
-
-### Funciones principales
-
-- Buscar asambleístas por nombre, credencial, iglesia o distrito.
-- Marcar check-in.
-- Marcar check-out.
-- Ver cuántos están presentes, fuera, registrados y habilitados.
-
-### Check-in
-
-1. Entrar al área **Puerta**.
-2. Buscar al asambleísta.
-3. Confirmar que esté habilitado.
-4. Presionar **Check-in**.
-
-### Check-out
-
-1. Buscar al asambleísta.
-2. Presionar **Check-out**.
-
-Cuando una persona está fuera, no debe poder votar hasta regresar y estar presente nuevamente.
-
----
-
-## 5. Moderador
-
-El Moderador controla el desarrollo parlamentario de la asamblea.
-
-### Funciones principales
-
-- Abrir asamblea.
-- Crear votaciones.
-- Presentar resoluciones.
-- Presentar enmiendas.
-- Presentar enmiendas a la enmienda.
-- Marcar mociones como secundadas.
-- Abrir votaciones.
-- Cerrar votaciones.
-- Publicar resultados.
-- Manejar elecciones de líderes por rondas.
-- Cerrar la asamblea.
-- Generar reporte de cierre.
-
-### Abrir asamblea
+Para abrir una asamblea:
 
 1. Entrar como Moderador.
-2. Completar año y lugar.
-3. Presionar **Abrir**.
+2. Escribir organizacion, ano y lugar.
+3. Presionar abrir asamblea.
 
-Solo debe haber una asamblea abierta a la vez.
+Solo debe haber una asamblea activa a la vez.
 
-### Crear votación de resolución
+### Crear Resolucion
 
-1. Escribir el título.
-2. Seleccionar **Resolución**.
-3. Seleccionar tipo de mayoría:
-   - Mayoría simple
-   - Dos tercios
-4. Seleccionar tipo de moción:
-   - Resolución principal
+Para crear una resolucion:
+
+1. Escribir el titulo.
+2. Seleccionar `Resolucion`.
+3. Escoger el tipo de mayoria:
+   - Mayoria simple
+   - Dos terceras partes
+4. Escoger el tipo de mocion:
+   - Resolucion principal
    - Enmienda
    - Enmienda a la enmienda
-5. Presionar **Presentar moción**.
+5. Presentar la mocion.
+6. Marcar como secundada si recibe segundo.
+7. Abrir votacion.
 
-### Flujo parlamentario de resoluciones
+### Calculo de Mayoria
 
-El flujo básico es:
+Para resoluciones, el sistema calcula usando votos validos:
 
-1. Presentar resolución principal.
-2. Marcar como secundada.
-3. Debatir y votar.
-4. Cerrar votación.
-5. Publicar resultados.
+```text
+Votos validos = A favor + En contra
+```
 
-Si la resolución no recibe segundo, se debe marcar **No fue secundada**.
+Las abstenciones se muestran en resultados, pero no cuentan para determinar la mayoria requerida.
+
+Mayoria simple:
+
+```text
+floor(votos validos / 2) + 1
+```
+
+Dos terceras partes:
+
+```text
+ceil((2 / 3) * votos validos)
+```
+
+Ejemplos de dos terceras partes:
+
+- 3 votos validos requieren 2.
+- 4 votos validos requieren 3.
+- 5 votos validos requieren 4.
+- 6 votos validos requieren 4.
+
+### Resultados del Moderador
+
+La pantalla de resultados del moderador muestra:
+
+- Estado.
+- Tipo de mocion.
+- Tipo de mayoria.
+- Votos necesarios.
+- Votos a favor.
+- Votos en contra.
+- Abstenciones.
+- Barras visuales por opcion.
+- Mensaje indicando si la mocion alcanza la mayoria requerida.
 
 ### Enmiendas
 
-Si se presenta una enmienda a una resolución:
+Cuando hay una enmienda activa:
 
-- Los botones de la resolución principal quedan deshabilitados.
-- Primero debe completarse la votación de la enmienda.
-- Luego se regresa a la resolución principal.
+- La resolucion principal queda protegida.
+- Primero se procesa la enmienda.
+- Luego se regresa a la resolucion principal.
 
-Si se presenta una enmienda a la enmienda:
+Cuando hay una enmienda a la enmienda:
 
-- Los botones de la enmienda principal quedan deshabilitados.
-- Primero debe completarse la votación de la enmienda a la enmienda.
+- La enmienda principal queda protegida.
+- Primero se procesa la enmienda a la enmienda.
 - Luego se regresa a la enmienda principal.
 
-Esto evita confusión y mantiene el orden parlamentario.
+### Eleccion de Lideres
 
-### Elección de líderes
+Para crear una eleccion:
 
-1. Crear votación tipo **Elección de líderes**.
-2. Añadir candidatos.
-3. Abrir votación.
-4. Cerrar votación.
+1. Escribir el cargo o titulo, por ejemplo `Presidente`.
+2. Seleccionar `Eleccion de lideres`.
+3. Agregar candidatos iniciales si aplica.
+4. Abrir votacion.
+5. Permitir nominaciones si es primera ronda y aun no hay votos emitidos.
+6. Cerrar votacion.
 
-Si nadie obtiene mayoría simple:
+Reglas principales:
 
-- El sistema puede crear una nueva ronda.
-- En la segunda ronda pasan los candidatos correspondientes.
-- Si llega a empate final, se registra el ganador por sorteo físico.
+- La eleccion usa mayoria simple.
+- Si ningun candidato alcanza mayoria, se puede crear una nueva ronda.
+- En segunda ronda pasan los candidatos correspondientes.
+- Si hay empate final, se puede registrar el ganador por sorteo fisico.
 
-### Cerrar asamblea
+### Cerrar Asamblea
 
-Al presionar **Cerrar asamblea**, el sistema:
+Al cerrar la asamblea, el sistema:
 
-1. Cierra votaciones abiertas.
-2. Marca salida de los asambleístas presentes.
-3. Cierra la asamblea.
-4. Genera el PDF de cierre.
+- Cierra procesos abiertos.
+- Conserva el historial.
+- Permite generar PDF de cierre.
+- Deja disponible el acta de elecciones y resultados.
 
 ---
 
-## 6. Asambleísta
+## 4. Oficina
 
-La pantalla del Asambleísta está diseñada para celular.
+Ruta:
 
-### Funciones principales
+```text
+/oficina
+```
 
-- Hacer check-in con credencial.
+Oficina administra el registro de asambleistas.
+
+Funciones principales:
+
+- Crear asambleistas.
+- Registrar iglesia y distrito.
+- Registrar email.
+- Confirmar pago.
+- Confirmar registro.
+- Habilitar para votar.
+- Enviar credenciales por email.
+- Consultar resultados e historial.
+
+### Crear Asambleista
+
+1. Entrar como Oficina.
+2. Completar los datos del asambleista.
+3. Incluir email si se desea enviar credencial.
+4. Crear el registro.
+
+El sistema genera una credencial unica.
+
+### Habilitacion
+
+Para que un asambleista pueda votar debe:
+
+1. Estar registrado.
+2. Tener pago confirmado si aplica.
+3. Estar habilitado.
+4. Hacer check-in en Puerta.
+
+### Envio de Credenciales
+
+El sistema puede enviar credenciales por email usando Resend.
+
+Variables necesarias:
+
+```text
+RESEND_API_KEY
+RESEND_FROM_EMAIL
+```
+
+Para produccion se debe usar un dominio verificado.
+
+---
+
+## 5. Puerta
+
+Ruta:
+
+```text
+/puerta
+```
+
+Puerta controla entrada y salida de participantes.
+
+Funciones principales:
+
+- Buscar por nombre, credencial, iglesia o distrito.
+- Marcar check-in.
+- Marcar check-out.
+- Ver registrados.
+- Ver presentes.
+- Ver fuera.
+- Ver habilitados.
+
+### Check-in
+
+1. Buscar al asambleista.
+2. Confirmar que este habilitado.
+3. Presionar `Check-in`.
+
+Cuando una persona hace check-in:
+
+- Queda marcada como presente.
+- Cuenta para el quorum.
+- Puede votar si tambien esta habilitada.
+
+### Check-out
+
+1. Buscar al asambleista.
+2. Presionar `Check-out`.
+
+Cuando una persona hace check-out:
+
+- Deja de contar para quorum.
+- No debe poder votar hasta volver a estar presente.
+
+---
+
+## 6. Asambleista
+
+Ruta:
+
+```text
+/asambleista
+```
+
+La pantalla de asambleista esta disenada para uso movil.
+
+Funciones principales:
+
+- Entrar con credencial.
+- Ver asamblea activa.
+- Ver votacion actual.
 - Votar en resoluciones.
-- Votar en elecciones de líderes.
+- Votar en elecciones.
 - Nominar candidatos cuando aplique.
 - Ver resultados publicados.
-- Ver historial de asambleas.
-- Salir del sistema.
+- Ver historial.
 
-### Acceso del asambleísta
+### Acceso con Credencial
 
-1. Ir a **Asambleísta** desde el login principal.
-2. Ingresar la credencial asignada.
-3. Presionar **Entrar**.
+1. Entrar a la pantalla de Asambleista.
+2. Escribir la credencial.
+3. Presionar entrar.
 
-El sistema valida que el asambleísta:
+El sistema valida:
 
-- Exista.
-- Pertenezca a la asamblea activa.
-- Esté habilitado.
-- Esté presente.
+- Que la credencial exista.
+- Que pertenezca a la asamblea activa.
+- Que el asambleista este habilitado.
+- Que este presente en Puerta.
 
-### Votar
+### Votacion de Resoluciones
 
-Cuando haya una votación abierta:
+Cuando hay una resolucion abierta, el asambleista ve botones para:
 
-- Para resolución: seleccionar **A favor** o **En contra**.
-- Para elección: seleccionar un candidato.
+- A favor
+- En contra
 
-Cada asambleísta solo puede votar una vez por votación.
+Cada asambleista solo puede votar una vez por votacion.
 
-### Resultados
+### Votacion de Elecciones
 
-El asambleísta puede ver resultados cuando el Moderador los publica.
+Cuando hay una eleccion abierta, el asambleista ve los candidatos.
+
+Si hay mas de dos candidatos, se muestran en columnas para ahorrar espacio.
+
+El titulo del cargo, por ejemplo `Presidente`, aparece centrado.
+
+### Nominacion Directa
+
+La nominacion directa aparece cuando:
+
+- Es eleccion de lideres.
+- Es primera ronda.
+- La votacion esta abierta.
+- Todavia no se han emitido votos.
+
+Cuando un asambleista nomina, el candidato se registra para todos. El sistema refresca la votacion activa para que los demas asambleistas vean la nominacion.
 
 ---
 
-## 7. Historial y Reportes
+## 7. Resultados de Asambleista
 
-El sistema conserva historial de asambleas pasadas.
+Ruta:
 
-Desde el historial se puede ver:
+```text
+/asambleista/resultados
+```
 
-- Votaciones realizadas.
+Esta pantalla permite al asambleista ver resultados publicados.
+
+Puede mostrar:
+
+- Resultados de resoluciones.
+- Elecciones de lideres.
+- Votos por candidato.
+- Porcentajes.
+- Estado de la votacion.
+
+Los resultados dependen de lo que publique el Moderador.
+
+---
+
+## 8. Historial del Asambleista
+
+Ruta:
+
+```text
+/asambleista/historial
+```
+
+Permite consultar informacion historica disponible para el asambleista.
+
+---
+
+## 9. Resultados Actuales
+
+Rutas:
+
+```text
+/moderador/resultados
+/oficina/resultados
+```
+
+Estas pantallas muestran el resumen de la votacion activa.
+
+Incluyen:
+
+- Estado.
+- Tipo de votacion.
+- Votos emitidos.
+- Votos necesarios.
+- Mocion.
+- Tipo de mayoria.
+- Votos a favor y en contra.
+- Candidatos y porcentajes en elecciones.
+
+---
+
+## 10. Historial de Asambleas
+
+Rutas:
+
+```text
+/historial
+/moderador/historial
+/oficina/historial
+```
+
+El historial permite consultar asambleas cerradas o registradas.
+
+Desde el historial se puede abrir el detalle de una asamblea.
+
+---
+
+## 11. Detalle de Asamblea y PDF
+
+Ruta:
+
+```text
+/historial/[id]
+```
+
+Esta pantalla muestra el detalle de una asamblea especifica.
+
+Incluye:
+
+- Elecciones de lideres.
 - Resoluciones.
 - Enmiendas.
-- Elecciones de líderes.
+- Resultados.
 - Ganadores.
-- Resultados por ronda.
-- Reporte PDF.
+- Votos por candidato.
+- Votos a favor, en contra y abstenciones.
 
-### Reporte de cierre
+### Descargar PDF
 
-El reporte de cierre incluye:
+El boton `Descargar PDF` genera el reporte oficial de la asamblea.
 
-- Datos de la asamblea.
-- Resultados generales.
-- Acta de elecciones de líderes.
+El PDF incluye:
+
+- Datos generales de la asamblea.
+- Tabla historica de asuntos.
 - Resoluciones y enmiendas.
-- Área de firmas oficiales.
-- Logo institucional.
+- Acta de elecciones.
+- Area de firmas oficiales.
+
+### Acta de Elecciones
+
+El acta de elecciones usa formato tipo tabla oficial.
+
+Para cada cargo muestra:
+
+- Titulo del cargo centrado, por ejemplo `PRESIDENTE`.
+- Votos emitidos.
+- Votos necesarios.
+- Resultado de eleccion `Si - No`.
+- Primera ronda.
+- Segunda ronda.
+- Candidatos.
+- Votos por candidato.
+
+Si existe tercera ronda, el sistema genera otra tabla para continuar el acta sin perder informacion.
 
 ---
 
-## 8. Recomendaciones para Uso en Asamblea
+## 12. Flujo Recomendado para una Asamblea Real
 
-Antes de iniciar una asamblea real:
+Antes de la asamblea:
 
-1. Verificar que la asamblea esté abierta.
-2. Confirmar que los usuarios administrativos puedan entrar.
-3. Verificar que Oficina pueda crear y habilitar asambleístas.
-4. Probar check-in y check-out desde Puerta.
-5. Probar un voto desde un celular.
-6. Probar publicación de resultados.
-7. Probar generación del PDF.
-8. Tener conexión estable de internet.
-9. Tener una persona responsable de soporte técnico.
+1. Crear usuarios administrativos.
+2. Verificar que Oficina, Puerta y Moderador puedan entrar.
+3. Registrar asambleistas.
+4. Confirmar pagos o habilitacion.
+5. Enviar credenciales si se usara email.
+6. Probar acceso desde un celular.
+
+Durante la asamblea:
+
+1. Moderador abre la asamblea.
+2. Puerta marca check-in.
+3. El quorum se actualiza con los presentes.
+4. Moderador presenta resoluciones o elecciones.
+5. Asambleistas votan desde sus dispositivos.
+6. Moderador cierra y publica resultados.
+7. Puerta puede marcar check-out cuando corresponda.
+
+Despues de la asamblea:
+
+1. Moderador cierra la asamblea.
+2. Se revisa el historial.
+3. Se descarga el PDF.
+4. Se archiva el reporte oficial.
 
 ---
 
-## 9. Notas Importantes
+## 13. Recomendaciones Tecnicas
 
-- Si una pantalla no cambia, refrescar con `Ctrl + F5`.
-- Si el servidor de desarrollo está mostrando información vieja, reiniciar `localhost:3000`.
-- Los usuarios administrativos deben cerrar sesión al terminar.
-- El acceso de emergencia solo debe usarse para configuración inicial.
-- Antes de usar en producción, se recomienda realizar una prueba completa con varios dispositivos.
+- Usar conexion estable de internet.
+- Probar el sistema antes de usarlo oficialmente.
+- Reiniciar el servidor local si se ven datos viejos en desarrollo.
+- Refrescar el navegador con `Ctrl + F5` si hay cache.
+- En telefonos, reinstalar la PWA si no actualiza iconos o diseno.
+- No compartir usuarios administrativos.
+- Cada asambleista debe usar su propia credencial.
 
+---
+
+## 14. Glosario
+
+Asamblea activa:
+Asamblea actualmente abierta para registro, asistencia o votacion.
+
+Quorum:
+Cantidad de asambleistas presentes, calculada por check-in en Puerta.
+
+Votos validos:
+Votos a favor mas votos en contra. Se usan para calcular mayoria en resoluciones.
+
+Abstencion:
+Voto registrado como abstencion. Se muestra en resultados, pero no cuenta como voto valido para mayoria.
+
+Mayoria simple:
+Mas de la mitad de los votos validos.
+
+Dos terceras partes:
+Cantidad minima equivalente a dos tercios de los votos validos, redondeada hacia arriba.
+
+Nominacion directa:
+Nombre agregado por un asambleista durante una eleccion de lideres cuando la primera ronda aun no tiene votos emitidos.
+
+Acta de elecciones:
+Seccion del PDF que presenta resultados por cargo y por ronda en formato oficial.
