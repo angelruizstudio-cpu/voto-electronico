@@ -10,8 +10,10 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  Menu,
   MonitorCheck,
   Shield,
+  X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { AsambleaProvider, useAsamblea } from "@/hooks/useAsamblea"
@@ -53,6 +55,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
   const router = useRouter()
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string } | null>(null)
   const [quorum, setQuorum] = useState(0)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea } = useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
   const navItems = navByRole[role].filter(
@@ -121,8 +124,86 @@ function AdminShellContent({ children, role }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-screen min-w-[1180px] bg-[#f4f6f1] text-slate-950">
-      <aside className="fixed inset-y-0 left-0 flex w-72 flex-col border-r border-[#d9dfd3] bg-[#16382f] text-white">
+    <div className="min-h-screen bg-[#f4f6f1] text-slate-950">
+      <header className="sticky top-0 z-40 border-b border-[#d9dfd3] bg-[#16382f] px-3 py-3 text-white lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Image
+              src="/logo_voto_electronico.png"
+              alt="Logo oficial"
+              width={56}
+              height={56}
+              className="size-11 rounded-lg bg-white object-cover shadow-sm"
+            />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d7c27a]">
+                Asamblea
+              </p>
+              <p className="truncate text-lg font-black">{moduloActual}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((open) => !open)}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+            aria-label={mobileNavOpen ? "Cerrar menú" : "Abrir menú"}
+          >
+            {mobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
+
+        {mobileNavOpen && (
+          <div className="mt-3 rounded-2xl border border-white/10 bg-[#0f2b24] p-3 shadow-lg">
+            <nav className="grid gap-2">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const active =
+                  pathname === item.href ||
+                  (item.href !== "/oficina" &&
+                    item.href !== "/moderador" &&
+                    pathname.startsWith(item.href))
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={[
+                      "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition",
+                      active
+                        ? "bg-white text-[#16382f] shadow-sm"
+                        : "text-white/76 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+
+            <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/10 bg-white/8 p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black">{usuario?.nombre || "Usuario"}</p>
+                <p className="text-xs text-white/56">
+                  Quórum: {quorum} · {asambleaId ? "Activa" : "Inactiva"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/78 transition hover:bg-white hover:text-[#16382f]"
+                title="Salir"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col border-r border-[#d9dfd3] bg-[#16382f] text-white lg:flex">
         <div className="border-b border-white/10 px-5 py-5">
           <div className="flex items-center gap-3">
             <Image
@@ -235,7 +316,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
         </div>
       </aside>
 
-      <div className="ml-72">{children}</div>
+      <div className="lg:ml-72">{children}</div>
     </div>
   )
 }
