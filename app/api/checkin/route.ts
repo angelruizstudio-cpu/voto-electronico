@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("id, habilitado")
+      .select("id, nombre, habilitado")
       .eq("asamblea_id", asamblea.id)
       .eq("credencial", credencialNormalizada)
       .single()
@@ -84,7 +84,13 @@ export async function POST(req: Request) {
       )
     }
 
-    return NextResponse.json({ ok: true, token: tokenGuardado.token_hash })
+    return NextResponse.json({
+      ok: true,
+      token: tokenGuardado.token_hash,
+      asambleista: {
+        nombre: asambleista.nombre,
+      },
+    })
   } catch {
     return NextResponse.json({ ok: false, error: "ERROR_SERVIDOR" }, { status: 500 })
   }

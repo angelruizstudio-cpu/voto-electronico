@@ -63,6 +63,7 @@ export default function AsambleistaPage() {
 
   // token ahora almacena el token_hash (retornado por /api/checkin)
   const [token, setToken] = useState("")
+  const [asambleistaNombre, setAsambleistaNombre] = useState("")
   const [credencial, setCredencial] = useState("")
   const [nominacion, setNominacion] = useState("")
   const [cargando, setCargando] = useState(false)
@@ -70,6 +71,7 @@ export default function AsambleistaPage() {
   useEffect(() => {
     queueMicrotask(() => {
       setToken(localStorage.getItem("token_votacion") || "")
+      setAsambleistaNombre(localStorage.getItem("asambleista_nombre") || "")
     })
   }, [])
 
@@ -100,7 +102,9 @@ export default function AsambleistaPage() {
 
     // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
     localStorage.setItem("token_votacion", resultado.token)
+    localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
     setToken(resultado.token)
+    setAsambleistaNombre(resultado.asambleista?.nombre || "")
     alert("Acceso concedido")
     await cargarVotacionActiva()
   }
@@ -266,6 +270,20 @@ export default function AsambleistaPage() {
                   {cargando ? "..." : "Entrar"}
                 </Button>
               </div>
+            </div>
+          )}
+
+          {token && asambleistaNombre && (
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+                Sesión acreditada
+              </p>
+              <p className="mt-1 text-xl font-black text-slate-950">
+                {asambleistaNombre}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Tu identidad confirma acceso a la sesión; tu voto permanece secreto.
+              </p>
             </div>
           )}
 

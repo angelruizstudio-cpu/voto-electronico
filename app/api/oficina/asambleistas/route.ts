@@ -74,6 +74,8 @@ async function enviarCredencialPorEmail({
   const from = process.env.RESEND_FROM_EMAIL || "Asamblea <onboarding@resend.dev>"
   const nombreHtml = escaparHtml(nombre)
   const credencialHtml = escaparHtml(credencial)
+  const qrPayload = `VOTOAPP:${credencial}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=18&data=${encodeURIComponent(qrPayload)}`
 
   if (!apiKey) {
     return { enviado: false, error: "FALTA_RESEND_API_KEY" }
@@ -89,14 +91,17 @@ async function enviarCredencialPorEmail({
       from,
       to: [email],
       subject: "Credencial de asamblea",
-      text: `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nUse esta credencial al llegar a la asamblea. El token de votación se genera aparte durante el check-in.\n`,
+      text: `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
           <h1 style="font-size: 22px;">Credencial de asamblea</h1>
           <p>Saludos ${nombreHtml},</p>
           <p>Su credencial para hacer check-in en la asamblea es:</p>
           <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.08em;">${credencialHtml}</p>
-          <p>Use esta credencial al llegar a la asamblea.</p>
+          <div style="margin: 18px 0; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #ffffff;">
+            <img src="${qrUrl}" width="220" height="220" alt="Codigo QR de credencial ${credencialHtml}" style="display: block;" />
+          </div>
+          <p>Presente esta credencial o el código QR en la puerta para agilizar su check-in/check-out.</p>
           <p style="color: #475569; font-size: 14px;">El token de votación se genera aparte durante el check-in.</p>
         </div>
       `,

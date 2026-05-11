@@ -58,6 +58,13 @@ function AdminShellContent({ children, role }: AdminShellProps) {
   const navItems = navByRole[role].filter(
     (item) => item.href !== "/admin" || usuario?.rol === "admin"
   )
+  const moduloActual = pathname.startsWith("/puerta")
+    ? "Puerta"
+    : pathname.startsWith("/admin")
+      ? "Administrador"
+      : pathname.startsWith("/oficina")
+        ? "Oficina"
+        : "Moderador"
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -130,7 +137,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
                 Asamblea
               </p>
               <p className="truncate text-lg font-black">
-                {role === "oficina" ? "Oficina" : "Moderador"}
+                {moduloActual}
               </p>
             </div>
           </div>

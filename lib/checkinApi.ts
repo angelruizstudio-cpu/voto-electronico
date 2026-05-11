@@ -19,5 +19,6 @@ export async function hacerCheckin(credencial: string) {
   return {
     ok: true,
     token: data.token,
+    asambleista: data.asambleista,
   }
 }
