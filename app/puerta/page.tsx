@@ -19,6 +19,7 @@ type Asambleista = {
   credencial: string
   iglesia: string | null
   distrito: string | null
+  metodo_voto: "electronico" | "manual"
   registrado: boolean
   pago_confirmado: boolean
   habilitado: boolean
@@ -316,7 +317,8 @@ export default function PuertaPage() {
                   }`}
                 >
                   {seleccionado.presente ? "PRESENTE" : "FUERA"} ·{" "}
-                  {seleccionado.habilitado ? "HABILITADO" : "NO HABILITADO"}
+                  {seleccionado.habilitado ? "HABILITADO" : "NO HABILITADO"} ·{" "}
+                  {seleccionado.metodo_voto === "manual" ? "VOTO MANUAL" : "VOTO ELECTRÓNICO"}
                 </p>
               </div>
             </div>
@@ -364,6 +366,9 @@ export default function PuertaPage() {
                     <p className="truncate text-lg font-black text-slate-950">{a.nombre}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-500">
                       {a.credencial} · {a.iglesia || "N/A"}
+                    </p>
+                    <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">
+                      {a.metodo_voto === "manual" ? "Voto manual" : "Voto electrónico"}
                     </p>
                   </div>
                   <span

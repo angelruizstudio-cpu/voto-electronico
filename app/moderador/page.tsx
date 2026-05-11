@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useCrearVotacion } from "@/hooks/useCrearVotacion"
 import { useVotacion } from "@/hooks/useVotacion"
+import { VotosManualesPanel } from "@/components/VotosManualesPanel"
 import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
@@ -803,6 +804,8 @@ export default function Moderador() {
             )}
           </CardContent>
             </Card>
+
+            <VotosManualesPanel asambleaId={asambleaId} />
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-6">

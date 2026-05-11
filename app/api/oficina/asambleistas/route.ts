@@ -7,6 +7,7 @@ type CambiosAsambleista = {
   pago_confirmado?: boolean
   habilitado?: boolean
   presente?: boolean
+  metodo_voto?: "electronico" | "manual"
 }
 
 type ResultadoEnvioCredencial = {
@@ -88,10 +89,12 @@ async function enviarCredencialPorEmail({
   email,
   nombre,
   credencial,
+  metodoVoto,
 }: {
   email: string
   nombre: string
   credencial: string
+  metodoVoto: "electronico" | "manual"
 }): Promise<ResultadoEnvioCredencial> {
   if (!email) {
     return { enviado: false }
@@ -101,6 +104,7 @@ async function enviarCredencialPorEmail({
   const from = process.env.RESEND_FROM_EMAIL || "Asamblea <onboarding@resend.dev>"
   const nombreHtml = escaparHtml(nombre)
   const credencialHtml = escaparHtml(credencial)
+  const esManual = metodoVoto === "manual"
   const qrPayload = `VOTOAPP:${credencial}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=18&data=${encodeURIComponent(qrPayload)}`
 
@@ -111,19 +115,21 @@ async function enviarCredencialPorEmail({
   const payload = {
     from,
     to: [email],
-    subject: "Credencial de asamblea",
-    text: `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
+    subject: esManual ? "Credencial de identificación de asamblea" : "Credencial de asamblea",
+    text: esManual
+      ? `Saludos ${nombre},\n\nSu credencial de identificación para check-in/check-out en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta. Su voto será emitido por balota manual según el proceso de la asamblea.\n`
+      : `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
     html: `
       <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-        <h1 style="font-size: 22px;">Credencial de asamblea</h1>
+        <h1 style="font-size: 22px;">${esManual ? "Credencial de identificación de asamblea" : "Credencial de asamblea"}</h1>
         <p>Saludos ${nombreHtml},</p>
-        <p>Su credencial para hacer check-in en la asamblea es:</p>
+        <p>Su credencial ${esManual ? "de identificación para check-in/check-out" : "para hacer check-in en la asamblea"} es:</p>
         <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.08em;">${credencialHtml}</p>
         <div style="margin: 18px 0; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #ffffff;">
           <img src="${qrUrl}" width="220" height="220" alt="Codigo QR de credencial ${credencialHtml}" style="display: block;" />
         </div>
         <p>Presente esta credencial o el código QR en la puerta para agilizar su check-in/check-out.</p>
-        <p style="color: #475569; font-size: 14px;">El token de votación se genera aparte durante el check-in.</p>
+        <p style="color: #475569; font-size: 14px;">${esManual ? "Su voto será emitido por balota manual según el proceso de la asamblea." : "El token de votación se genera aparte durante el check-in."}</p>
       </div>
     `,
   }
@@ -193,9 +199,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { asambleaId, nombre, iglesia, distrito, email } = await req.json()
+  const { asambleaId, nombre, iglesia, distrito, email, metodoVoto } = await req.json()
   const nombreLimpio = String(nombre || "").trim()
   const emailLimpio = limpiarEmail(email)
+  const metodoVotoLimpio = metodoVoto === "manual" ? "manual" : "electronico"
 
   if (!asambleaId || !nombreLimpio) {
     return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
@@ -227,6 +234,7 @@ export async function POST(req: NextRequest) {
       nombre: nombreLimpio,
       credencial,
       email: emailLimpio || null,
+      metodo_voto: metodoVotoLimpio,
       iglesia: String(iglesia || "").trim(),
       distrito: String(distrito || "").trim(),
       registrado: false,
@@ -248,6 +256,7 @@ export async function POST(req: NextRequest) {
     email: emailLimpio,
     nombre: nombreLimpio,
     credencial,
+    metodoVoto: metodoVotoLimpio,
   })
 
   let asambleista = data
@@ -292,6 +301,10 @@ export async function PATCH(req: NextRequest) {
     if (typeof cambios[campo] === "boolean") {
       cambiosPermitidos[campo] = cambios[campo]
     }
+  }
+
+  if (cambios.metodo_voto === "electronico" || cambios.metodo_voto === "manual") {
+    cambiosPermitidos.metodo_voto = cambios.metodo_voto
   }
 
   if (Object.keys(cambiosPermitidos).length === 0) {

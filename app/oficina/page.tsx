@@ -9,6 +9,7 @@ type Asambleista = {
   nombre: string
   credencial: string
   email: string | null
+  metodo_voto: "electronico" | "manual"
   credencial_email_enviado_en: string | null
   credencial_email_error: string | null
   iglesia: string | null
@@ -27,6 +28,7 @@ export default function OficinaRegionalPage() {
 
   const [nuevoNombre, setNuevoNombre] = useState("")
   const [nuevoEmail, setNuevoEmail] = useState("")
+  const [nuevoMetodoVoto, setNuevoMetodoVoto] = useState<"electronico" | "manual">("electronico")
   const [nuevaIglesia, setNuevaIglesia] = useState("")
   const [nuevoDistrito, setNuevoDistrito] = useState("")
 
@@ -115,6 +117,7 @@ export default function OficinaRegionalPage() {
         asambleaId,
         nombre: nuevoNombre,
         email: nuevoEmail,
+        metodoVoto: nuevoMetodoVoto,
         iglesia: nuevaIglesia,
         distrito: nuevoDistrito,
       }),
@@ -131,6 +134,7 @@ export default function OficinaRegionalPage() {
 
     setNuevoNombre("")
     setNuevoEmail("")
+    setNuevoMetodoVoto("electronico")
     setNuevaIglesia("")
     setNuevoDistrito("")
 
@@ -206,7 +210,7 @@ export default function OficinaRegionalPage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">Nuevo asambleísta</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-5">
 
           <input
             type="text"
@@ -223,6 +227,15 @@ export default function OficinaRegionalPage() {
             onChange={(e) => setNuevoEmail(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
           />
+
+          <select
+            value={nuevoMetodoVoto}
+            onChange={(e) => setNuevoMetodoVoto(e.target.value as "electronico" | "manual")}
+            className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
+          >
+            <option value="electronico">Voto electrónico</option>
+            <option value="manual">Voto manual</option>
+          </select>
 
           <input
             type="text"
@@ -272,6 +285,12 @@ export default function OficinaRegionalPage() {
                       Email: {a.email || "N/A"}
                     </p>
                     <p className="text-sm text-slate-500">
+                      Método de voto:{" "}
+                      <span className="font-bold">
+                        {a.metodo_voto === "manual" ? "Manual" : "Electrónico"}
+                      </span>
+                    </p>
+                    <p className="text-sm text-slate-500">
                       Iglesia: {a.iglesia || "N/A"} | Distrito:{" "}
                       {a.distrito || "N/A"}
                     </p>
@@ -305,6 +324,20 @@ export default function OficinaRegionalPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    <select
+                      value={a.metodo_voto || "electronico"}
+                      disabled={cargando}
+                      onChange={(e) =>
+                        actualizarAsambleista(a.id, {
+                          metodo_voto: e.target.value as Asambleista["metodo_voto"],
+                        })
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-40"
+                    >
+                      <option value="electronico">Electrónico</option>
+                      <option value="manual">Manual</option>
+                    </select>
+
                     <button
                       disabled={cargando || a.registrado}
                       onClick={() =>

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("id, nombre, habilitado")
+      .select("id, nombre, habilitado, metodo_voto")
       .eq("asamblea_id", asamblea.id)
       .eq("credencial", credencialNormalizada)
       .single()
@@ -45,6 +45,16 @@ export async function POST(req: Request) {
         {
           ok: false,
           error: "NO_HABILITADO",
+        },
+        { status: 403 }
+      )
+    }
+
+    if (asambleista.metodo_voto === "manual") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "VOTO_MANUAL",
         },
         { status: 403 }
       )

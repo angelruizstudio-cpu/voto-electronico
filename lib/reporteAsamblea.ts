@@ -29,6 +29,7 @@ type VotacionReporte = {
   ronda_numero?: number | null
   eleccion_grupo_id?: string | null
   emitidos: number
+  manuales: number
   favor: number
   contra: number
   abstencion: number
@@ -301,10 +302,29 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
         .select("*")
         .eq("votacion_id", votacion.id)
 
-      const emitidos = votos?.length || 0
-      const favor = votos?.filter((v) => v.opcion === "favor").length || 0
-      const contra = votos?.filter((v) => v.opcion === "contra").length || 0
-      const abstencion = votos?.filter((v) => v.opcion === "abstencion").length || 0
+      const { data: votosManuales } = await supabase
+        .from("votos_manuales")
+        .select("*")
+        .eq("votacion_id", votacion.id)
+
+      const manuales = (votosManuales || []).reduce(
+        (total, voto) => total + Number(voto.cantidad || 0),
+        0
+      )
+      const emitidosElectronicos = votos?.length || 0
+      const emitidos = emitidosElectronicos + manuales
+      const favorElectronico = votos?.filter((v) => v.opcion === "favor").length || 0
+      const contraElectronico = votos?.filter((v) => v.opcion === "contra").length || 0
+      const abstencionElectronica = votos?.filter((v) => v.opcion === "abstencion").length || 0
+      const favorManual =
+        votosManuales?.find((v) => v.opcion === "favor")?.cantidad || 0
+      const contraManual =
+        votosManuales?.find((v) => v.opcion === "contra")?.cantidad || 0
+      const abstencionManual =
+        votosManuales?.find((v) => v.opcion === "abstencion")?.cantidad || 0
+      const favor = favorElectronico + favorManual
+      const contra = contraElectronico + contraManual
+      const abstencion = abstencionElectronica + abstencionManual
 
       const necesarios = calcularNecesarios(
         votacion.tipo_votacion === "eleccion_lideres" ? emitidos : favor + contra,
@@ -325,7 +345,10 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
           candidatos?.map((candidato) => ({
             nombre: candidato.nombre,
             votos:
-              votos?.filter((v) => v.candidato_id === candidato.id).length || 0,
+              (votos?.filter((v) => v.candidato_id === candidato.id).length || 0) +
+              Number(
+                votosManuales?.find((v) => v.candidato_id === candidato.id)?.cantidad || 0
+              ),
           })) || []
 
         if (votacion.ganador_id) {
@@ -352,6 +375,7 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
         ronda_numero: votacion.ronda_numero || undefined,
         eleccion_grupo_id: votacion.eleccion_grupo_id || null,
         emitidos,
+        manuales,
         favor,
         contra,
         abstencion,
@@ -402,6 +426,7 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
       "Tipo",
       "Mayoría",
       "Emitidos",
+      "Manuales",
       "A favor",
       "En contra",
       "Necesarios",
@@ -414,6 +439,7 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
         : `${mostrarTipoVotacion(v.tipo_votacion)}${v.ronda_numero ? ` - Ronda ${v.ronda_numero}` : ""}`,
       mostrarTipoMayoria(v.tipo_mayoria),
       v.emitidos,
+      v.manuales,
       v.tipo_votacion === "eleccion_lideres" ? "-" : v.favor,
       v.tipo_votacion === "eleccion_lideres" ? "-" : v.contra,
       v.necesarios,

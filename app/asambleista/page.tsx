@@ -96,6 +96,8 @@ export default function AsambleistaPage() {
         NO_EXISTE: "Credencial no encontrada",
         NO_HABILITADO:
           "No estás habilitado para hacer check-in. Pasa primero por la mesa de registro.",
+        VOTO_MANUAL:
+          "Tu participación está registrada para voto manual. Pasa por la mesa para recibir tu balota.",
         ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
         ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
       }
