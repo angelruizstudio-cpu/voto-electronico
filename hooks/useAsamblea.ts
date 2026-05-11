@@ -51,7 +51,7 @@ function useAsambleaState() {
     tipo: "receso_iniciado" | "trabajos_reanudados",
     descripcion: string
   ) => {
-    if (!asambleaId) return
+    if (!asambleaId) return true
 
     const { error } = await supabase.from("asamblea_eventos").insert({
       asamblea_id: asambleaId,
@@ -60,8 +60,18 @@ function useAsambleaState() {
     })
 
     if (error) {
-      alert(`No se pudo registrar el evento en el acta: ${error.message}`)
+      if (error.message.includes("asamblea_eventos")) {
+        alert(
+          "La asamblea cambió de estado, pero falta crear la tabla de eventos en Supabase. Ejecuta el archivo supabase-asambleas-receso.sql para que los recesos salgan en el informe."
+        )
+      } else {
+        alert(`La asamblea cambió de estado, pero no se pudo registrar el evento en el acta: ${error.message}`)
+      }
+
+      return false
     }
+
+    return true
   }
 
   const abrirAsamblea = async () => {
