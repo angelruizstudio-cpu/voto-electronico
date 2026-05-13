@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useCrearVotacion } from "@/hooks/useCrearVotacion"
 import { useVotacion } from "@/hooks/useVotacion"
-import { VotosManualesPanel } from "@/components/VotosManualesPanel"
+import {
+  ResultadoOficialActualizado,
+  VotosManualesPanel,
+  type ResultadoManualActualizado,
+} from "@/components/VotosManualesPanel"
 import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
@@ -73,6 +77,8 @@ export default function Moderador() {
   const [mociones, setMociones] = useState<Mocion[]>([])
   const [procesandoCreacion, setProcesandoCreacion] = useState(false)
   const [enmiendaEnPreparacion, setEnmiendaEnPreparacion] = useState<Mocion | null>(null)
+  const [resultadoManualActualizado, setResultadoManualActualizado] =
+    useState<ResultadoManualActualizado | null>(null)
   const formularioVotacionRef = useRef<HTMLDivElement | null>(null)
 
   const cargarMociones = useCallback(async () => {
@@ -176,6 +182,71 @@ export default function Moderador() {
         !mocionEstaFinalizada(posibleHija)
     )
 
+  const contarAsambleistasVotoManual = async () => {
+    if (!asambleaId) return 0
+
+    const { count, error } = await supabase
+      .from("asambleistas")
+      .select("*", { count: "exact", head: true })
+      .eq("asamblea_id", asambleaId)
+      .eq("metodo_voto", "manual")
+
+    if (error) {
+      alert(error.message)
+      return null
+    }
+
+    return count || 0
+  }
+
+  const crearResultadoFinalElectronico = (
+    resultado: string | null
+  ): ResultadoManualActualizado | null => {
+    if (!votacionId) return null
+
+    if (tipoVotacion === "eleccion_lideres") {
+      return {
+        tipo: "eleccion_lideres",
+        titulo: titulo || "Votación cerrada",
+        emitidos: votosEmitidos,
+        electronicos: votosEmitidos,
+        manuales: 0,
+        necesarios: votosNecesariosLider,
+        resultado: resultado || "sin_eleccion",
+        ganadorId: candidatoElecto?.id || null,
+        ganadorNombre: candidatoElecto?.nombre || null,
+        candidatos: candidatosOrdenados.map((candidato) => ({
+          id: candidato.id,
+          nombre: candidato.nombre,
+          electronicos: candidato.votos,
+          manuales: 0,
+          votos: candidato.votos,
+          porcentaje: candidato.porcentaje,
+        })),
+      }
+    }
+
+    return {
+      tipo: "resolucion",
+      titulo: titulo || "Votación cerrada",
+      emitidos: votosEmitidos,
+      electronicos: votosEmitidos,
+      manuales: 0,
+      favor: votosAFavor,
+      contra: votosEnContra,
+      abstencion: votosAbstencion,
+      favorElectronico: votosAFavor,
+      contraElectronico: votosEnContra,
+      abstencionElectronica: votosAbstencion,
+      favorManual: 0,
+      contraManual: 0,
+      abstencionManual: 0,
+      validos: totalValidos,
+      necesarios: votosNecesariosResolucion,
+      resultado: resultado === "aprobada" ? "aprobada" : "rechazada",
+    }
+  }
+
   const describirSiguientePaso = (mocion: Mocion) => {
     if (mocion.resultado === "rechazada_sin_segundo") {
       return "No fue secundada. Se entiende rechazada por la asamblea."
@@ -237,6 +308,16 @@ export default function Moderador() {
     if (error) {
       alert(error.message)
       return
+    }
+
+    const cantidadVotoManual = await contarAsambleistasVotoManual()
+
+    if (cantidadVotoManual === 0) {
+      setResultadoManualActualizado(
+        crearResultadoFinalElectronico(cambiosCierre.resultado || null)
+      )
+    } else if (cantidadVotoManual && cantidadVotoManual > 0) {
+      setResultadoManualActualizado(null)
     }
 
     alert("Votación cerrada")
@@ -805,7 +886,10 @@ export default function Moderador() {
           </CardContent>
             </Card>
 
-            <VotosManualesPanel asambleaId={asambleaId} />
+            <VotosManualesPanel
+              asambleaId={asambleaId}
+              onResultadosActualizados={setResultadoManualActualizado}
+            />
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-6">
@@ -1069,6 +1153,7 @@ export default function Moderador() {
             )}
           </CardContent>
             </Card>
+            <ResultadoOficialActualizado resultado={resultadoManualActualizado} />
           </aside>
         </div>
       </div>

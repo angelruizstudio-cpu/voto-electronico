@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   DoorOpen,
   History,
-  LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
@@ -26,20 +25,31 @@ type AdminShellProps = {
   role: "oficina" | "moderador"
 }
 
-const navByRole = {
-  oficina: [
-    { href: "/oficina", label: "Oficina", icon: LayoutDashboard },
-    { href: "/puerta", label: "Puerta", icon: DoorOpen },
-    { href: "/oficina/resultados", label: "Resultados actuales", icon: ListChecks },
-    { href: "/oficina/historial", label: "Historial", icon: History },
-  ],
-  moderador: [
-    { href: "/moderador", label: "Moderador", icon: MonitorCheck },
-    { href: "/admin", label: "Administrador", icon: Shield },
-    { href: "/moderador/resultados", label: "Resumen actual", icon: ListChecks },
-    { href: "/moderador/historial", label: "Historial", icon: History },
-    { href: "/oficina", label: "Oficina", icon: ClipboardCheck },
-  ],
+type RolSesion = "admin" | "moderador" | "oficina" | "puerta"
+
+const navItems = {
+  moderador: { href: "/moderador", label: "Moderador", icon: MonitorCheck },
+  admin: { href: "/admin", label: "Administrador", icon: Shield },
+  resumen: { href: "/moderador/resultados", label: "Resumen actual", icon: ListChecks },
+  historial: { href: "/moderador/historial", label: "Historial", icon: History },
+  oficina: { href: "/oficina", label: "Oficina", icon: ClipboardCheck },
+  puerta: { href: "/puerta", label: "Puerta", icon: DoorOpen },
+}
+
+const navKeysByRole: Record<RolSesion, (keyof typeof navItems)[]> = {
+  admin: ["moderador", "admin", "resumen", "historial", "oficina", "puerta"],
+  moderador: ["moderador", "resumen", "historial"],
+  oficina: ["oficina"],
+  puerta: ["puerta"],
+}
+
+function construirNav(roles: RolSesion[], roleFallback: AdminShellProps["role"]) {
+  const rolesValidos = roles.length > 0 ? roles : [roleFallback]
+  const keys = rolesValidos.includes("admin")
+    ? navKeysByRole.admin
+    : rolesValidos.flatMap((rol) => navKeysByRole[rol] || [])
+
+  return Array.from(new Set(keys)).map((key) => navItems[key])
 }
 
 export function AdminShell({ children, role }: AdminShellProps) {
@@ -53,15 +63,17 @@ export function AdminShell({ children, role }: AdminShellProps) {
 function AdminShellContent({ children, role }: AdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [usuario, setUsuario] = useState<{ nombre: string; rol: string } | null>(null)
+  const [usuario, setUsuario] = useState<{
+    nombre: string
+    rol: string
+    roles: RolSesion[]
+  } | null>(null)
   const [quorum, setQuorum] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
     useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
-  const navItems = navByRole[role].filter(
-    (item) => item.href !== "/admin" || usuario?.rol === "admin"
-  )
+  const nav = construirNav(usuario?.roles || [], role)
   const moduloActual = pathname.startsWith("/puerta")
     ? "Puerta"
     : pathname.startsWith("/admin")
@@ -75,7 +87,13 @@ function AdminShellContent({ children, role }: AdminShellProps) {
       const res = await fetch("/api/auth/me")
       if (!res.ok) return
       const data = await res.json()
-      if (data.ok) setUsuario({ nombre: data.nombre, rol: data.rol })
+      if (data.ok) {
+        setUsuario({
+          nombre: data.nombre,
+          rol: data.rol,
+          roles: Array.isArray(data.roles) ? data.roles : [data.rol],
+        })
+      }
     })
   }, [])
 
@@ -157,7 +175,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
         {mobileNavOpen && (
           <div className="mt-3 rounded-2xl border border-white/10 bg-[#0f2b24] p-3 shadow-lg">
             <nav className="grid gap-2">
-              {navItems.map((item) => {
+              {nav.map((item) => {
                 const Icon = item.icon
                 const active =
                   pathname === item.href ||
@@ -227,7 +245,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => {
+          {nav.map((item) => {
             const Icon = item.icon
             const active =
               pathname === item.href ||

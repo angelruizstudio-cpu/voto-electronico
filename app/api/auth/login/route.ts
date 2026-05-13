@@ -14,7 +14,8 @@ function setCookiesSesion(
   response: NextResponse,
   rol: RolSistema,
   nombre: string,
-  userId: string
+  userId: string,
+  roles: RolSistema[] = [rol]
 ) {
   const opciones = {
     path: "/",
@@ -25,6 +26,7 @@ function setCookiesSesion(
 
   response.cookies.set("auth_session", "true", opciones)
   response.cookies.set("auth_role", rol, opciones)
+  response.cookies.set("auth_roles", JSON.stringify(roles), opciones)
   response.cookies.set("auth_name", nombre, opciones)
   response.cookies.set("auth_user_id", userId, opciones)
   response.cookies.set("moderador_session", "true", opciones)
@@ -43,11 +45,14 @@ export async function POST(req: NextRequest) {
 
     if (!username && passwordCorrecta && password === passwordCorrecta) {
       const response = NextResponse.json({ ok: true })
+      const rolesEmergencia =
+        rolSolicitado === "admin" ? ROLES_SISTEMA : [rolSolicitado as RolSistema]
       setCookiesSesion(
         response,
         rolSolicitado as RolSistema,
         "Acceso administrativo",
-        "emergency"
+        "emergency",
+        rolesEmergencia
       )
       return response
     }
@@ -90,7 +95,8 @@ export async function POST(req: NextRequest) {
       response,
       rolSolicitado as RolSistema,
       usuario.nombre,
-      usuario.id
+      usuario.id,
+      usuario.roles
     )
 
     return response

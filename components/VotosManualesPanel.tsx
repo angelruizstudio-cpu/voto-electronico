@@ -22,8 +22,49 @@ type VotoManual = {
   cantidad: number
 }
 
+export type ResultadoManualActualizado =
+  | {
+      tipo: "resolucion"
+      titulo: string
+      emitidos: number
+      electronicos: number
+      manuales: number
+      favor: number
+      contra: number
+      abstencion: number
+      favorElectronico: number
+      contraElectronico: number
+      abstencionElectronica: number
+      favorManual: number
+      contraManual: number
+      abstencionManual: number
+      validos: number
+      necesarios: number
+      resultado: "aprobada" | "rechazada"
+    }
+  | {
+      tipo: "eleccion_lideres"
+      titulo: string
+      emitidos: number
+      electronicos: number
+      manuales: number
+      necesarios: number
+      resultado: string
+      ganadorId: string | null
+      ganadorNombre: string | null
+      candidatos: {
+        id: string
+        nombre: string
+        electronicos: number
+        manuales: number
+        votos: number
+        porcentaje: number
+      }[]
+    }
+
 type VotosManualesPanelProps = {
   asambleaId: string | null
+  onResultadosActualizados?: (resultado: ResultadoManualActualizado | null) => void
 }
 
 const numeroSeguro = (valor: string) => {
@@ -31,7 +72,108 @@ const numeroSeguro = (valor: string) => {
   return Number.isFinite(numero) && numero >= 0 ? Math.floor(numero) : 0
 }
 
-export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
+export function ResultadoOficialActualizado({
+  resultado,
+}: {
+  resultado: ResultadoManualActualizado | null
+}) {
+  if (!resultado) return null
+
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+        Resultado oficial actualizado
+      </p>
+      <h3 className="mt-1 text-lg font-black text-slate-950">{resultado.titulo}</h3>
+      <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-700 sm:grid-cols-3">
+        <p className="rounded bg-white p-3">Emitidos: {resultado.emitidos}</p>
+        <p className="rounded bg-white p-3">Electrónicos: {resultado.electronicos}</p>
+        <p className="rounded bg-white p-3">Manuales: {resultado.manuales}</p>
+      </div>
+
+      {resultado.tipo === "resolucion" ? (
+        <div className="mt-3 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-4">
+            <div className="rounded bg-white p-3">
+              <p className="text-xs font-bold uppercase text-emerald-700">A favor</p>
+              <p className="text-2xl font-black text-emerald-800">{resultado.favor}</p>
+              <p className="text-xs text-slate-500">
+                {resultado.favorElectronico} elec. + {resultado.favorManual} manual
+              </p>
+            </div>
+            <div className="rounded bg-white p-3">
+              <p className="text-xs font-bold uppercase text-red-700">En contra</p>
+              <p className="text-2xl font-black text-red-800">{resultado.contra}</p>
+              <p className="text-xs text-slate-500">
+                {resultado.contraElectronico} elec. + {resultado.contraManual} manual
+              </p>
+            </div>
+            <div className="rounded bg-white p-3">
+              <p className="text-xs font-bold uppercase text-slate-700">Abstención</p>
+              <p className="text-2xl font-black text-slate-800">{resultado.abstencion}</p>
+              <p className="text-xs text-slate-500">
+                {resultado.abstencionElectronica} elec. + {resultado.abstencionManual} manual
+              </p>
+            </div>
+            <div className="rounded bg-white p-3">
+              <p className="text-xs font-bold uppercase text-slate-700">Necesarios</p>
+              <p className="text-2xl font-black text-slate-950">{resultado.necesarios}</p>
+              <p className="text-xs text-slate-500">Válidos: {resultado.validos}</p>
+            </div>
+          </div>
+          <p
+            className={`rounded p-3 text-base font-black ${
+              resultado.resultado === "aprobada"
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            Para notificar al presidente:{" "}
+            {resultado.resultado === "aprobada"
+              ? "la moción queda aprobada"
+              : "la moción queda rechazada"}
+            .
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {resultado.candidatos.map((candidato, index) => (
+            <div
+              key={candidato.id}
+              className="grid grid-cols-[48px_1fr_auto] items-center gap-3 rounded bg-white p-3 text-sm"
+            >
+              <p className="font-black">#{index + 1}</p>
+              <div>
+                <p className="font-black text-slate-950">{candidato.nombre}</p>
+                <p className="text-xs text-slate-500">
+                  {candidato.electronicos} elec. + {candidato.manuales} manual
+                </p>
+              </div>
+              <p className="font-black text-[#16382f]">
+                {candidato.votos} votos · {candidato.porcentaje}%
+              </p>
+            </div>
+          ))}
+          <p className="rounded bg-white p-3 text-base font-black text-slate-950">
+            Para notificar al presidente:{" "}
+            {resultado.ganadorNombre
+              ? `${resultado.ganadorNombre} queda electo.`
+              : resultado.resultado === "requiere_nueva_ronda"
+              ? "no hubo elección; se requiere una nueva ronda."
+              : resultado.resultado === "empate_sorteo"
+              ? "hay empate final; corresponde sorteo físico."
+              : "no hubo elección."}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function VotosManualesPanel({
+  asambleaId,
+  onResultadosActualizados,
+}: VotosManualesPanelProps) {
   const [votaciones, setVotaciones] = useState<VotacionCerrada[]>([])
   const [votacionId, setVotacionId] = useState("")
   const [candidatos, setCandidatos] = useState<CandidatoManual[]>([])
@@ -41,6 +183,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
   const [votosCandidato, setVotosCandidato] = useState<Record<string, number>>({})
   const [hayGuardados, setHayGuardados] = useState(false)
   const [cargando, setCargando] = useState(false)
+  const [votantesManualesPresentes, setVotantesManualesPresentes] = useState(0)
 
   const votacionSeleccionada = useMemo(
     () => votaciones.find((votacion) => votacion.id === votacionId) || null,
@@ -79,6 +222,8 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
       setAbstencion(0)
       setVotosCandidato({})
       setHayGuardados(false)
+      setVotantesManualesPresentes(0)
+      onResultadosActualizados?.(null)
       return
     }
 
@@ -94,7 +239,12 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
     }
 
     const votosManuales = (data.votosManuales || []) as VotoManual[]
-    setHayGuardados(votosManuales.length > 0)
+    const tieneVotosManualesGuardados = votosManuales.length > 0
+    setVotantesManualesPresentes(Number(data.votantesManualesPresentes) || 0)
+    onResultadosActualizados?.(
+      tieneVotosManualesGuardados ? data.resultadosActualizados || null : null
+    )
+    setHayGuardados(tieneVotosManualesGuardados)
     setFavor(votosManuales.find((voto) => voto.opcion === "favor")?.cantidad || 0)
     setContra(votosManuales.find((voto) => voto.opcion === "contra")?.cantidad || 0)
     setAbstencion(votosManuales.find((voto) => voto.opcion === "abstencion")?.cantidad || 0)
@@ -121,7 +271,15 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
         return acc
       }, {})
     )
-  }, [votacionId])
+  }, [onResultadosActualizados, votacionId])
+
+  const totalManual = useMemo(() => {
+    if (votacionSeleccionada?.tipo_votacion === "eleccion_lideres") {
+      return Object.values(votosCandidato).reduce((total, cantidad) => total + cantidad, 0)
+    }
+
+    return favor + contra + abstencion
+  }, [abstencion, contra, favor, votacionSeleccionada?.tipo_votacion, votosCandidato])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -140,6 +298,13 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
 
     if (votacionSeleccionada.estado !== "cerrada") {
       alert("Primero debes cerrar la votación")
+      return
+    }
+
+    if (totalManual > votantesManualesPresentes) {
+      alert(
+        `Los votos manuales (${totalManual}) no pueden exceder los asambleístas manuales presentes (${votantesManualesPresentes}).`
+      )
       return
     }
 
@@ -178,8 +343,9 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
       return
     }
 
+    onResultadosActualizados?.(data.resultadosActualizados || null)
     setHayGuardados(true)
-    alert("Votos manuales guardados")
+    alert("Votos manuales guardados. Resultados oficiales actualizados.")
   }
 
   return (
@@ -195,7 +361,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
           </p>
         </div>
         <Button type="button" onClick={cargarVotaciones} disabled={cargando}>
-          Actualizar
+          Recargar votaciones
         </Button>
       </div>
 
@@ -228,6 +394,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
                   <input
                     type="number"
                     min={0}
+                    max={votantesManualesPresentes}
                     value={votosCandidato[candidato.id] || 0}
                     onChange={(e) =>
                       setVotosCandidato((actual) => ({
@@ -247,6 +414,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
                 <input
                   type="number"
                   min={0}
+                  max={votantesManualesPresentes}
                   value={favor}
                   onChange={(e) => setFavor(numeroSeguro(e.target.value))}
                   className="h-11 w-full rounded-lg border border-slate-200 px-3 text-slate-950 outline-none"
@@ -257,6 +425,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
                 <input
                   type="number"
                   min={0}
+                  max={votantesManualesPresentes}
                   value={contra}
                   onChange={(e) => setContra(numeroSeguro(e.target.value))}
                   className="h-11 w-full rounded-lg border border-slate-200 px-3 text-slate-950 outline-none"
@@ -267,6 +436,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
                 <input
                   type="number"
                   min={0}
+                  max={votantesManualesPresentes}
                   value={abstencion}
                   onChange={(e) => setAbstencion(numeroSeguro(e.target.value))}
                   className="h-11 w-full rounded-lg border border-slate-200 px-3 text-slate-950 outline-none"
@@ -274,6 +444,16 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
               </label>
             </div>
           )}
+
+          <p
+            className={`rounded-lg p-3 text-sm font-semibold ${
+              totalManual > votantesManualesPresentes
+                ? "bg-red-50 text-red-700"
+                : "bg-slate-50 text-slate-600"
+            }`}
+          >
+            Votos manuales registrados: {totalManual} / {votantesManualesPresentes} asambleístas manuales presentes.
+          </p>
 
           {hayGuardados && (
             <p className="rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
@@ -284,7 +464,7 @@ export function VotosManualesPanel({ asambleaId }: VotosManualesPanelProps) {
           <Button
             type="button"
             onClick={guardar}
-            disabled={cargando || !votacionId}
+            disabled={cargando || !votacionId || totalManual > votantesManualesPresentes}
             className="bg-[#16382f] hover:bg-[#0f2b24]"
           >
             Guardar votos manuales

@@ -6,6 +6,7 @@ export async function POST() {
   for (const cookie of [
     "auth_session",
     "auth_role",
+    "auth_roles",
     "auth_name",
     "auth_user_id",
     "moderador_session",
