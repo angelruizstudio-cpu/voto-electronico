@@ -9,9 +9,12 @@ type Asambleista = {
   nombre: string
   credencial: string
   email: string | null
+  telefono: string | null
   metodo_voto: "electronico" | "manual"
   credencial_email_enviado_en: string | null
   credencial_email_error: string | null
+  credencial_sms_enviado_en: string | null
+  credencial_sms_error: string | null
   iglesia: string | null
   distrito: string | null
   registrado: boolean
@@ -28,6 +31,7 @@ export default function OficinaRegionalPage() {
 
   const [nuevoNombre, setNuevoNombre] = useState("")
   const [nuevoEmail, setNuevoEmail] = useState("")
+  const [nuevoTelefono, setNuevoTelefono] = useState("")
   const [nuevoMetodoVoto, setNuevoMetodoVoto] = useState<"electronico" | "manual">("electronico")
   const [nuevaIglesia, setNuevaIglesia] = useState("")
   const [nuevoDistrito, setNuevoDistrito] = useState("")
@@ -117,6 +121,7 @@ export default function OficinaRegionalPage() {
         asambleaId,
         nombre: nuevoNombre,
         email: nuevoEmail,
+        telefono: nuevoTelefono,
         metodoVoto: nuevoMetodoVoto,
         iglesia: nuevaIglesia,
         distrito: nuevoDistrito,
@@ -134,15 +139,16 @@ export default function OficinaRegionalPage() {
 
     setNuevoNombre("")
     setNuevoEmail("")
+    setNuevoTelefono("")
     setNuevoMetodoVoto("electronico")
     setNuevaIglesia("")
     setNuevoDistrito("")
 
     await cargarAsambleistas()
 
-    if (data.credencialEmail?.enviado) {
-      alert(`Asambleísta creado y credencial enviada: ${data.asambleista.credencial}`)
-    } else if (nuevoEmail.trim()) {
+    const avisosEnvio: string[] = []
+
+    if (nuevoEmail.trim()) {
       const erroresEmail: Record<string, string> = {
         FALTA_RESEND_API_KEY: "falta configurar RESEND_API_KEY",
         RESEND_TEMPORAL_500: "Resend tuvo un error temporal 500; intenta reenviar más tarde",
@@ -157,12 +163,40 @@ export default function OficinaRegionalPage() {
           ? erroresEmail[data.credencialEmail.error]
           : data.credencialEmail?.error || "revisa la configuración de Resend"
 
-      alert(
-        `Asambleísta creado: ${data.asambleista.credencial}\nNo se pudo enviar el email: ${errorEmail}`
+      avisosEnvio.push(
+        data.credencialEmail?.enviado
+          ? "Email enviado"
+          : `No se pudo enviar el email: ${errorEmail}`
       )
-    } else {
-      alert(`Asambleísta creado: ${data.asambleista.credencial}`)
     }
+
+    if (nuevoTelefono.trim()) {
+      const erroresSms: Record<string, string> = {
+        FALTA_TWILIO_CONFIG: "falta configurar TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN o TWILIO_FROM_PHONE",
+        TWILIO_TEMPORAL_500: "Twilio tuvo un error temporal 500; intenta reenviar más tarde",
+        TWILIO_TEMPORAL_502: "Twilio tuvo un error temporal 502; intenta reenviar más tarde",
+        TWILIO_TEMPORAL_503: "Twilio tuvo un error temporal 503; intenta reenviar más tarde",
+        TWILIO_TEMPORAL_504: "Twilio tuvo un error temporal 504; intenta reenviar más tarde",
+      }
+      const errorSms =
+        data.credencialSms?.error &&
+        erroresSms[data.credencialSms.error]
+          ? erroresSms[data.credencialSms.error]
+          : data.credencialSms?.error || "revisa la configuración de Twilio"
+
+      avisosEnvio.push(
+        data.credencialSms?.enviado
+          ? "SMS enviado"
+          : `No se pudo enviar el SMS: ${errorSms}`
+      )
+    }
+
+    alert(
+      [
+        `Asambleísta creado: ${data.asambleista.credencial}`,
+        ...avisosEnvio,
+      ].join("\n")
+    )
   }
 
   return (
@@ -210,7 +244,7 @@ export default function OficinaRegionalPage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">Nuevo asambleísta</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-6">
 
           <input
             type="text"
@@ -225,6 +259,14 @@ export default function OficinaRegionalPage() {
             placeholder="Email"
             value={nuevoEmail}
             onChange={(e) => setNuevoEmail(e.target.value)}
+            className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
+          />
+
+          <input
+            type="tel"
+            placeholder="Celular"
+            value={nuevoTelefono}
+            onChange={(e) => setNuevoTelefono(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
           />
 
@@ -285,6 +327,9 @@ export default function OficinaRegionalPage() {
                       Email: {a.email || "N/A"}
                     </p>
                     <p className="text-sm text-slate-500">
+                      Celular: {a.telefono || "N/A"}
+                    </p>
+                    <p className="text-sm text-slate-500">
                       Método de voto:{" "}
                       <span className="font-bold">
                         {a.metodo_voto === "manual" ? "Manual" : "Electrónico"}
@@ -318,6 +363,19 @@ export default function OficinaRegionalPage() {
                           {a.credencial_email_enviado_en
                             ? "Credencial enviada"
                             : "Email no enviado"}
+                        </span>
+                      )}
+                      {a.telefono && (
+                        <span
+                          className={
+                            a.credencial_sms_enviado_en
+                              ? "rounded-full bg-emerald-50 px-2 py-1 text-emerald-700"
+                              : "rounded-full bg-red-50 px-2 py-1 text-red-700"
+                          }
+                        >
+                          {a.credencial_sms_enviado_en
+                            ? "SMS enviado"
+                            : "SMS no enviado"}
                         </span>
                       )}
                     </p>

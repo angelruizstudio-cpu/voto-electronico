@@ -44,6 +44,30 @@ function limpiarEmail(email: unknown) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio) ? emailLimpio : ""
 }
 
+function limpiarTelefono(telefono: unknown) {
+  const telefonoLimpio = String(telefono || "").trim()
+
+  if (!telefonoLimpio) {
+    return ""
+  }
+
+  if (/^\+[1-9]\d{7,14}$/.test(telefonoLimpio)) {
+    return telefonoLimpio
+  }
+
+  const digitos = telefonoLimpio.replace(/\D/g, "")
+
+  if (digitos.length === 10) {
+    return `+1${digitos}`
+  }
+
+  if (digitos.length === 11 && digitos.startsWith("1")) {
+    return `+${digitos}`
+  }
+
+  return ""
+}
+
 function escaparHtml(valor: string) {
   return valor.replace(/[&<>"']/g, (caracter) => {
     const reemplazos: Record<string, string> = {
@@ -160,6 +184,89 @@ async function enviarCredencialPorEmail({
   return { enviado: false, error: "ERROR_RESEND" }
 }
 
+async function obtenerErrorTwilio(res: Response) {
+  const contentType = res.headers.get("content-type") || ""
+
+  if (contentType.includes("application/json")) {
+    const data = await res.json().catch(() => null)
+    const mensaje =
+      data?.message ||
+      data?.code ||
+      data?.more_info ||
+      `TWILIO_HTTP_${res.status}`
+
+    return String(mensaje).slice(0, 300)
+  }
+
+  await res.text().catch(() => "")
+
+  if (res.status >= 500) {
+    return `TWILIO_TEMPORAL_${res.status}`
+  }
+
+  return `TWILIO_HTTP_${res.status}`
+}
+
+async function enviarCredencialPorSms({
+  telefono,
+  nombre,
+  credencial,
+  metodoVoto,
+}: {
+  telefono: string
+  nombre: string
+  credencial: string
+  metodoVoto: "electronico" | "manual"
+}): Promise<ResultadoEnvioCredencial> {
+  if (!telefono) {
+    return { enviado: false }
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  const from = process.env.TWILIO_FROM_PHONE || process.env.TWILIO_PHONE_NUMBER
+
+  if (!accountSid || !authToken || !from) {
+    return { enviado: false, error: "FALTA_TWILIO_CONFIG" }
+  }
+
+  const mensaje = `Credencial asamblea: ${credencial}. Nombre: ${nombre}.`
+  const body = new URLSearchParams({
+    To: telefono,
+    From: from,
+    Body: mensaje,
+  })
+  const authorization = Buffer.from(`${accountSid}:${authToken}`).toString("base64")
+
+  for (let intento = 1; intento <= 2; intento += 1) {
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${authorization}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+      }
+    )
+
+    if (res.ok) {
+      return { enviado: true }
+    }
+
+    const error = await obtenerErrorTwilio(res)
+
+    if (res.status < 500 || intento === 2) {
+      return { enviado: false, error }
+    }
+
+    await esperar(900)
+  }
+
+  return { enviado: false, error: "ERROR_TWILIO" }
+}
+
 export async function GET(req: NextRequest) {
   if (!validarSesion(req)) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
@@ -199,9 +306,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { asambleaId, nombre, iglesia, distrito, email, metodoVoto } = await req.json()
+  const { asambleaId, nombre, iglesia, distrito, email, telefono, metodoVoto } = await req.json()
   const nombreLimpio = String(nombre || "").trim()
   const emailLimpio = limpiarEmail(email)
+  const telefonoLimpio = limpiarTelefono(telefono)
   const metodoVotoLimpio = metodoVoto === "manual" ? "manual" : "electronico"
 
   if (!asambleaId || !nombreLimpio) {
@@ -210,6 +318,10 @@ export async function POST(req: NextRequest) {
 
   if (email && !emailLimpio) {
     return NextResponse.json({ ok: false, error: "EMAIL_INVALIDO" }, { status: 400 })
+  }
+
+  if (telefono && !telefonoLimpio) {
+    return NextResponse.json({ ok: false, error: "TELEFONO_INVALIDO" }, { status: 400 })
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
@@ -234,6 +346,7 @@ export async function POST(req: NextRequest) {
       nombre: nombreLimpio,
       credencial,
       email: emailLimpio || null,
+      telefono: telefonoLimpio || null,
       metodo_voto: metodoVotoLimpio,
       iglesia: String(iglesia || "").trim(),
       distrito: String(distrito || "").trim(),
@@ -258,10 +371,16 @@ export async function POST(req: NextRequest) {
     credencial,
     metodoVoto: metodoVotoLimpio,
   })
+  const resultadoSms = await enviarCredencialPorSms({
+    telefono: telefonoLimpio,
+    nombre: nombreLimpio,
+    credencial,
+    metodoVoto: metodoVotoLimpio,
+  })
 
   let asambleista = data
 
-  if (emailLimpio) {
+  if (emailLimpio || telefonoLimpio) {
     const { data: actualizado } = await supabaseAdmin
       .from("asambleistas")
       .update({
@@ -269,6 +388,10 @@ export async function POST(req: NextRequest) {
           ? new Date().toISOString()
           : null,
         credencial_email_error: resultadoEmail.error || null,
+        credencial_sms_enviado_en: resultadoSms.enviado
+          ? new Date().toISOString()
+          : null,
+        credencial_sms_error: resultadoSms.error || null,
       })
       .eq("id", data.id)
       .select("*")
@@ -281,6 +404,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     asambleista,
     credencialEmail: resultadoEmail,
+    credencialSms: resultadoSms,
   })
 }
 
