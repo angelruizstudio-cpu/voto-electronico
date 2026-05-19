@@ -86,6 +86,17 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function obtenerLinkVotacion() {
+  const baseUrl =
+    process.env.APP_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    ""
+  const baseUrlLimpio = baseUrl.trim().replace(/\/+$/, "")
+
+  return baseUrlLimpio ? `${baseUrlLimpio}/asambleista` : "/asambleista"
+}
+
 async function obtenerErrorResend(res: Response) {
   const contentType = res.headers.get("content-type") || ""
 
@@ -184,16 +195,17 @@ async function enviarCredencialPorEmail({
   return { enviado: false, error: "ERROR_RESEND" }
 }
 
-async function obtenerErrorTwilio(res: Response) {
+async function obtenerErrorSent(res: Response) {
   const contentType = res.headers.get("content-type") || ""
 
   if (contentType.includes("application/json")) {
     const data = await res.json().catch(() => null)
     const mensaje =
+      data?.error?.message ||
+      data?.error?.code ||
       data?.message ||
       data?.code ||
-      data?.more_info ||
-      `TWILIO_HTTP_${res.status}`
+      `SENT_HTTP_${res.status}`
 
     return String(mensaje).slice(0, 300)
   }
@@ -201,10 +213,10 @@ async function obtenerErrorTwilio(res: Response) {
   await res.text().catch(() => "")
 
   if (res.status >= 500) {
-    return `TWILIO_TEMPORAL_${res.status}`
+    return `SENT_TEMPORAL_${res.status}`
   }
 
-  return `TWILIO_HTTP_${res.status}`
+  return `SENT_HTTP_${res.status}`
 }
 
 async function enviarCredencialPorSms({
@@ -222,40 +234,45 @@ async function enviarCredencialPorSms({
     return { enviado: false }
   }
 
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_FROM_PHONE || process.env.TWILIO_PHONE_NUMBER
+  const apiKey = process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY
+  const templateId = process.env.SENT_TEMPLATE_ID || process.env.SENT_DM_TEMPLATE_ID
+  const sandbox = process.env.SENT_SANDBOX === "true"
+  const linkVotacion = obtenerLinkVotacion()
 
-  if (!accountSid || !authToken || !from) {
-    return { enviado: false, error: "FALTA_TWILIO_CONFIG" }
+  if (!apiKey || !templateId) {
+    return { enviado: false, error: "FALTA_SENT_CONFIG" }
   }
 
-  const mensaje = `Credencial asamblea: ${credencial}. Nombre: ${nombre}.`
-  const body = new URLSearchParams({
-    To: telefono,
-    From: from,
-    Body: mensaje,
-  })
-  const authorization = Buffer.from(`${accountSid}:${authToken}`).toString("base64")
+  const payload = {
+    to: [telefono],
+    channel: ["sms"],
+    template: {
+      id: templateId,
+      parameters: {
+        nombre,
+        credencial,
+        linkVotacion,
+        metodoVoto: metodoVoto === "manual" ? "manual" : "electronico",
+      },
+    },
+    sandbox,
+  }
 
   for (let intento = 1; intento <= 2; intento += 1) {
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${authorization}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body,
-      }
-    )
+    const res = await fetch("https://api.sent.dm/v3/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
 
-    if (res.ok) {
+    if (res.status === 202 || res.ok) {
       return { enviado: true }
     }
 
-    const error = await obtenerErrorTwilio(res)
+    const error = await obtenerErrorSent(res)
 
     if (res.status < 500 || intento === 2) {
       return { enviado: false, error }
@@ -264,7 +281,7 @@ async function enviarCredencialPorSms({
     await esperar(900)
   }
 
-  return { enviado: false, error: "ERROR_TWILIO" }
+  return { enviado: false, error: "ERROR_SENT" }
 }
 
 export async function GET(req: NextRequest) {

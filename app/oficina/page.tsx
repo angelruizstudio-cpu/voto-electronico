@@ -172,17 +172,17 @@ export default function OficinaRegionalPage() {
 
     if (nuevoTelefono.trim()) {
       const erroresSms: Record<string, string> = {
-        FALTA_TWILIO_CONFIG: "falta configurar TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN o TWILIO_FROM_PHONE",
-        TWILIO_TEMPORAL_500: "Twilio tuvo un error temporal 500; intenta reenviar más tarde",
-        TWILIO_TEMPORAL_502: "Twilio tuvo un error temporal 502; intenta reenviar más tarde",
-        TWILIO_TEMPORAL_503: "Twilio tuvo un error temporal 503; intenta reenviar más tarde",
-        TWILIO_TEMPORAL_504: "Twilio tuvo un error temporal 504; intenta reenviar más tarde",
+        FALTA_SENT_CONFIG: "falta configurar SENT_API_KEY y SENT_TEMPLATE_ID",
+        SENT_TEMPORAL_500: "Sent tuvo un error temporal 500; intenta reenviar más tarde",
+        SENT_TEMPORAL_502: "Sent tuvo un error temporal 502; intenta reenviar más tarde",
+        SENT_TEMPORAL_503: "Sent tuvo un error temporal 503; intenta reenviar más tarde",
+        SENT_TEMPORAL_504: "Sent tuvo un error temporal 504; intenta reenviar más tarde",
       }
       const errorSms =
         data.credencialSms?.error &&
         erroresSms[data.credencialSms.error]
           ? erroresSms[data.credencialSms.error]
-          : data.credencialSms?.error || "revisa la configuración de Twilio"
+          : data.credencialSms?.error || "revisa la configuración de Sent"
 
       avisosEnvio.push(
         data.credencialSms?.enviado
