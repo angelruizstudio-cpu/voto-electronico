@@ -15,6 +15,9 @@ type Asambleista = {
   credencial_email_error: string | null
   credencial_sms_enviado_en: string | null
   credencial_sms_error: string | null
+  dispositivo_autorizado_id: string | null
+  dispositivo_alerta_en: string | null
+  dispositivo_alerta_detalle: string | null
   iglesia: string | null
   distrito: string | null
   registrado: boolean
@@ -96,6 +99,38 @@ export default function OficinaRegionalPage() {
       return
     }
 
+    await cargarAsambleistas()
+  }
+
+  const resetearDispositivo = async (id: string, nombre: string) => {
+    if (
+      !window.confirm(
+        `¿Validar nuevamente el dispositivo de ${nombre}? La persona deberá entrar nuevamente desde su teléfono.`
+      )
+    ) {
+      return
+    }
+
+    setCargando(true)
+
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, accion: "reset_dispositivo" }),
+    })
+
+    const data = await res.json()
+
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No se pudo validar nuevamente el dispositivo")
+      return
+    }
+
+    alert("Dispositivo reiniciado. El asambleísta puede intentar entrar nuevamente.")
     await cargarAsambleistas()
   }
 
@@ -378,6 +413,19 @@ export default function OficinaRegionalPage() {
                             : "SMS no enviado"}
                         </span>
                       )}
+                      {a.dispositivo_autorizado_id && (
+                        <span className="rounded-full bg-indigo-50 px-2 py-1 text-indigo-700">
+                          Dispositivo autorizado
+                        </span>
+                      )}
+                      {a.dispositivo_alerta_en && (
+                        <span
+                          title={a.dispositivo_alerta_detalle || ""}
+                          className="rounded-full bg-red-50 px-2 py-1 text-red-700"
+                        >
+                          Requiere validación
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -434,6 +482,16 @@ export default function OficinaRegionalPage() {
                     >
                       Habilitar
                     </button>
+
+                    {(a.dispositivo_autorizado_id || a.dispositivo_alerta_en) && (
+                      <button
+                        disabled={cargando}
+                        onClick={() => resetearDispositivo(a.id, a.nombre)}
+                        className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+                      >
+                        Validar nuevamente
+                      </button>
+                    )}
 
                   </div>
                 </div>

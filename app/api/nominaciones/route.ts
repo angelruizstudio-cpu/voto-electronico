@@ -10,10 +10,10 @@ function crearSupabaseAdmin() {
 
 export async function POST(req: Request) {
   try {
-    const { token, votacionId, nombre } = await req.json()
+    const { token, votacionId, nombre, deviceId } = await req.json()
     const nombreLimpio = String(nombre || "").trim()
 
-    if (!token || !votacionId || nombreLimpio.length < 2) {
+    if (!token || !votacionId || !deviceId || nombreLimpio.length < 2) {
       return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
     }
 
@@ -34,13 +34,24 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("habilitado, presente")
+      .select("habilitado, presente, dispositivo_autorizado_id, dispositivo_alerta_en")
       .eq("id", tokenRow.asambleista_id)
       .eq("asamblea_id", tokenRow.asamblea_id)
       .maybeSingle()
 
     if (!asambleista?.habilitado) {
       return NextResponse.json({ ok: false, error: "NO_HABILITADO" }, { status: 403 })
+    }
+
+    if (asambleista.dispositivo_alerta_en) {
+      return NextResponse.json({ ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" }, { status: 403 })
+    }
+
+    if (
+      asambleista.dispositivo_autorizado_id &&
+      asambleista.dispositivo_autorizado_id !== String(deviceId).trim()
+    ) {
+      return NextResponse.json({ ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" }, { status: 403 })
     }
 
     if (!asambleista.presente) {

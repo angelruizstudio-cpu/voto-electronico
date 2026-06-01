@@ -9,13 +9,17 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const { credencial } = await req.json()
+    const { credencial, deviceId } = await req.json()
 
-    if (!credencial) {
+    if (!credencial || !deviceId) {
       return NextResponse.json({ ok: false, error: "FALTA_CREDENCIAL" }, { status: 400 })
     }
 
     const credencialNormalizada = String(credencial).trim().toUpperCase()
+    const deviceIdNormalizado = String(deviceId).trim()
+    const userAgent = req.headers.get("user-agent") || "unknown"
+    const forwardedFor = req.headers.get("x-forwarded-for")
+    const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
 
     const { data: asamblea } = await supabaseAdmin
       .from("asambleas")
@@ -29,7 +33,7 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("id, nombre, habilitado, metodo_voto")
+      .select("id, nombre, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
       .eq("asamblea_id", asamblea.id)
       .eq("credencial", credencialNormalizada)
       .single()
@@ -59,6 +63,53 @@ export async function POST(req: Request) {
         { status: 403 }
       )
     }
+
+    if (asambleista.dispositivo_alerta_en) {
+      return NextResponse.json(
+        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
+        { status: 403 }
+      )
+    }
+
+    if (!asambleista.dispositivo_autorizado_id) {
+      await supabaseAdmin
+        .from("asambleistas")
+        .update({
+          dispositivo_autorizado_id: deviceIdNormalizado,
+          dispositivo_autorizado_en: new Date().toISOString(),
+          dispositivo_alerta_en: null,
+          dispositivo_alerta_detalle: null,
+        })
+        .eq("id", asambleista.id)
+    } else if (asambleista.dispositivo_autorizado_id !== deviceIdNormalizado) {
+      const detalle = `Intento desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
+
+      await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+        asamblea_id: asamblea.id,
+        asambleista_id: asambleista.id,
+        credencial: credencialNormalizada,
+        dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
+        dispositivo_intento_id: deviceIdNormalizado,
+        ip,
+        user_agent: userAgent,
+        accion: "bloqueado",
+        detalle,
+      })
+
+      await supabaseAdmin
+        .from("asambleistas")
+        .update({
+          dispositivo_alerta_en: new Date().toISOString(),
+          dispositivo_alerta_detalle: detalle,
+        })
+        .eq("id", asambleista.id)
+
+      return NextResponse.json(
+        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
+        { status: 403 }
+      )
+    }
+
     await supabaseAdmin
       .from("asambleistas")
       .update({

@@ -92,9 +92,15 @@ function obtenerLinkVotacion() {
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     ""
-  const baseUrlLimpio = baseUrl.trim().replace(/\/+$/, "")
+  const baseUrlLimpio = baseUrl.trim().replace(/\/+$/, "").replace(/\/asambleista\/?$/i, "")
 
-  return baseUrlLimpio ? `${baseUrlLimpio}/asambleista` : "/asambleista"
+  if (!baseUrlLimpio) {
+    return "/asambleista"
+  }
+
+  return baseUrlLimpio.endsWith("/asambleista")
+    ? baseUrlLimpio
+    : `${baseUrlLimpio}/asambleista`
 }
 
 async function obtenerErrorResend(res: Response) {
@@ -430,10 +436,53 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { id, cambios } = await req.json()
+  const { id, cambios, accion } = await req.json()
 
-  if (!id || !cambios || typeof cambios !== "object") {
+  if (!id || (!accion && (!cambios || typeof cambios !== "object"))) {
     return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
+  }
+
+  const supabaseAdmin = crearSupabaseAdmin()
+
+  if (accion === "reset_dispositivo") {
+    const { data: asambleistaActual } = await supabaseAdmin
+      .from("asambleistas")
+      .select("id, asamblea_id, credencial, dispositivo_autorizado_id")
+      .eq("id", id)
+      .single()
+
+    const { data, error } = await supabaseAdmin
+      .from("asambleistas")
+      .update({
+        dispositivo_autorizado_id: null,
+        dispositivo_autorizado_en: null,
+        dispositivo_alerta_en: null,
+        dispositivo_alerta_detalle: null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json(
+        { ok: false, error: error?.message || "ERROR_RESET_DISPOSITIVO" },
+        { status: 500 }
+      )
+    }
+
+    if (asambleistaActual) {
+      await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+        asamblea_id: asambleistaActual.asamblea_id,
+        asambleista_id: asambleistaActual.id,
+        credencial: asambleistaActual.credencial,
+        dispositivo_autorizado_id: asambleistaActual.dispositivo_autorizado_id,
+        dispositivo_intento_id: null,
+        accion: "reset_autorizado",
+        detalle: `Dispositivo autorizado reiniciado por ${req.cookies.get("auth_name")?.value || "Usuario autorizado"}`,
+      })
+    }
+
+    return NextResponse.json({ ok: true, asambleista: data })
   }
 
   const cambiosPermitidos: CambiosAsambleista = {}
@@ -451,8 +500,6 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(cambiosPermitidos).length === 0) {
     return NextResponse.json({ ok: false, error: "SIN_CAMBIOS_VALIDOS" }, { status: 400 })
   }
-
-  const supabaseAdmin = crearSupabaseAdmin()
 
   if (cambiosPermitidos.habilitado === true) {
     const { data: asambleistaActual, error: errorActual } = await supabaseAdmin

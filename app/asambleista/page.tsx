@@ -29,6 +29,10 @@ const MENSAJES_VOTO: Record<string, string> = {
   ASAMBLEISTA_INVALIDO: "No se pudo validar tu registro de asambleísta",
   NO_HABILITADO: "No estás habilitado para votar. Pasa por la mesa de registro.",
   NO_PRESENTE: "No puedes votar porque ya no figuras presente en la asamblea.",
+  DISPOSITIVO_NO_AUTORIZADO:
+    "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+  DISPOSITIVO_REVALIDACION_REQUERIDA:
+    "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
   OPCION_INVALIDA: "La opción seleccionada no es válida para esta votación",
   CANDIDATO_REQUERIDO: "Selecciona un candidato para votar",
   CANDIDATO_INVALIDO: "El candidato seleccionado no pertenece a esta votación",
@@ -43,6 +47,8 @@ const MENSAJES_NOMINACION: Record<string, string> = {
   VOTACION_INVALIDA: "No hay una elección de líderes abierta para nominar",
   NOMINACION_CERRADA: "Las nominaciones para esta ronda ya fueron cerradas",
   ASAMBLEA_RECESO: "La asamblea está en receso. Espera a que se reanuden los trabajos.",
+  DISPOSITIVO_REVALIDACION_REQUERIDA:
+    "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
 }
 
 export default function AsambleistaPage() {
@@ -71,6 +77,14 @@ export default function AsambleistaPage() {
   const [nominacion, setNominacion] = useState("")
   const [cargando, setCargando] = useState(false)
 
+  const bloquearSesionPorRevalidacion = () => {
+    localStorage.removeItem("token_votacion")
+    localStorage.removeItem("asambleista_nombre")
+    setToken("")
+    setAsambleistaNombre("")
+    setYaVoto(false)
+  }
+
   useEffect(() => {
     queueMicrotask(() => {
       setToken(localStorage.getItem("token_votacion") || "")
@@ -86,7 +100,7 @@ export default function AsambleistaPage() {
     }
 
     setCargando(true)
-    const resultado = await hacerCheckin(credencial.trim().toUpperCase())
+    const resultado = await hacerCheckin(credencial.trim().toUpperCase(), getDeviceId())
     setCargando(false)
 
     if (!resultado.ok) {
@@ -98,6 +112,10 @@ export default function AsambleistaPage() {
           "No estás habilitado para hacer check-in. Pasa primero por la mesa de registro.",
         VOTO_MANUAL:
           "Tu participación está registrada para voto manual. Pasa por la mesa para recibir tu balota.",
+        DISPOSITIVO_NO_AUTORIZADO:
+          "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+        DISPOSITIVO_REVALIDACION_REQUERIDA:
+          "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
         ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
         ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
       }
@@ -132,6 +150,7 @@ export default function AsambleistaPage() {
 
     if (!resultado.ok) {
       alert(MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`)
+      if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       if (resultado.code === "YA_VOTO") setYaVoto(true)
       return
     }
@@ -163,6 +182,7 @@ export default function AsambleistaPage() {
         token,
         votacionId,
         nombre: nominacion,
+        deviceId: getDeviceId(),
       }),
     })
 
@@ -171,6 +191,7 @@ export default function AsambleistaPage() {
 
     if (!res.ok || !data.ok) {
       alert(MENSAJES_NOMINACION[data.error] || "No se pudo registrar la nominación")
+      if (data.error === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       return
     }
 
@@ -196,6 +217,7 @@ export default function AsambleistaPage() {
 
     if (!resultado.ok) {
       alert(MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`)
+      if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       if (resultado.code === "YA_VOTO") setYaVoto(true)
       return
     }

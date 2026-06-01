@@ -24,6 +24,9 @@ type Asambleista = {
   pago_confirmado: boolean
   habilitado: boolean
   presente: boolean
+  dispositivo_autorizado_id: string | null
+  dispositivo_alerta_en: string | null
+  dispositivo_alerta_detalle: string | null
 }
 
 function normalizarCredencial(valor: string) {
@@ -198,6 +201,36 @@ export default function PuertaPage() {
     await cargarAsambleistas()
   }
 
+  const resetearDispositivo = async (asambleista: Asambleista) => {
+    if (
+      !window.confirm(
+        `¿Validar nuevamente el dispositivo para ${asambleista.nombre}? Se limpiará el dispositivo anterior y deberá entrar nuevamente.`
+      )
+    ) {
+      return
+    }
+
+    setCargando(true)
+
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: asambleista.id, accion: "reset_dispositivo" }),
+    })
+    const data = await res.json()
+
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No se pudo validar nuevamente el dispositivo")
+      return
+    }
+
+    setSeleccionado(data.asambleista)
+    setMensajeEscaneo(`${data.asambleista.nombre} puede entrar nuevamente desde su dispositivo validado`)
+    await cargarAsambleistas()
+  }
+
   const presentes = asambleistas.filter((a) => a.presente).length
   const habilitados = asambleistas.filter((a) => a.habilitado).length
 
@@ -320,6 +353,16 @@ export default function PuertaPage() {
                   {seleccionado.habilitado ? "HABILITADO" : "NO HABILITADO"} ·{" "}
                   {seleccionado.metodo_voto === "manual" ? "VOTO MANUAL" : "VOTO ELECTRÓNICO"}
                 </p>
+                {seleccionado.dispositivo_alerta_en && (
+                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+                    Alerta: esta credencial fue usada desde otro dispositivo. Verifica la identidad antes de validarla nuevamente.
+                  </p>
+                )}
+                {seleccionado.dispositivo_autorizado_id && !seleccionado.dispositivo_alerta_en && (
+                  <p className="mt-3 rounded-xl bg-indigo-50 p-3 text-sm font-bold text-indigo-700">
+                    Esta credencial ya tiene un dispositivo autorizado.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -341,6 +384,16 @@ export default function PuertaPage() {
                 <LogOut className="mr-2 h-5 w-5" />
                 Check-out
               </Button>
+
+              {(seleccionado.dispositivo_autorizado_id || seleccionado.dispositivo_alerta_en) && (
+                <Button
+                  disabled={cargando}
+                  onClick={() => resetearDispositivo(seleccionado)}
+                  className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700 sm:col-span-2"
+                >
+                  Validar nuevamente
+                </Button>
+              )}
             </div>
           </section>
         )}
