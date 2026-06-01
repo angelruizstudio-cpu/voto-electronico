@@ -11,7 +11,9 @@ import {
   X,
 } from "lucide-react"
 import jsQR from "jsqr"
+import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n"
 
 type Asambleista = {
   id: string
@@ -34,6 +36,7 @@ function normalizarCredencial(valor: string) {
 }
 
 export default function PuertaPage() {
+  const { t } = useI18n()
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
   const [busqueda, setBusqueda] = useState("")
   const [seleccionado, setSeleccionado] = useState<Asambleista | null>(null)
@@ -50,12 +53,12 @@ export default function PuertaPage() {
     const data = await res.json()
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo cargar la lista")
+      alert(data.error || t("No se pudo cargar la lista", "Could not load the list"))
       return
     }
 
     setAsambleistas(data.asambleistas || [])
-  }, [])
+  }, [t])
 
   const detenerEscaner = useCallback(() => {
     if (frameRef.current) {
@@ -92,14 +95,14 @@ export default function PuertaPage() {
 
       if (!encontrado) {
         setSeleccionado(null)
-        setMensajeEscaneo(`No se encontró la credencial ${credencial}`)
+        setMensajeEscaneo(t(`No se encontró la credencial ${credencial}`, `Credential ${credencial} was not found`))
         return
       }
 
       setSeleccionado(encontrado)
-      setMensajeEscaneo(`${encontrado.nombre} listo para validar`)
+      setMensajeEscaneo(t(`${encontrado.nombre} listo para validar`, `${encontrado.nombre} ready to validate`))
     },
-    [buscarPorCredencial]
+    [buscarPorCredencial, t]
   )
 
   const iniciarEscaner = async () => {
@@ -159,7 +162,10 @@ export default function PuertaPage() {
       frameRef.current = requestAnimationFrame(escanear)
     } catch {
       detenerEscaner()
-      setMensajeEscaneo("No se pudo abrir la cámara. Revisa permisos o usa la búsqueda manual.")
+      setMensajeEscaneo(t(
+        "No se pudo abrir la cámara. Revisa permisos o usa la búsqueda manual.",
+        "Could not open the camera. Check permissions or use manual search."
+      ))
     }
   }
 
@@ -188,15 +194,15 @@ export default function PuertaPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo actualizar la presencia")
+      alert(data.error || t("No se pudo actualizar la presencia", "Could not update attendance"))
       return
     }
 
     setSeleccionado(data.asambleista)
     setMensajeEscaneo(
       presente
-        ? `${data.asambleista.nombre} marcado presente`
-        : `${data.asambleista.nombre} marcado fuera`
+        ? t(`${data.asambleista.nombre} marcado presente`, `${data.asambleista.nombre} marked present`)
+        : t(`${data.asambleista.nombre} marcado fuera`, `${data.asambleista.nombre} marked out`)
     )
     await cargarAsambleistas()
   }
@@ -204,7 +210,10 @@ export default function PuertaPage() {
   const resetearDispositivo = async (asambleista: Asambleista) => {
     if (
       !window.confirm(
-        `¿Validar nuevamente el dispositivo para ${asambleista.nombre}? Se limpiará el dispositivo anterior y deberá entrar nuevamente.`
+        t(
+          `¿Validar nuevamente el dispositivo para ${asambleista.nombre}? Se limpiará el dispositivo anterior y deberá entrar nuevamente.`,
+          `Validate ${asambleista.nombre}'s device again? The previous device will be cleared and they must enter again.`
+        )
       )
     ) {
       return
@@ -222,12 +231,15 @@ export default function PuertaPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo validar nuevamente el dispositivo")
+      alert(data.error || t("No se pudo validar nuevamente el dispositivo", "Could not validate the device again"))
       return
     }
 
     setSeleccionado(data.asambleista)
-    setMensajeEscaneo(`${data.asambleista.nombre} puede entrar nuevamente desde su dispositivo validado`)
+    setMensajeEscaneo(t(
+      `${data.asambleista.nombre} puede entrar nuevamente desde su dispositivo validado`,
+      `${data.asambleista.nombre} can enter again from the validated device`
+    ))
     await cargarAsambleistas()
   }
 
@@ -237,8 +249,14 @@ export default function PuertaPage() {
   ) => {
     const mensaje =
       accion === "autorizar_dispositivo_intento"
-        ? `¿Autorizar el nuevo dispositivo para ${asambleista.nombre}? El dispositivo anterior quedará bloqueado.`
-        : `¿Mantener el dispositivo anterior para ${asambleista.nombre}? El dispositivo nuevo quedará bloqueado.`
+        ? t(
+            `¿Autorizar el nuevo dispositivo para ${asambleista.nombre}? El dispositivo anterior quedará bloqueado.`,
+            `Authorize the new device for ${asambleista.nombre}? The previous device will be blocked.`
+          )
+        : t(
+            `¿Mantener el dispositivo anterior para ${asambleista.nombre}? El dispositivo nuevo quedará bloqueado.`,
+            `Keep the previous device for ${asambleista.nombre}? The new device will be blocked.`
+          )
 
     if (!window.confirm(mensaje)) {
       return
@@ -256,15 +274,21 @@ export default function PuertaPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo resolver la validación del dispositivo")
+      alert(data.error || t("No se pudo resolver la validación del dispositivo", "Could not resolve device validation"))
       return
     }
 
     setSeleccionado(data.asambleista)
     setMensajeEscaneo(
       accion === "autorizar_dispositivo_intento"
-        ? `${data.asambleista.nombre} puede entrar desde el nuevo dispositivo autorizado`
-        : `${data.asambleista.nombre} debe continuar desde el dispositivo anterior`
+        ? t(
+            `${data.asambleista.nombre} puede entrar desde el nuevo dispositivo autorizado`,
+            `${data.asambleista.nombre} can enter from the newly authorized device`
+          )
+        : t(
+            `${data.asambleista.nombre} debe continuar desde el dispositivo anterior`,
+            `${data.asambleista.nombre} must continue from the previous device`
+          )
     )
     await cargarAsambleistas()
   }
@@ -279,20 +303,23 @@ export default function PuertaPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#d7c27a]">
-                Puerta
+                {t("Puerta", "Door")}
               </p>
               <h1 className="mt-1 text-2xl font-black">Check-in / Check-out</h1>
-              <p className="mt-1 text-sm text-white/70">Escaneo rápido por QR o credencial.</p>
+              <p className="mt-1 text-sm text-white/70">{t("Escaneo rápido por QR o credencial.", "Fast scan by QR or credential.")}</p>
             </div>
-            <Button
-              type="button"
-              onClick={cargarAsambleistas}
-              variant="outline"
-              className="h-11 rounded-xl border-white/20 bg-white/10 px-3 text-white hover:bg-white/20"
-              aria-label="Actualizar lista"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <LanguageToggle className="border-white/20 bg-white/10 [&_button:not([aria-pressed=true])]:text-white/80 [&_button:not([aria-pressed=true])]:hover:bg-white/10 [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#16382f]" />
+              <Button
+                type="button"
+                onClick={cargarAsambleistas}
+                variant="outline"
+                className="h-11 rounded-xl border-white/20 bg-white/10 px-3 text-white hover:bg-white/20"
+                aria-label={t("Actualizar lista", "Refresh list")}
+              >
+                <RefreshCw className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-2 text-center">
@@ -301,11 +328,11 @@ export default function PuertaPage() {
               <p className="text-2xl font-black">{asambleistas.length}</p>
             </div>
             <div className="rounded-xl bg-white/10 p-3">
-              <p className="text-xs text-white/65">Presentes</p>
+              <p className="text-xs text-white/65">{t("Presentes", "Present")}</p>
               <p className="text-2xl font-black text-emerald-200">{presentes}</p>
             </div>
             <div className="rounded-xl bg-white/10 p-3">
-              <p className="text-xs text-white/65">Habilitados</p>
+              <p className="text-xs text-white/65">{t("Habilitados", "Approved")}</p>
               <p className="text-2xl font-black text-[#d7c27a]">{habilitados}</p>
             </div>
           </div>
@@ -322,7 +349,7 @@ export default function PuertaPage() {
                   setSeleccionado(null)
                   setMensajeEscaneo("")
                 }}
-                placeholder="Nombre o credencial"
+                placeholder={t("Nombre o credencial", "Name or credential")}
                 className="w-full bg-transparent text-base font-semibold outline-none"
               />
               {busqueda && (
@@ -334,7 +361,7 @@ export default function PuertaPage() {
                     setMensajeEscaneo("")
                   }}
                   className="rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                  aria-label="Limpiar búsqueda"
+                  aria-label={t("Limpiar búsqueda", "Clear search")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -347,7 +374,7 @@ export default function PuertaPage() {
               className="h-12 rounded-xl bg-[#16382f] px-5 font-black hover:bg-[#0f2b24]"
             >
               <ScanQrCode className="mr-2 h-5 w-5" />
-              {escaneando ? "Detener" : "Escanear QR"}
+              {escaneando ? t("Detener", "Stop") : t("Escanear QR", "Scan QR")}
             </Button>
           </div>
 
@@ -387,18 +414,21 @@ export default function PuertaPage() {
                       : "bg-red-50 text-red-700"
                   }`}
                 >
-                  {seleccionado.presente ? "PRESENTE" : "FUERA"} ·{" "}
-                  {seleccionado.habilitado ? "HABILITADO" : "NO HABILITADO"} ·{" "}
-                  {seleccionado.metodo_voto === "manual" ? "VOTO MANUAL" : "VOTO ELECTRÓNICO"}
+                  {seleccionado.presente ? t("PRESENTE", "PRESENT") : t("FUERA", "OUT")} ·{" "}
+                  {seleccionado.habilitado ? t("HABILITADO", "APPROVED") : t("NO HABILITADO", "NOT APPROVED")} ·{" "}
+                  {seleccionado.metodo_voto === "manual" ? t("VOTO MANUAL", "MANUAL VOTE") : t("VOTO ELECTRÓNICO", "ELECTRONIC VOTE")}
                 </p>
                 {seleccionado.dispositivo_alerta_en && (
                   <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
-                    Alerta: esta credencial fue usada desde otro dispositivo. Verifica la identidad antes de validarla nuevamente.
+                    {t(
+                      "Alerta: esta credencial fue usada desde otro dispositivo. Verifica la identidad antes de validarla nuevamente.",
+                      "Alert: this credential was used from another device. Verify identity before validating it again."
+                    )}
                   </p>
                 )}
                 {seleccionado.dispositivo_autorizado_id && !seleccionado.dispositivo_alerta_en && (
                   <p className="mt-3 rounded-xl bg-indigo-50 p-3 text-sm font-bold text-indigo-700">
-                    Esta credencial ya tiene un dispositivo autorizado.
+                    {t("Esta credencial ya tiene un dispositivo autorizado.", "This credential already has an authorized device.")}
                   </p>
                 )}
               </div>
@@ -430,14 +460,14 @@ export default function PuertaPage() {
                     onClick={() => resolverDispositivo(seleccionado, "mantener_dispositivo_actual")}
                     className="h-14 rounded-xl bg-slate-700 text-base font-black hover:bg-slate-800"
                   >
-                    Mantener anterior
+                    {t("Mantener anterior", "Keep previous")}
                   </Button>
                   <Button
                     disabled={cargando}
                     onClick={() => resolverDispositivo(seleccionado, "autorizar_dispositivo_intento")}
                     className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700"
                   >
-                    Autorizar nuevo
+                    {t("Autorizar nuevo", "Authorize new")}
                   </Button>
                 </>
               ) : seleccionado.dispositivo_autorizado_id ? (
@@ -446,7 +476,7 @@ export default function PuertaPage() {
                   onClick={() => resetearDispositivo(seleccionado)}
                   className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700 sm:col-span-2"
                 >
-                  Liberar dispositivo
+                  {t("Liberar dispositivo", "Release device")}
                 </Button>
               ) : null}
             </div>
@@ -456,7 +486,7 @@ export default function PuertaPage() {
         <section className="space-y-3">
           {visibles.length === 0 ? (
             <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500 shadow-sm">
-              No hay registros para mostrar.
+              {t("No hay registros para mostrar.", "No records to show.")}
             </p>
           ) : (
             visibles.slice(0, 20).map((a) => (
@@ -476,7 +506,7 @@ export default function PuertaPage() {
                       {a.credencial} · {a.iglesia || "N/A"}
                     </p>
                     <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">
-                      {a.metodo_voto === "manual" ? "Voto manual" : "Voto electrónico"}
+                      {a.metodo_voto === "manual" ? t("Voto manual", "Manual vote") : t("Voto electrónico", "Electronic vote")}
                     </p>
                   </div>
                   <span
@@ -484,7 +514,7 @@ export default function PuertaPage() {
                       a.presente ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
                     }`}
                   >
-                    {a.presente ? "Presente" : "Fuera"}
+                    {a.presente ? t("Presente", "Present") : t("Fuera", "Out")}
                   </span>
                 </div>
               </button>

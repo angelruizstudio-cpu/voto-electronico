@@ -3,8 +3,10 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useI18n } from "@/lib/i18n"
 import {
   ArrowRight,
   CheckCircle,
@@ -24,43 +26,55 @@ type RolAcceso = "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
 
 const roles: {
   id: RolAcceso
-  label: string
-  description: string
+  labelEs: string
+  labelEn: string
+  descriptionEs: string
+  descriptionEn: string
   href: string
   icon: typeof MonitorCheck
 }[] = [
   {
     id: "admin",
-    label: "Administrador",
-    description: "Usuarios, permisos y configuración.",
+    labelEs: "Administrador",
+    labelEn: "Administrator",
+    descriptionEs: "Usuarios, permisos y configuración.",
+    descriptionEn: "Users, permissions, and configuration.",
     href: "/admin",
     icon: Shield,
   },
   {
     id: "moderador",
-    label: "Moderador",
-    description: "Control de asamblea, mociones y votaciones.",
+    labelEs: "Moderador",
+    labelEn: "Moderator",
+    descriptionEs: "Control de asamblea, mociones y votaciones.",
+    descriptionEn: "Assembly control, motions, and voting.",
     href: "/moderador",
     icon: MonitorCheck,
   },
   {
     id: "oficina",
-    label: "Oficina",
-    description: "Registro, pagos, habilitación e historial.",
+    labelEs: "Oficina",
+    labelEn: "Office",
+    descriptionEs: "Registro, pagos, habilitación e historial.",
+    descriptionEn: "Registration, payments, approval, and history.",
     href: "/oficina",
     icon: Users,
   },
   {
     id: "puerta",
-    label: "Puerta",
-    description: "Check-in y check-out de participantes.",
+    labelEs: "Puerta",
+    labelEn: "Door",
+    descriptionEs: "Check-in y check-out de participantes.",
+    descriptionEn: "Participant check-in and check-out.",
     href: "/puerta",
     icon: DoorOpen,
   },
   {
     id: "asambleista",
-    label: "Asambleísta",
-    description: "Entrada móvil para votar y ver resultados.",
+    labelEs: "Asambleísta",
+    labelEn: "Assembly Member",
+    descriptionEs: "Entrada móvil para votar y ver resultados.",
+    descriptionEn: "Mobile access to vote and view results.",
     href: "/asambleista",
     icon: Smartphone,
   },
@@ -68,6 +82,7 @@ const roles: {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [rol, setRol] = useState<RolAcceso>("moderador")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -92,7 +107,7 @@ export default function LoginPage() {
     setCargando(false)
 
     if (!res.ok) {
-      alert("Acceso denegado")
+      alert(t("Acceso denegado", "Access denied"))
       return
     }
 
@@ -132,17 +147,23 @@ export default function LoginPage() {
           </div>
 
           <div className="relative z-20 max-w-[35rem] py-12 lg:py-0">
-            <h1 className="text-5xl font-black leading-[1.08] tracking-tight text-white drop-shadow sm:text-6xl lg:text-[4.05rem]">
-              Sistema de Gestión
+              <h1 className="text-5xl font-black leading-[1.08] tracking-tight text-white drop-shadow sm:text-6xl lg:text-[4.05rem]">
+              {t("Sistema de Gestión", "Assembly Management")}
               <br />
-              de Asambleas
+              {t("de Asambleas", "System")}
             </h1>
             <p className="mt-5 max-w-[31rem] text-2xl font-bold leading-snug text-[#f2d77a] lg:text-[1.72rem]">
-              Todo el control de su asamblea en una sola plataforma
+              {t(
+                "Todo el control de su asamblea en una sola plataforma",
+                "All your assembly controls in one platform"
+              )}
             </p>
             <div className="mt-7 h-px w-72 bg-[#d8b65f]" />
             <p className="mt-5 max-w-[31rem] text-lg leading-8 text-white/82 lg:text-[1.22rem]">
-              Registro, votaciones, asistencia y reportes oficiales en tiempo real.
+              {t(
+                "Registro, votaciones, asistencia y reportes oficiales en tiempo real.",
+                "Registration, voting, attendance, and official reports in real time."
+              )}
             </p>
           </div>
 
@@ -151,22 +172,37 @@ export default function LoginPage() {
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <Gavel className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Votaciones seguras</p>
-              <p className="mt-2 text-sm leading-5 text-white/78">Administre procesos oficiales con resultados instantáneos.</p>
+              <p className="text-lg font-black">{t("Votaciones seguras", "Secure voting")}</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">
+                {t(
+                  "Administre procesos oficiales con resultados instantáneos.",
+                  "Manage official processes with instant results."
+                )}
+              </p>
             </div>
             <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <Users className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Control de participantes</p>
-              <p className="mt-2 text-sm leading-5 text-white/78">Registro y verificación de asistencia en tiempo real.</p>
+              <p className="text-lg font-black">{t("Control de participantes", "Participant control")}</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">
+                {t(
+                  "Registro y verificación de asistencia en tiempo real.",
+                  "Registration and attendance verification in real time."
+                )}
+              </p>
             </div>
             <div className="rounded-xl border border-[#d8b65f]/75 bg-[#062f26]/72 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.24)] backdrop-blur-sm">
               <div className="mx-auto mb-4 flex size-[4.85rem] items-center justify-center rounded-full border border-[#d8b65f] text-[#f2d77a]">
                 <FileText className="h-9 w-9" />
               </div>
-              <p className="text-lg font-black">Reportes automáticos</p>
-              <p className="mt-2 text-sm leading-5 text-white/78">Actas y resultados listos para descargar y archivar.</p>
+              <p className="text-lg font-black">{t("Reportes automáticos", "Automatic reports")}</p>
+              <p className="mt-2 text-sm leading-5 text-white/78">
+                {t(
+                  "Actas y resultados listos para descargar y archivar.",
+                  "Minutes and results ready to download and archive."
+                )}
+              </p>
             </div>
           </div>
         </section>
@@ -185,20 +221,23 @@ export default function LoginPage() {
                 <Shield className="mt-1 h-8 w-8 text-[#9c7620]" />
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#9c7620]">
-                    Acceso seguro
+                    {t("Acceso seguro", "Secure access")}
                   </p>
                   <h2 className="mt-2 text-4xl font-black tracking-tight text-[#123b31]">
-                    Selecciona tu área
+                    {t("Selecciona tu área", "Select your area")}
                   </h2>
                 </div>
               </div>
-              <Image
-                src="/KTG_Logo.png"
-                alt="Logo Kingdom Tech Group"
-                width={190}
-                height={92}
-                className="h-16 w-44 object-contain object-right"
-              />
+              <div className="flex flex-col items-start gap-3 sm:items-end">
+                <LanguageToggle />
+                <Image
+                  src="/KTG_Logo.png"
+                  alt="Logo Kingdom Tech Group"
+                  width={190}
+                  height={92}
+                  className="h-16 w-44 object-contain object-right"
+                />
+              </div>
             </div>
 
             <div className="mb-7 flex max-w-xs items-center gap-3 text-[#d7b257]">
@@ -242,7 +281,7 @@ export default function LoginPage() {
                       </span>
                       <span>
                         <span className="block text-2xl font-black leading-tight">
-                          {item.label}
+                          {t(item.labelEs, item.labelEn)}
                         </span>
                         <span
                           className={[
@@ -250,7 +289,7 @@ export default function LoginPage() {
                             activo ? "text-white/82" : "text-slate-600",
                           ].join(" ")}
                         >
-                          {item.description}
+                          {t(item.descriptionEs, item.descriptionEn)}
                         </span>
                       </span>
                     </div>
@@ -263,14 +302,14 @@ export default function LoginPage() {
               {rol !== "asambleista" && (
                 <div className="space-y-2">
                   <label className="text-base font-bold text-slate-800" htmlFor="username">
-                    Usuario
+                    {t("Usuario", "Username")}
                   </label>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <Input
                       id="username"
                       type="text"
-                      placeholder="Ingresa tu usuario"
+                      placeholder={t("Ingresa tu usuario", "Enter your username")}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -282,7 +321,7 @@ export default function LoginPage() {
 
               <div className={rol === "asambleista" ? "space-y-2 sm:col-span-2" : "space-y-2"}>
                 <label className="text-base font-bold text-slate-800" htmlFor="password">
-                  Contraseña
+                  {t("Contraseña", "Password")}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -291,8 +330,11 @@ export default function LoginPage() {
                     type="password"
                     placeholder={
                       rol === "asambleista"
-                        ? "Los asambleístas entran con credencial en la próxima pantalla"
-                        : "Ingresa tu contraseña"
+                        ? t(
+                            "Los asambleístas entran con credencial en la próxima pantalla",
+                            "Assembly members enter with their credential on the next screen"
+                          )
+                        : t("Ingresa tu contraseña", "Enter your password")
                     }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -312,10 +354,10 @@ export default function LoginPage() {
             >
               <span>
                 {cargando
-                  ? "Verificando..."
+                  ? t("Verificando...", "Verifying...")
                   : rol === "asambleista"
-                  ? "Continuar como Asambleísta"
-                  : "Entrar como " + rolSeleccionado.label}
+                  ? t("Continuar como Asambleísta", "Continue as Assembly Member")
+                  : `${t("Entrar como", "Enter as")} ${t(rolSeleccionado.labelEs, rolSeleccionado.labelEn)}`}
               </span>
               {!cargando && <ArrowRight className="ml-3 h-6 w-6 text-[#f2d77a]" />}
             </Button>
@@ -324,7 +366,7 @@ export default function LoginPage() {
               <div className="h-px flex-1 bg-slate-200" />
               <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
-                <span>Sesión protegida por rol y usuario</span>
+                <span>{t("Sesión protegida por rol y usuario", "Session protected by role and user")}</span>
               </div>
               <div className="h-px flex-1 bg-slate-200" />
             </div>

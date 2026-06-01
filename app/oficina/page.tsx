@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { LanguageToggle } from "@/components/LanguageToggle"
 import { supabase } from "@/lib/supabaseClient"
 import { useAsamblea } from "@/hooks/useAsamblea"
+import { useI18n } from "@/lib/i18n"
 
 type Asambleista = {
   id: string
@@ -27,6 +29,7 @@ type Asambleista = {
 }
 
 export default function OficinaRegionalPage() {
+  const { t } = useI18n()
   const { asambleaId } = useAsamblea()
 
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
@@ -44,12 +47,12 @@ export default function OficinaRegionalPage() {
     const data = await res.json()
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo cargar la lista de asambleístas")
+      alert(data.error || t("No se pudo cargar la lista de asambleístas", "Could not load assembly members"))
       return
     }
 
     setAsambleistas(data.asambleistas || [])
-  }, [])
+  }, [t])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -95,7 +98,7 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo actualizar el asambleísta")
+      alert(data.error || t("No se pudo actualizar el asambleísta", "Could not update assembly member"))
       return
     }
 
@@ -105,7 +108,10 @@ export default function OficinaRegionalPage() {
   const resetearDispositivo = async (id: string, nombre: string) => {
     if (
       !window.confirm(
-        `¿Validar nuevamente el dispositivo de ${nombre}? La persona deberá entrar nuevamente desde su teléfono.`
+        t(
+          `¿Validar nuevamente el dispositivo de ${nombre}? La persona deberá entrar nuevamente desde su teléfono.`,
+          `Validate ${nombre}'s device again? The person will need to enter again from their phone.`
+        )
       )
     ) {
       return
@@ -126,11 +132,11 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo validar nuevamente el dispositivo")
+      alert(data.error || t("No se pudo validar nuevamente el dispositivo", "Could not validate the device again"))
       return
     }
 
-    alert("Dispositivo reiniciado. El asambleísta puede intentar entrar nuevamente.")
+    alert(t("Dispositivo reiniciado. El asambleísta puede intentar entrar nuevamente.", "Device released. The assembly member can try entering again."))
     await cargarAsambleistas()
   }
 
@@ -141,8 +147,14 @@ export default function OficinaRegionalPage() {
   ) => {
     const mensaje =
       accion === "autorizar_dispositivo_intento"
-        ? `¿Autorizar el nuevo dispositivo de ${nombre}? El dispositivo anterior quedará bloqueado.`
-        : `¿Mantener el dispositivo anterior de ${nombre}? El dispositivo nuevo quedará bloqueado.`
+        ? t(
+            `¿Autorizar el nuevo dispositivo de ${nombre}? El dispositivo anterior quedará bloqueado.`,
+            `Authorize ${nombre}'s new device? The previous device will be blocked.`
+          )
+        : t(
+            `¿Mantener el dispositivo anterior de ${nombre}? El dispositivo nuevo quedará bloqueado.`,
+            `Keep ${nombre}'s previous device? The new device will be blocked.`
+          )
 
     if (!window.confirm(mensaje)) {
       return
@@ -163,26 +175,26 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo resolver la validación del dispositivo")
+      alert(data.error || t("No se pudo resolver la validación del dispositivo", "Could not resolve device validation"))
       return
     }
 
     alert(
       accion === "autorizar_dispositivo_intento"
-        ? "Nuevo dispositivo autorizado. El asambleísta puede entrar nuevamente."
-        : "Se mantuvo el dispositivo anterior. El asambleísta puede continuar desde ese dispositivo."
+        ? t("Nuevo dispositivo autorizado. El asambleísta puede entrar nuevamente.", "New device authorized. The assembly member can enter again.")
+        : t("Se mantuvo el dispositivo anterior. El asambleísta puede continuar desde ese dispositivo.", "Previous device kept. The assembly member can continue from that device.")
     )
     await cargarAsambleistas()
   }
 
   const crearAsambleista = async () => {
     if (!nuevoNombre.trim()) {
-      alert("Nombre es requerido")
+      alert(t("Nombre es requerido", "Name is required"))
       return
     }
 
     if (!asambleaId) {
-      alert("Primero debes abrir una asamblea")
+      alert(t("Primero debes abrir una asamblea", "You must open an assembly first"))
       return
     }
 
@@ -209,7 +221,7 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || "No se pudo crear el asambleísta")
+      alert(data.error || t("No se pudo crear el asambleísta", "Could not create assembly member"))
       return
     }
 
@@ -280,27 +292,31 @@ export default function OficinaRegionalPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6f5b1d]">
-            Oficina regional
+            {t("Oficina regional", "Regional office")}
           </p>
           <div className="mt-2 flex items-end justify-between gap-6">
             <div>
               <h1 className="text-3xl font-black text-slate-950">
-                Registro de asambleístas
+                {t("Registro de asambleístas", "Assembly member registration")}
               </h1>
               <p className="mt-2 max-w-2xl text-slate-600">
-                Confirmación de registro, pago y habilitación antes del acceso a votación.
+                {t(
+                  "Confirmación de registro, pago y habilitación antes del acceso a votación.",
+                  "Registration, payment, and approval before voting access."
+                )}
               </p>
             </div>
+            <LanguageToggle />
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-slate-50 px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Total
+                  {t("Total", "Total")}
                 </p>
                 <p className="text-2xl font-black">{asambleistas.length}</p>
               </div>
               <div className="rounded-lg bg-emerald-50 px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
-                  Habilitados
+                  {t("Habilitados", "Approved")}
                 </p>
                 <p className="text-2xl font-black text-emerald-800">
                   {asambleistas.filter((a) => a.habilitado).length}
@@ -308,7 +324,7 @@ export default function OficinaRegionalPage() {
               </div>
               <div className="rounded-lg bg-amber-50 px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                  Pendientes
+                  {t("Pendientes", "Pending")}
                 </p>
                 <p className="text-2xl font-black text-amber-800">
                   {asambleistas.filter((a) => !a.habilitado).length}
@@ -319,12 +335,12 @@ export default function OficinaRegionalPage() {
         </header>
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-black text-slate-950">Nuevo asambleísta</h2>
+          <h2 className="text-lg font-black text-slate-950">{t("Nuevo asambleísta", "New assembly member")}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-6">
 
           <input
             type="text"
-            placeholder="Nombre y apellido"
+            placeholder={t("Nombre y apellido", "Full name")}
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -340,7 +356,7 @@ export default function OficinaRegionalPage() {
 
           <input
             type="tel"
-            placeholder="Celular"
+            placeholder={t("Celular", "Mobile phone")}
             value={nuevoTelefono}
             onChange={(e) => setNuevoTelefono(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -351,13 +367,13 @@ export default function OficinaRegionalPage() {
             onChange={(e) => setNuevoMetodoVoto(e.target.value as "electronico" | "manual")}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
           >
-            <option value="electronico">Voto electrónico</option>
-            <option value="manual">Voto manual</option>
+            <option value="electronico">{t("Voto electrónico", "Electronic vote")}</option>
+            <option value="manual">{t("Voto manual", "Manual vote")}</option>
           </select>
 
           <input
             type="text"
-            placeholder="Iglesia"
+            placeholder={t("Iglesia", "Church")}
             value={nuevaIglesia}
             onChange={(e) => setNuevaIglesia(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -365,7 +381,7 @@ export default function OficinaRegionalPage() {
 
           <input
             type="text"
-            placeholder="Distrito"
+            placeholder={t("Distrito", "District")}
             value={nuevoDistrito}
             onChange={(e) => setNuevoDistrito(e.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -377,17 +393,17 @@ export default function OficinaRegionalPage() {
             disabled={cargando}
             className="mt-4 rounded-lg bg-[#16382f] px-4 py-2.5 font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
           >
-            Crear asambleísta
+            {t("Crear asambleísta", "Create assembly member")}
           </button>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-5">
-            <h2 className="text-lg font-black text-slate-950">Lista de asambleístas</h2>
+            <h2 className="text-lg font-black text-slate-950">{t("Lista de asambleístas", "Assembly member list")}</h2>
           </div>
 
           {asambleistas.length === 0 && (
-            <p className="p-5 text-slate-500">No hay registros</p>
+            <p className="p-5 text-slate-500">{t("No hay registros", "No records")}</p>
           )}
 
           <div>
@@ -416,7 +432,7 @@ export default function OficinaRegionalPage() {
                             : "bg-[#e9f3ef] text-[#16382f]",
                         ].join(" ")}
                       >
-                        {a.metodo_voto === "manual" ? "Voto manual" : "Voto electrónico"}
+                        {a.metodo_voto === "manual" ? t("Voto manual", "Manual vote") : t("Voto electrónico", "Electronic vote")}
                       </span>
                     </div>
 
@@ -426,11 +442,11 @@ export default function OficinaRegionalPage() {
                         <p className="mt-1 truncate font-semibold text-slate-700">{a.email || "N/A"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Celular</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t("Celular", "Mobile")}</p>
                         <p className="mt-1 font-semibold text-slate-700">{a.telefono || "N/A"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Iglesia / Distrito</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t("Iglesia / Distrito", "Church / District")}</p>
                         <p className="mt-1 truncate font-semibold text-slate-700">
                           {a.iglesia || "N/A"} · {a.distrito || "N/A"}
                         </p>
@@ -442,22 +458,25 @@ export default function OficinaRegionalPage() {
                         title={a.dispositivo_alerta_detalle || ""}
                         className="rounded-xl border border-red-200 bg-white p-3 text-sm font-bold text-red-700 shadow-sm"
                       >
-                        Requiere validación de dispositivo. Verifica la identidad y escoge cuál dispositivo quedará activo.
+                        {t(
+                          "Requiere validación de dispositivo. Verifica la identidad y escoge cuál dispositivo quedará activo.",
+                          "Device validation required. Verify identity and choose which device will remain active."
+                        )}
                       </div>
                     )}
 
                     <div className="flex flex-wrap gap-2 text-xs font-bold">
                       <span className={a.registrado ? "rounded-full bg-blue-50 px-2.5 py-1 text-blue-700" : "rounded-full bg-slate-100 px-2.5 py-1 text-slate-500"}>
-                        {a.registrado ? "Registrado" : "Sin registrar"}
+                        {a.registrado ? t("Registrado", "Registered") : t("Sin registrar", "Not registered")}
                       </span>
                       <span className={a.pago_confirmado ? "rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700" : "rounded-full bg-slate-100 px-2.5 py-1 text-slate-500"}>
-                        {a.pago_confirmado ? "Pago confirmado" : "Pago pendiente"}
+                        {a.pago_confirmado ? t("Pago confirmado", "Payment confirmed") : t("Pago pendiente", "Payment pending")}
                       </span>
                       <span className={a.habilitado ? "rounded-full bg-[#e9f3ef] px-2.5 py-1 text-[#16382f]" : "rounded-full bg-amber-50 px-2.5 py-1 text-amber-700"}>
-                        {a.habilitado ? "Habilitado" : "No habilitado"}
+                        {a.habilitado ? t("Habilitado", "Approved") : t("No habilitado", "Not approved")}
                       </span>
                       <span className={a.presente ? "rounded-full bg-green-50 px-2.5 py-1 text-green-700" : "rounded-full bg-red-50 px-2.5 py-1 text-red-700"}>
-                        {a.presente ? "Presente" : "Fuera"}
+                        {a.presente ? t("Presente", "Present") : t("Fuera", "Out")}
                       </span>
                       {a.email && (
                         <span
@@ -468,8 +487,8 @@ export default function OficinaRegionalPage() {
                           }
                         >
                           {a.credencial_email_enviado_en
-                            ? "Email enviado"
-                            : "Email no enviado"}
+                            ? t("Email enviado", "Email sent")
+                            : t("Email no enviado", "Email not sent")}
                         </span>
                       )}
                       {a.telefono && (
@@ -481,13 +500,13 @@ export default function OficinaRegionalPage() {
                           }
                         >
                           {a.credencial_sms_enviado_en
-                            ? "SMS enviado"
-                            : "SMS no enviado"}
+                            ? t("SMS enviado", "SMS sent")
+                            : t("SMS no enviado", "SMS not sent")}
                         </span>
                       )}
                       {a.dispositivo_autorizado_id && (
                         <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700">
-                          Dispositivo autorizado
+                          {t("Dispositivo autorizado", "Authorized device")}
                         </span>
                       )}
                     </div>
@@ -495,7 +514,7 @@ export default function OficinaRegionalPage() {
 
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">
-                      Acciones
+                      {t("Acciones", "Actions")}
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     <select
@@ -508,8 +527,8 @@ export default function OficinaRegionalPage() {
                       }
                       className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 disabled:opacity-40"
                     >
-                      <option value="electronico">Electrónico</option>
-                      <option value="manual">Manual</option>
+                      <option value="electronico">{t("Electrónico", "Electronic")}</option>
+                      <option value="manual">{t("Manual", "Manual")}</option>
                     </select>
 
                     <button
@@ -519,7 +538,7 @@ export default function OficinaRegionalPage() {
                       }
                       className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      Registrar
+                      {t("Registrar", "Register")}
                     </button>
 
                     <button
@@ -531,7 +550,7 @@ export default function OficinaRegionalPage() {
                       }
                       className="h-10 rounded-lg bg-emerald-600 px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      Confirmar pago
+                      {t("Confirmar pago", "Confirm payment")}
                     </button>
 
                     <button
@@ -548,7 +567,7 @@ export default function OficinaRegionalPage() {
                       }
                       className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      Habilitar
+                      {t("Habilitar", "Approve")}
                     </button>
 
                     {a.dispositivo_alerta_en ? (
@@ -560,7 +579,7 @@ export default function OficinaRegionalPage() {
                           }
                           className="h-10 rounded-lg bg-slate-700 px-3 text-sm font-bold text-white disabled:opacity-40"
                         >
-                          Mantener anterior
+                          {t("Mantener anterior", "Keep previous")}
                         </button>
                         <button
                           disabled={cargando}
@@ -569,7 +588,7 @@ export default function OficinaRegionalPage() {
                           }
                           className="h-10 rounded-lg bg-amber-600 px-3 text-sm font-bold text-white disabled:opacity-40"
                         >
-                          Autorizar nuevo
+                          {t("Autorizar nuevo", "Authorize new")}
                         </button>
                       </>
                     ) : a.dispositivo_autorizado_id ? (
@@ -578,7 +597,7 @@ export default function OficinaRegionalPage() {
                         onClick={() => resetearDispositivo(a.id, a.nombre)}
                         className="h-10 rounded-lg bg-amber-600 px-3 text-sm font-bold text-white disabled:opacity-40"
                       >
-                        Liberar dispositivo
+                        {t("Liberar dispositivo", "Release device")}
                       </button>
                     ) : null}
                     </div>

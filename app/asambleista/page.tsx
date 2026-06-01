@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
 import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { hacerCheckin } from "@/lib/checkinApi"
 import { enviarVoto } from "@/lib/voteApi"
 import { getDeviceId } from "@/lib/deviceId"
+import { useI18n } from "@/lib/i18n"
 import {
   Check,
   X,
@@ -52,6 +54,7 @@ const MENSAJES_NOMINACION: Record<string, string> = {
 }
 
 export default function AsambleistaPage() {
+  const { t } = useI18n()
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
     useAsamblea()
 
@@ -95,7 +98,7 @@ export default function AsambleistaPage() {
   // Bug #3 corregido: usa /api/checkin que retorna token_hash
   const handleCheckIn = async () => {
     if (!credencial) {
-      alert("Ingresa una credencial válida")
+      alert(t("Ingresa una credencial válida", "Enter a valid credential"))
       return
     }
 
@@ -119,7 +122,7 @@ export default function AsambleistaPage() {
         ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
         ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
       }
-      alert(mensajes[resultado.error] || "Credencial inválida")
+      alert(t(mensajes[resultado.error] || "Credencial inválida", "Invalid credential"))
       return
     }
 
@@ -128,14 +131,14 @@ export default function AsambleistaPage() {
     localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
     setToken(resultado.token)
     setAsambleistaNombre(resultado.asambleista?.nombre || "")
-    alert("Acceso concedido")
+    alert(t("Acceso concedido", "Access granted"))
     await cargarVotacionActiva()
   }
 
   // Bug #3 corregido: usa /api/vote que llama a la RPC con token_hash
   const votarResolucion = async (opcion: "favor" | "contra") => {
     if (!token || !votacionId) {
-      alert("Debes hacer check-in antes de votar")
+      alert(t("Debes hacer check-in antes de votar", "You must check in before voting"))
       return
     }
 
@@ -149,7 +152,12 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!resultado.ok) {
-      alert(MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`)
+      alert(
+        t(
+          MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
+          MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+        )
+      )
       if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       if (resultado.code === "YA_VOTO") setYaVoto(true)
       return
@@ -157,17 +165,17 @@ export default function AsambleistaPage() {
 
     setYaVoto(true)
     await cargarVotacionActiva()
-    alert("Voto registrado")
+    alert(t("Voto registrado", "Vote registered"))
   }
 
   const nominarCandidato = async () => {
     if (!token || !votacionId) {
-      alert("Debes hacer check-in antes de nominar")
+      alert(t("Debes hacer check-in antes de nominar", "You must check in before nominating"))
       return
     }
 
     if (!nominacion.trim()) {
-      alert("Escribe el nombre de la persona nominada")
+      alert(t("Escribe el nombre de la persona nominada", "Enter the nominee name"))
       return
     }
 
@@ -190,19 +198,28 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(MENSAJES_NOMINACION[data.error] || "No se pudo registrar la nominación")
+      alert(
+        t(
+          MENSAJES_NOMINACION[data.error] || "No se pudo registrar la nominación",
+          MENSAJES_NOMINACION[data.error] || "Could not register nomination"
+        )
+      )
       if (data.error === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       return
     }
 
     setNominacion("")
     await cargarVotacionActiva()
-    alert(data.duplicado ? "Ese nombre ya estaba nominado" : "Nominación registrada")
+    alert(
+      data.duplicado
+        ? t("Ese nombre ya estaba nominado", "That name was already nominated")
+        : t("Nominación registrada", "Nomination registered")
+    )
   }
 
   const votarCandidato = async (candidatoId: string) => {
     if (!token || !votacionId) {
-      alert("Debes hacer check-in antes de votar")
+      alert(t("Debes hacer check-in antes de votar", "You must check in before voting"))
       return
     }
 
@@ -216,7 +233,12 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!resultado.ok) {
-      alert(MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`)
+      alert(
+        t(
+          MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
+          MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+        )
+      )
       if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
       if (resultado.code === "YA_VOTO") setYaVoto(true)
       return
@@ -224,7 +246,7 @@ export default function AsambleistaPage() {
 
     setYaVoto(true)
     await cargarVotacionActiva()
-    alert("Voto registrado")
+    alert(t("Voto registrado", "Vote registered"))
   }
 
   return (
@@ -256,17 +278,20 @@ export default function AsambleistaPage() {
               </div>
             </div>
 
-            <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/80">
-              {token ? "Acreditado" : "Acceso"}
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <LanguageToggle className="border-white/20 bg-white/10 [&_button:not([aria-pressed=true])]:text-white/80 [&_button:not([aria-pressed=true])]:hover:bg-white/10 [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#16382f]" />
+              <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/80">
+                {token ? t("Acreditado", "Checked in") : t("Acceso", "Access")}
+              </div>
             </div>
           </div>
 
           <div className="mt-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#d7c27a]">
-              Participación
+              {t("Participación", "Participation")}
             </p>
             <p className="mt-2 text-3xl font-black leading-tight">
-              Vota de forma clara, rápida y segura
+              {t("Vota de forma clara, rápida y segura", "Vote clearly, quickly, and securely")}
             </p>
           </div>
         </section>
@@ -275,16 +300,19 @@ export default function AsambleistaPage() {
           {!token && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-black text-slate-950">
-                Check-in de asambleísta
+                {t("Check-in de asambleísta", "Assembly member check-in")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Ingresa tu credencial para habilitar esta sesión de votación.
+                {t(
+                  "Ingresa tu credencial para habilitar esta sesión de votación.",
+                  "Enter your credential to enable this voting session."
+                )}
               </p>
 
               <div className="mt-4 flex gap-2">
                 <input
                   type="text"
-                  placeholder="Ej: A001"
+                  placeholder={t("Ej: A001", "Ex: A001")}
                   value={credencial}
                   onChange={(e) => setCredencial(e.target.value)}
                   className="h-12 w-full rounded-lg border border-slate-200 px-4 text-lg font-bold uppercase outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -294,7 +322,7 @@ export default function AsambleistaPage() {
                   disabled={cargando}
                   className="h-12 rounded-lg bg-[#16382f] px-5 font-bold hover:bg-[#0f2b24]"
                 >
-                  {cargando ? "..." : "Entrar"}
+                  {cargando ? "..." : t("Entrar", "Enter")}
                 </Button>
               </div>
             </div>
@@ -303,13 +331,16 @@ export default function AsambleistaPage() {
           {token && asambleistaNombre && (
             <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-                Sesión acreditada
+                {t("Sesión acreditada", "Session checked in")}
               </p>
               <p className="mt-1 text-xl font-black text-slate-950">
                 {asambleistaNombre}
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Tu identidad confirma acceso a la sesión; tu voto permanece secreto.
+                {t(
+                  "Tu identidad confirma acceso a la sesión; tu voto permanece secreto.",
+                  "Your identity confirms session access; your vote remains secret."
+                )}
               </p>
             </div>
           )}
@@ -324,14 +355,14 @@ export default function AsambleistaPage() {
             }`}>
               <span className={`size-2.5 rounded-full ${estado === "abierta" && estadoAsamblea !== "receso" ? "bg-emerald-500" : "bg-amber-500"}`} />
               {estadoAsamblea === "receso"
-                ? "ASAMBLEA EN RECESO"
+                ? t("ASAMBLEA EN RECESO", "ASSEMBLY IN RECESS")
                 : estado === "abierta"
-                  ? "VOTACIÓN ACTIVA"
-                  : "EN ESPERA"}
+                  ? t("VOTACIÓN ACTIVA", "ACTIVE VOTE")
+                  : t("EN ESPERA", "WAITING")}
             </div>
 
             <h2 className="text-center text-2xl font-black leading-tight text-slate-950">
-              {titulo || "Sin votación activa"}
+              {titulo || t("Sin votación activa", "No active vote")}
             </h2>
 
             <div className="mt-4 rounded-lg bg-slate-50 p-4">
@@ -346,31 +377,34 @@ export default function AsambleistaPage() {
               )}
 
               <p className="mt-1 text-sm text-slate-500">
-                Mayoría requerida: {mostrarTipoMayoria(tipoMayoria)}
+                {t("Mayoría requerida", "Required majority")}: {mostrarTipoMayoria(tipoMayoria)}
               </p>
             </div>
 
             {!token && (
               <p className="mt-4 rounded-lg bg-red-50 p-3 text-center text-sm font-bold text-red-700">
-                Debes hacer check-in antes de votar.
+                {t("Debes hacer check-in antes de votar.", "You must check in before voting.")}
               </p>
             )}
 
             {estadoAsamblea === "receso" && (
               <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
-                La asamblea está en receso. La votación continuará cuando el moderador reanude los trabajos.
+                {t(
+                  "La asamblea está en receso. La votación continuará cuando el moderador reanude los trabajos.",
+                  "The assembly is in recess. Voting will continue when the moderator resumes the session."
+                )}
               </p>
             )}
 
             {yaVoto && (
               <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-center text-sm font-bold text-emerald-700">
-                Tu voto ya fue registrado.
+                {t("Tu voto ya fue registrado.", "Your vote has already been registered.")}
               </p>
             )}
 
             {estado === "cerrada" && titulo && (
               <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
-                La votación ha sido cerrada.
+                {t("La votación ha sido cerrada.", "Voting has been closed.")}
               </p>
             )}
 
@@ -386,8 +420,10 @@ export default function AsambleistaPage() {
                       <Check className="h-8 w-8 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-black">A FAVOR</p>
-                      <p className="text-sm font-medium text-white/80">Apruebo esta resolución</p>
+                      <p className="text-2xl font-black">{t("A FAVOR", "IN FAVOR")}</p>
+                      <p className="text-sm font-medium text-white/80">
+                        {t("Apruebo esta resolución", "I approve this resolution")}
+                      </p>
                     </div>
                   </div>
                 </Button>
@@ -402,8 +438,10 @@ export default function AsambleistaPage() {
                       <X className="h-8 w-8 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-black">EN CONTRA</p>
-                      <p className="text-sm font-medium text-white/80">No apruebo esta resolución</p>
+                      <p className="text-2xl font-black">{t("EN CONTRA", "AGAINST")}</p>
+                      <p className="text-sm font-medium text-white/80">
+                        {t("No apruebo esta resolución", "I do not approve this resolution")}
+                      </p>
                     </div>
                   </div>
                 </Button>
@@ -415,12 +453,12 @@ export default function AsambleistaPage() {
                 {rondaNumero === 1 && votosEmitidos === 0 && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p className="mb-3 text-sm font-black text-slate-700">
-                      Nominar candidato
+                      {t("Nominar candidato", "Nominate candidate")}
                     </p>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Nombre del nominado"
+                        placeholder={t("Nombre del nominado", "Nominee name")}
                         value={nominacion}
                         onChange={(e) => setNominacion(e.target.value)}
                         className="h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -430,7 +468,7 @@ export default function AsambleistaPage() {
                         disabled={!token || cargando}
                         className="h-11 rounded-lg bg-[#16382f] font-bold hover:bg-[#0f2b24]"
                       >
-                        Nominar
+                        {t("Nominar", "Nominate")}
                       </Button>
                     </div>
                   </div>
@@ -454,8 +492,8 @@ export default function AsambleistaPage() {
             <div className="mt-5 flex items-center gap-3 rounded-xl bg-[#e9f3ef] p-4 text-[#16382f]">
               <ShieldCheck className="h-8 w-8 shrink-0" />
               <div>
-                <p className="font-black">Tu voto es anónimo y seguro</p>
-                <p className="text-sm text-[#315f54]">Confidencialidad garantizada</p>
+                <p className="font-black">{t("Tu voto es anónimo y seguro", "Your vote is anonymous and secure")}</p>
+                <p className="text-sm text-[#315f54]">{t("Confidencialidad garantizada", "Confidentiality guaranteed")}</p>
               </div>
             </div>
           </div>
