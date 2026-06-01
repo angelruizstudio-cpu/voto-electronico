@@ -231,6 +231,44 @@ export default function PuertaPage() {
     await cargarAsambleistas()
   }
 
+  const resolverDispositivo = async (
+    asambleista: Asambleista,
+    accion: "mantener_dispositivo_actual" | "autorizar_dispositivo_intento"
+  ) => {
+    const mensaje =
+      accion === "autorizar_dispositivo_intento"
+        ? `¿Autorizar el nuevo dispositivo para ${asambleista.nombre}? El dispositivo anterior quedará bloqueado.`
+        : `¿Mantener el dispositivo anterior para ${asambleista.nombre}? El dispositivo nuevo quedará bloqueado.`
+
+    if (!window.confirm(mensaje)) {
+      return
+    }
+
+    setCargando(true)
+
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: asambleista.id, accion }),
+    })
+    const data = await res.json()
+
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No se pudo resolver la validación del dispositivo")
+      return
+    }
+
+    setSeleccionado(data.asambleista)
+    setMensajeEscaneo(
+      accion === "autorizar_dispositivo_intento"
+        ? `${data.asambleista.nombre} puede entrar desde el nuevo dispositivo autorizado`
+        : `${data.asambleista.nombre} debe continuar desde el dispositivo anterior`
+    )
+    await cargarAsambleistas()
+  }
+
   const presentes = asambleistas.filter((a) => a.presente).length
   const habilitados = asambleistas.filter((a) => a.habilitado).length
 
@@ -385,15 +423,32 @@ export default function PuertaPage() {
                 Check-out
               </Button>
 
-              {(seleccionado.dispositivo_autorizado_id || seleccionado.dispositivo_alerta_en) && (
+              {seleccionado.dispositivo_alerta_en ? (
+                <>
+                  <Button
+                    disabled={cargando}
+                    onClick={() => resolverDispositivo(seleccionado, "mantener_dispositivo_actual")}
+                    className="h-14 rounded-xl bg-slate-700 text-base font-black hover:bg-slate-800"
+                  >
+                    Mantener anterior
+                  </Button>
+                  <Button
+                    disabled={cargando}
+                    onClick={() => resolverDispositivo(seleccionado, "autorizar_dispositivo_intento")}
+                    className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700"
+                  >
+                    Autorizar nuevo
+                  </Button>
+                </>
+              ) : seleccionado.dispositivo_autorizado_id ? (
                 <Button
                   disabled={cargando}
                   onClick={() => resetearDispositivo(seleccionado)}
                   className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700 sm:col-span-2"
                 >
-                  Validar nuevamente
+                  Liberar dispositivo
                 </Button>
-              )}
+              ) : null}
             </div>
           </section>
         )}

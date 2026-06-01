@@ -485,6 +485,104 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, asambleista: data })
   }
 
+  if (accion === "mantener_dispositivo_actual") {
+    const { data: asambleistaActual } = await supabaseAdmin
+      .from("asambleistas")
+      .select("id, asamblea_id, credencial, dispositivo_autorizado_id")
+      .eq("id", id)
+      .single()
+
+    const { data, error } = await supabaseAdmin
+      .from("asambleistas")
+      .update({
+        dispositivo_alerta_en: null,
+        dispositivo_alerta_detalle: null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json(
+        { ok: false, error: error?.message || "ERROR_MANTENER_DISPOSITIVO" },
+        { status: 500 }
+      )
+    }
+
+    if (asambleistaActual) {
+      await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+        asamblea_id: asambleistaActual.asamblea_id,
+        asambleista_id: asambleistaActual.id,
+        credencial: asambleistaActual.credencial,
+        dispositivo_autorizado_id: asambleistaActual.dispositivo_autorizado_id,
+        dispositivo_intento_id: null,
+        accion: "dispositivo_anterior_mantenido",
+        detalle: `Dispositivo anterior mantenido por ${req.cookies.get("auth_name")?.value || "Usuario autorizado"}`,
+      })
+    }
+
+    return NextResponse.json({ ok: true, asambleista: data })
+  }
+
+  if (accion === "autorizar_dispositivo_intento") {
+    const { data: asambleistaActual } = await supabaseAdmin
+      .from("asambleistas")
+      .select("id, asamblea_id, credencial, dispositivo_autorizado_id")
+      .eq("id", id)
+      .single()
+
+    if (!asambleistaActual) {
+      return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
+    }
+
+    const { data: alertaReciente } = await supabaseAdmin
+      .from("asambleista_dispositivo_alertas")
+      .select("dispositivo_intento_id")
+      .eq("asambleista_id", id)
+      .not("dispositivo_intento_id", "is", null)
+      .order("creado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!alertaReciente?.dispositivo_intento_id) {
+      return NextResponse.json(
+        { ok: false, error: "NO_HAY_DISPOSITIVO_NUEVO" },
+        { status: 400 }
+      )
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("asambleistas")
+      .update({
+        dispositivo_autorizado_id: alertaReciente.dispositivo_intento_id,
+        dispositivo_autorizado_en: new Date().toISOString(),
+        dispositivo_alerta_en: null,
+        dispositivo_alerta_detalle: null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json(
+        { ok: false, error: error?.message || "ERROR_AUTORIZAR_DISPOSITIVO" },
+        { status: 500 }
+      )
+    }
+
+    await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+      asamblea_id: asambleistaActual.asamblea_id,
+      asambleista_id: asambleistaActual.id,
+      credencial: asambleistaActual.credencial,
+      dispositivo_autorizado_id: asambleistaActual.dispositivo_autorizado_id,
+      dispositivo_intento_id: alertaReciente.dispositivo_intento_id,
+      accion: "nuevo_dispositivo_autorizado",
+      detalle: `Nuevo dispositivo autorizado por ${req.cookies.get("auth_name")?.value || "Usuario autorizado"}`,
+    })
+
+    return NextResponse.json({ ok: true, asambleista: data })
+  }
+
   const cambiosPermitidos: CambiosAsambleista = {}
 
   for (const campo of ["registrado", "pago_confirmado", "habilitado", "presente"] as const) {

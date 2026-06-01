@@ -134,6 +134,47 @@ export default function OficinaRegionalPage() {
     await cargarAsambleistas()
   }
 
+  const resolverDispositivo = async (
+    id: string,
+    nombre: string,
+    accion: "mantener_dispositivo_actual" | "autorizar_dispositivo_intento"
+  ) => {
+    const mensaje =
+      accion === "autorizar_dispositivo_intento"
+        ? `¿Autorizar el nuevo dispositivo de ${nombre}? El dispositivo anterior quedará bloqueado.`
+        : `¿Mantener el dispositivo anterior de ${nombre}? El dispositivo nuevo quedará bloqueado.`
+
+    if (!window.confirm(mensaje)) {
+      return
+    }
+
+    setCargando(true)
+
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, accion }),
+    })
+
+    const data = await res.json()
+
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No se pudo resolver la validación del dispositivo")
+      return
+    }
+
+    alert(
+      accion === "autorizar_dispositivo_intento"
+        ? "Nuevo dispositivo autorizado. El asambleísta puede entrar nuevamente."
+        : "Se mantuvo el dispositivo anterior. El asambleísta puede continuar desde ese dispositivo."
+    )
+    await cargarAsambleistas()
+  }
+
   const crearAsambleista = async () => {
     if (!nuevoNombre.trim()) {
       alert("Nombre es requerido")
@@ -483,15 +524,36 @@ export default function OficinaRegionalPage() {
                       Habilitar
                     </button>
 
-                    {(a.dispositivo_autorizado_id || a.dispositivo_alerta_en) && (
+                    {a.dispositivo_alerta_en ? (
+                      <>
+                        <button
+                          disabled={cargando}
+                          onClick={() =>
+                            resolverDispositivo(a.id, a.nombre, "mantener_dispositivo_actual")
+                          }
+                          className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+                        >
+                          Mantener anterior
+                        </button>
+                        <button
+                          disabled={cargando}
+                          onClick={() =>
+                            resolverDispositivo(a.id, a.nombre, "autorizar_dispositivo_intento")
+                          }
+                          className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+                        >
+                          Autorizar nuevo
+                        </button>
+                      </>
+                    ) : a.dispositivo_autorizado_id ? (
                       <button
                         disabled={cargando}
                         onClick={() => resetearDispositivo(a.id, a.nombre)}
                         className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
                       >
-                        Validar nuevamente
+                        Liberar dispositivo
                       </button>
-                    )}
+                    ) : null}
 
                   </div>
                 </div>
