@@ -55,7 +55,72 @@ El selector de idioma usa la bandera de España para Español y la bandera de Es
 
 ---
 
-## 4. Módulo Administrador
+## 4. Panel lateral de sesión y estado de asamblea
+
+En los módulos administrativos, el sistema muestra un panel lateral con información rápida sobre el usuario conectado y el estado actual de la asamblea.
+
+Este panel permite confirmar, sin salir de la pantalla actual, quién está operando el sistema y en qué estado se encuentra la asamblea.
+
+### 4.1 Usuario conectado
+
+En la parte superior del panel aparece el nombre del usuario conectado y su rol.
+
+Ejemplo:
+
+- **Angel Ruiz**
+- **ADMIN**
+
+Esto ayuda a confirmar que la persona está usando el perfil correcto antes de ejecutar acciones sensibles como abrir votaciones, habilitar asambleístas o validar dispositivos.
+
+El botón con ícono de salida permite cerrar sesión y regresar a la pantalla de acceso.
+
+### 4.2 Estado de la asamblea
+
+El bloque **Estado** muestra la asamblea activa y su condición operacional.
+
+Ejemplo:
+
+- **IDPMI RMO**
+- **Asamblea 2026 - East Chicago**
+- Estado: **Activa**
+
+Cuando el estado aparece como **Activa**, significa que la asamblea está disponible para operar. Si la asamblea está en receso o cerrada, las acciones disponibles pueden cambiar según el módulo.
+
+### 4.3 Quórum
+
+El bloque **Quórum** muestra la cantidad de asambleístas presentes en ese momento.
+
+Ejemplo:
+
+- **1 asambleísta presente**
+
+Este número se actualiza con los check-in y check-out realizados desde Puerta u Oficina. Sirve para que el Moderador y el equipo administrativo tengan una referencia rápida de asistencia antes de iniciar votaciones.
+
+### 4.4 Votación actual
+
+El bloque **Votación actual** muestra la votación que está abierta o activa en ese momento.
+
+Ejemplo:
+
+- **Presidente**
+- **Elección de Líderes Regionales**
+- Estado: **abierta**
+- **1 voto**
+
+Este bloque permite saber rápidamente si hay una votación en curso y cuántos votos se han registrado. Si no hay votación activa, el panel puede mostrar que no existe una votación abierta.
+
+### 4.5 Uso recomendado del panel lateral
+
+Antes de operar durante la asamblea, el usuario debe revisar este panel para confirmar:
+
+1. Que está conectado con el rol correcto.
+2. Que la asamblea correcta está activa.
+3. Que el quórum refleja la asistencia esperada.
+4. Que la votación actual corresponde al punto que se está trabajando.
+
+---
+
+## 5. Módulo Administrador
 
 ![Administrador del sistema](images/pantalla-02.png)
 
@@ -77,7 +142,7 @@ El módulo Administrador permite crear y controlar usuarios del sistema.
 
 ---
 
-## 5. Resultados de la asamblea actual
+## 6. Resultados de la asamblea actual
 
 ![Resultados de la asamblea actual](images/pantalla-03.png)
 
@@ -97,7 +162,7 @@ El Moderador debe usar esta pantalla para revisar los resultados una vez se cier
 
 ---
 
-## 6. Historial de asambleas
+## 7. Historial de asambleas
 
 ![Historial de asambleas](images/pantalla-04.png)
 
@@ -114,13 +179,13 @@ El historial sirve como respaldo operacional para verificar procesos anteriores 
 
 ---
 
-## 7. Módulo Oficina
+## 8. Módulo Oficina
 
 ![Registro de asambleístas](images/pantalla-05.png)
 
 El módulo Oficina es uno de los módulos más importantes durante el evento. Desde aquí se administra la lista de participantes y se valida si una persona está autorizada a participar y votar.
 
-### 7.1 Crear un asambleísta
+### 8.1 Crear un asambleísta
 
 1. Ingresar nombre y apellido.
 2. Ingresar email.
@@ -131,7 +196,7 @@ El módulo Oficina es uno de los módulos más importantes durante el evento. De
 
 Al crear un asambleísta, el sistema genera una credencial única. Si el email está configurado correctamente, el sistema envía la credencial con código QR.
 
-### 7.2 Estados del asambleísta
+### 8.2 Estados del asambleísta
 
 Cada asambleísta puede mostrar varios estados:
 
@@ -144,7 +209,7 @@ Cada asambleísta puede mostrar varios estados:
 - **Dispositivo autorizado:** indica que la credencial está asociada a un dispositivo.
 - **Requiere validación:** indica que la credencial fue usada en otro dispositivo y debe resolverse en Oficina o Puerta.
 
-### 7.3 Validación de dispositivos
+### 8.3 Validación de dispositivos
 
 Cuando una misma credencial se usa en más de un dispositivo, el sistema bloquea la sesión y exige validación.
 
@@ -158,7 +223,7 @@ Este proceso debe realizarse solo después de verificar físicamente la identida
 
 ---
 
-## 8. Módulo Puerta
+## 9. Módulo Puerta
 
 ![Módulo Puerta](images/pantalla-06.png)
 
@@ -196,20 +261,20 @@ Si aparece una alerta de dispositivo, el personal de Puerta debe validar la iden
 
 ---
 
-## 9. Pantalla del Asambleísta
+## 10. Pantalla del Asambleísta
 
 ![Pantalla móvil del asambleísta](images/pantalla-07.png)
 
 El asambleísta usa esta pantalla desde su teléfono o dispositivo autorizado.
 
-### 9.1 Check-in del asambleísta
+### 10.1 Check-in del asambleísta
 
 1. El asambleísta ingresa su credencial.
 2. Presiona **Entrar**.
 3. Si la credencial es válida y está habilitada, el sistema concede acceso.
 4. El dispositivo queda autorizado para esa credencial.
 
-### 9.2 Votación
+### 10.2 Votación
 
 Cuando hay una votación activa, el asambleísta puede votar desde su pantalla.
 
@@ -220,11 +285,11 @@ Para una resolución, las opciones principales son:
 
 Para elección de líderes, el sistema puede mostrar candidatos o permitir nominaciones según la ronda configurada.
 
-### 9.3 Seguridad del voto
+### 10.3 Seguridad del voto
 
 El sistema confirma la identidad del asambleísta para acceso, pero el voto se registra de forma confidencial. El asambleísta no puede votar dos veces en la misma votación.
 
-### 9.4 Credencial usada en otro dispositivo
+### 10.4 Credencial usada en otro dispositivo
 
 Si la credencial se usa en otro dispositivo:
 
@@ -239,7 +304,7 @@ Mensaje esperado:
 
 ---
 
-## 10. Flujo recomendado el día de la asamblea
+## 11. Flujo recomendado el día de la asamblea
 
 ### Antes de abrir la asamblea
 
@@ -276,7 +341,7 @@ Mensaje esperado:
 
 ---
 
-## 11. Checklist de prueba para el día de presentación
+## 12. Checklist de prueba para el día de presentación
 
 Use este checklist antes de presentar el sistema al Comité Ejecutivo.
 
@@ -340,7 +405,7 @@ Use este checklist antes de presentar el sistema al Comité Ejecutivo.
 
 ---
 
-## 12. Recomendaciones operativas
+## 13. Recomendaciones operativas
 
 1. Tener al menos dos personas asignadas a Oficina.
 2. Tener al menos una persona dedicada a Puerta.
@@ -352,7 +417,7 @@ Use este checklist antes de presentar el sistema al Comité Ejecutivo.
 
 ---
 
-## 13. Estado de preparación
+## 14. Estado de preparación
 
 Al momento de este manual, el sistema está funcional para demostración y ensayo operativo. Las áreas principales están implementadas: acceso por roles, registro, check-in/check-out, votación, resultados, historial, validación de dispositivos y soporte bilingüe.
 
