@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { hacerCheckin } from "@/lib/checkinApi"
 import { enviarVoto } from "@/lib/voteApi"
 import { getDeviceId } from "@/lib/deviceId"
 import { useI18n } from "@/lib/i18n"
+import { supabase } from "@/lib/supabaseClient"
 import {
   Check,
   X,
@@ -75,25 +76,61 @@ export default function AsambleistaPage() {
 
   // token ahora almacena el token_hash (retornado por /api/checkin)
   const [token, setToken] = useState("")
+  const [asambleistaId, setAsambleistaId] = useState("")
   const [asambleistaNombre, setAsambleistaNombre] = useState("")
   const [credencial, setCredencial] = useState("")
   const [nominacion, setNominacion] = useState("")
   const [cargando, setCargando] = useState(false)
 
-  const bloquearSesionPorRevalidacion = () => {
+  const bloquearSesionPorRevalidacion = useCallback(() => {
     localStorage.removeItem("token_votacion")
+    localStorage.removeItem("asambleista_id")
     localStorage.removeItem("asambleista_nombre")
     setToken("")
+    setAsambleistaId("")
     setAsambleistaNombre("")
     setYaVoto(false)
-  }
+  }, [setYaVoto])
 
   useEffect(() => {
     queueMicrotask(() => {
       setToken(localStorage.getItem("token_votacion") || "")
+      setAsambleistaId(localStorage.getItem("asambleista_id") || "")
       setAsambleistaNombre(localStorage.getItem("asambleista_nombre") || "")
     })
   }, [])
+
+  useEffect(() => {
+    if (!token || !asambleistaId) return
+
+    const canal = supabase
+      .channel(`asambleista-device-alert-${asambleistaId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "asambleistas",
+          filter: `id=eq.${asambleistaId}`,
+        },
+        (payload) => {
+          if (!payload.new?.dispositivo_alerta_en) return
+
+          bloquearSesionPorRevalidacion()
+          alert(
+            t(
+              "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+              "This credential requires validation again. Please go to the registration desk."
+            )
+          )
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [asambleistaId, bloquearSesionPorRevalidacion, token, t])
 
   // Bug #3 corregido: usa /api/checkin que retorna token_hash
   const handleCheckIn = async () => {
@@ -128,8 +165,10 @@ export default function AsambleistaPage() {
 
     // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
     localStorage.setItem("token_votacion", resultado.token)
+    localStorage.setItem("asambleista_id", resultado.asambleista?.id || "")
     localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
     setToken(resultado.token)
+    setAsambleistaId(resultado.asambleista?.id || "")
     setAsambleistaNombre(resultado.asambleista?.nombre || "")
     alert(t("Acceso concedido", "Access granted"))
     await cargarVotacionActiva()

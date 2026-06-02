@@ -149,6 +149,7 @@ export async function POST(req: Request) {
       ok: true,
       token: tokenGuardado.token_hash,
       asambleista: {
+        id: asambleista.id,
         nombre: asambleista.nombre,
       },
     })

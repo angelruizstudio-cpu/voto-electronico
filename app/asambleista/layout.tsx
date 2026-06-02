@@ -14,6 +14,8 @@ export default function AsambleistaLayout({
 
   const logout = () => {
     localStorage.removeItem("token_votacion")
+    localStorage.removeItem("asambleista_id")
+    localStorage.removeItem("asambleista_nombre")
     router.push("/login")
     window.location.reload()
   }
