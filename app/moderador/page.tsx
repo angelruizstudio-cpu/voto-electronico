@@ -214,6 +214,8 @@ export default function Moderador() {
         electronicos: votosEmitidos,
         manuales: 0,
         necesarios: votosNecesariosLider,
+        nulas: 0,
+        danadas: 0,
         rondaNumero,
         eleccionGrupoId: eleccionGrupoId || votacionId,
         resultado: resultado || "sin_eleccion",

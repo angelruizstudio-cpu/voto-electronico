@@ -346,9 +346,9 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
             nombre: candidato.nombre,
             votos:
               (votos?.filter((v) => v.candidato_id === candidato.id).length || 0) +
-              Number(
-                votosManuales?.find((v) => v.candidato_id === candidato.id)?.cantidad || 0
-              ),
+              (votosManuales || [])
+                .filter((v) => v.candidato_id === candidato.id)
+                .reduce((total, voto) => total + Number(voto.cantidad || 0), 0),
           })) || []
 
         if (votacion.ganador_id) {

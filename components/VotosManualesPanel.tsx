@@ -9,6 +9,7 @@ type VotacionCerrada = {
   titulo: string
   tipo_votacion: "resolucion" | "eleccion_lideres"
   estado: string
+  ronda_numero?: number | null
 }
 
 type CandidatoManual = {
@@ -19,6 +20,12 @@ type CandidatoManual = {
 type VotoManual = {
   opcion: string | null
   candidato_id: string | null
+  cantidad: number
+}
+
+type NombreManual = {
+  id: string
+  nombre: string
   cantidad: number
 }
 
@@ -50,6 +57,8 @@ export type ResultadoManualActualizado =
       electronicos: number
       manuales: number
       necesarios: number
+      nulas: number
+      danadas: number
       rondaNumero: number
       eleccionGrupoId: string | null
       resultado: string
@@ -163,6 +172,16 @@ export function ResultadoOficialActualizado({
               </p>
             </div>
           ))}
+          {(resultado.nulas > 0 || resultado.danadas > 0) && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <p className="rounded bg-white p-3 text-sm font-bold text-amber-800">
+                Balotas nulas: {resultado.nulas}
+              </p>
+              <p className="rounded bg-white p-3 text-sm font-bold text-amber-800">
+                Balotas daÃ±adas: {resultado.danadas}
+              </p>
+            </div>
+          )}
           <p className="rounded bg-white p-3 text-base font-black text-slate-950">
             Para notificar al presidente:{" "}
             {resultado.ganadorNombre
@@ -200,6 +219,9 @@ export function VotosManualesPanel({
   const [contra, setContra] = useState(0)
   const [abstencion, setAbstencion] = useState(0)
   const [votosCandidato, setVotosCandidato] = useState<Record<string, number>>({})
+  const [nombresManuales, setNombresManuales] = useState<NombreManual[]>([])
+  const [balotasNulas, setBalotasNulas] = useState(0)
+  const [balotasDanadas, setBalotasDanadas] = useState(0)
   const [hayGuardados, setHayGuardados] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [votantesManualesPresentes, setVotantesManualesPresentes] = useState(0)
@@ -218,7 +240,7 @@ export function VotosManualesPanel({
 
     const { data, error } = await supabase
       .from("votaciones")
-      .select("id, titulo, tipo_votacion, estado")
+      .select("id, titulo, tipo_votacion, estado, ronda_numero")
       .eq("asamblea_id", asambleaId)
       .eq("estado", "cerrada")
       .order("creada_en", { ascending: false })
@@ -240,6 +262,9 @@ export function VotosManualesPanel({
       setContra(0)
       setAbstencion(0)
       setVotosCandidato({})
+      setNombresManuales([])
+      setBalotasNulas(0)
+      setBalotasDanadas(0)
       setHayGuardados(false)
       setVotantesManualesPresentes(0)
       onResultadosActualizados?.(null)
@@ -267,6 +292,9 @@ export function VotosManualesPanel({
     setFavor(votosManuales.find((voto) => voto.opcion === "favor")?.cantidad || 0)
     setContra(votosManuales.find((voto) => voto.opcion === "contra")?.cantidad || 0)
     setAbstencion(votosManuales.find((voto) => voto.opcion === "abstencion")?.cantidad || 0)
+    setBalotasNulas(votosManuales.find((voto) => voto.opcion === "nula")?.cantidad || 0)
+    setBalotasDanadas(votosManuales.find((voto) => voto.opcion === "danada")?.cantidad || 0)
+    setNombresManuales([])
 
     const { data: candidatosData, error: errorCandidatos } = await supabase
       .from("candidatos")
@@ -285,8 +313,9 @@ export function VotosManualesPanel({
     setCandidatos(candidatosLista)
     setVotosCandidato(
       candidatosLista.reduce<Record<string, number>>((acc, candidato) => {
-        acc[candidato.id] =
-          votosManuales.find((voto) => voto.candidato_id === candidato.id)?.cantidad || 0
+        acc[candidato.id] = votosManuales
+          .filter((voto) => voto.candidato_id === candidato.id)
+          .reduce((total, voto) => total + voto.cantidad, 0)
         return acc
       }, {})
     )
@@ -294,11 +323,25 @@ export function VotosManualesPanel({
 
   const totalManual = useMemo(() => {
     if (votacionSeleccionada?.tipo_votacion === "eleccion_lideres") {
-      return Object.values(votosCandidato).reduce((total, cantidad) => total + cantidad, 0)
+      return (
+        Object.values(votosCandidato).reduce((total, cantidad) => total + cantidad, 0) +
+        nombresManuales.reduce((total, fila) => total + fila.cantidad, 0) +
+        balotasNulas +
+        balotasDanadas
+      )
     }
 
     return favor + contra + abstencion
-  }, [abstencion, contra, favor, votacionSeleccionada?.tipo_votacion, votosCandidato])
+  }, [
+    abstencion,
+    balotasDanadas,
+    balotasNulas,
+    contra,
+    favor,
+    nombresManuales,
+    votacionSeleccionada?.tipo_votacion,
+    votosCandidato,
+  ])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -311,6 +354,13 @@ export function VotosManualesPanel({
       void cargarDetalle()
     })
   }, [cargarDetalle])
+
+  const agregarNombreManual = () => {
+    setNombresManuales((actual) => [
+      ...actual,
+      { id: crypto.randomUUID(), nombre: "", cantidad: 1 },
+    ])
+  }
 
   const guardar = async () => {
     if (!votacionSeleccionada) return
@@ -336,10 +386,20 @@ export function VotosManualesPanel({
 
     const votos =
       votacionSeleccionada.tipo_votacion === "eleccion_lideres"
-        ? candidatos.map((candidato) => ({
-            candidatoId: candidato.id,
-            cantidad: votosCandidato[candidato.id] || 0,
-          }))
+        ? [
+            ...candidatos.map((candidato) => ({
+              candidatoId: candidato.id,
+              cantidad: votosCandidato[candidato.id] || 0,
+            })),
+            ...nombresManuales
+              .map((fila) => ({
+                candidatoNombre: fila.nombre.trim(),
+                cantidad: fila.cantidad,
+              }))
+              .filter((fila) => fila.candidatoNombre && fila.cantidad > 0),
+            { opcion: "nula", cantidad: balotasNulas },
+            { opcion: "danada", cantidad: balotasDanadas },
+          ]
         : [
             { opcion: "favor", cantidad: favor },
             { opcion: "contra", cantidad: contra },
@@ -364,6 +424,7 @@ export function VotosManualesPanel({
 
     onResultadosActualizados?.(data.resultadosActualizados || null)
     setHayGuardados(true)
+    await cargarDetalle()
     alert("Votos manuales guardados. Resultados oficiales actualizados.")
   }
 
@@ -425,6 +486,102 @@ export function VotosManualesPanel({
                   />
                 </label>
               ))}
+              {(votacionSeleccionada.ronda_numero || 1) === 1 && (
+                <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-amber-900">
+                        Balotas manuales con nombre
+                      </p>
+                      <p className="text-xs font-semibold text-amber-800">
+                        Solo para la primera ronda. Escribe nombres que llegaron en balotas manuales.
+                      </p>
+                    </div>
+                    <Button type="button" onClick={agregarNombreManual} className="shrink-0">
+                      AÃ±adir nombre
+                    </Button>
+                  </div>
+
+                  {nombresManuales.length === 0 ? (
+                    <p className="rounded bg-white/70 p-3 text-sm font-semibold text-amber-800">
+                      No hay nombres escritos adicionales.
+                    </p>
+                  ) : (
+                    nombresManuales.map((fila) => (
+                      <div
+                        key={fila.id}
+                        className="grid gap-2 rounded bg-white p-3 sm:grid-cols-[1fr_96px_auto]"
+                      >
+                        <input
+                          type="text"
+                          placeholder="Nombre escrito en la balota"
+                          value={fila.nombre}
+                          onChange={(e) =>
+                            setNombresManuales((actual) =>
+                              actual.map((item) =>
+                                item.id === fila.id ? { ...item, nombre: e.target.value } : item
+                              )
+                            )
+                          }
+                          className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={votantesManualesPresentes}
+                          value={fila.cantidad}
+                          onChange={(e) =>
+                            setNombresManuales((actual) =>
+                              actual.map((item) =>
+                                item.id === fila.id
+                                  ? { ...item, cantidad: numeroSeguro(e.target.value) }
+                                  : item
+                              )
+                            )
+                          }
+                          className="h-10 rounded-lg border border-slate-200 px-3 text-right outline-none"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            setNombresManuales((actual) =>
+                              actual.filter((item) => item.id !== fila.id)
+                            )
+                          }
+                          className="bg-slate-600 hover:bg-slate-700"
+                        >
+                          Quitar
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm font-bold text-amber-800">
+                  <span>Balotas nulas</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={votantesManualesPresentes}
+                    value={balotasNulas}
+                    onChange={(e) => setBalotasNulas(numeroSeguro(e.target.value))}
+                    className="h-11 w-full rounded-lg border border-slate-200 px-3 text-slate-950 outline-none"
+                  />
+                </label>
+                <label className="space-y-1 text-sm font-bold text-amber-800">
+                  <span>Balotas daÃ±adas</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={votantesManualesPresentes}
+                    value={balotasDanadas}
+                    onChange={(e) => setBalotasDanadas(numeroSeguro(e.target.value))}
+                    className="h-11 w-full rounded-lg border border-slate-200 px-3 text-slate-950 outline-none"
+                  />
+                </label>
+              </div>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">

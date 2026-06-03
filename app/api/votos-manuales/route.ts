@@ -4,14 +4,15 @@ import { createClient } from "@supabase/supabase-js"
 import { calcularNecesarios } from "@/lib/votacionHelpers"
 
 type VotoManualEntrada = {
-  opcion?: "favor" | "contra" | "abstencion"
+  opcion?: "favor" | "contra" | "abstencion" | "nula" | "danada"
   candidatoId?: string
+  candidatoNombre?: string
   cantidad: number
 }
 
 type VotoManualNormalizado = {
   votacion_id: string
-  opcion: "favor" | "contra" | "abstencion" | null
+  opcion: "favor" | "contra" | "abstencion" | "nula" | "danada" | null
   candidato_id: string | null
   cantidad: number
   registrado_por: string
@@ -19,7 +20,7 @@ type VotoManualNormalizado = {
 }
 
 type VotoManualGuardado = {
-  opcion: "favor" | "contra" | "abstencion" | null
+  opcion: "favor" | "contra" | "abstencion" | "nula" | "danada" | null
   candidato_id: string | null
   cantidad: number
 }
@@ -48,6 +49,10 @@ function crearSupabaseAdmin() {
 function normalizarCantidad(valor: unknown) {
   const numero = Number(valor)
   return Number.isFinite(numero) && numero >= 0 ? Math.floor(numero) : 0
+}
+
+function normalizarNombre(valor: unknown) {
+  return String(valor || "").trim().replace(/\s+/g, " ")
 }
 
 async function contarVotantesManualesPresentes(
@@ -99,6 +104,8 @@ async function calcularResultadosActualizados(
   const manuales = votosManuales.reduce((total, voto) => total + voto.cantidad, 0)
   const electronicos = votos.length
   const emitidos = electronicos + manuales
+  const nulas = votosManuales.find((voto) => voto.opcion === "nula")?.cantidad || 0
+  const danadas = votosManuales.find((voto) => voto.opcion === "danada")?.cantidad || 0
 
   if (votacion.tipo_votacion === "eleccion_lideres") {
     const { data: candidatosData, error: errorCandidatos } = await supabaseAdmin
@@ -117,9 +124,9 @@ async function calcularResultadosActualizados(
         const electronicosCandidato = votos.filter(
           (voto) => String(voto.candidato_id) === String(candidato.id)
         ).length
-        const manualesCandidato =
-          votosManuales.find((voto) => String(voto.candidato_id) === String(candidato.id))
-            ?.cantidad || 0
+        const manualesCandidato = votosManuales
+          .filter((voto) => String(voto.candidato_id) === String(candidato.id))
+          .reduce((total, voto) => total + voto.cantidad, 0)
         const total = electronicosCandidato + manualesCandidato
 
         return {
@@ -157,6 +164,8 @@ async function calcularResultadosActualizados(
         electronicos,
         manuales,
         necesarios,
+        nulas,
+        danadas,
         rondaNumero: votacion.ronda_numero || 1,
         eleccionGrupoId: votacion.eleccion_grupo_id || votacion.id,
         resultado,
@@ -297,16 +306,95 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const filas: VotoManualNormalizado[] = (votos as VotoManualEntrada[])
-    .map((voto) => ({
-      votacion_id: votacionId,
-      opcion: voto.opcion || null,
-      candidato_id: voto.candidatoId || null,
-      cantidad: normalizarCantidad(voto.cantidad),
-      registrado_por: req.cookies.get("auth_name")?.value || "Usuario autorizado",
-      actualizado_en: new Date().toISOString(),
-    }))
-    .filter((voto) => voto.cantidad > 0 && (voto.opcion || voto.candidato_id))
+  const filas: VotoManualNormalizado[] = []
+  const registradoPor = req.cookies.get("auth_name")?.value || "Usuario autorizado"
+  const actualizadoEn = new Date().toISOString()
+
+  for (const voto of votos as VotoManualEntrada[]) {
+    const cantidad = normalizarCantidad(voto.cantidad)
+    const opcion = voto.opcion || null
+    const candidatoNombre = normalizarNombre(voto.candidatoNombre)
+
+    if (cantidad <= 0) continue
+
+    if (voto.candidatoId) {
+      filas.push({
+        votacion_id: votacionId,
+        opcion: null,
+        candidato_id: voto.candidatoId,
+        cantidad,
+        registrado_por: registradoPor,
+        actualizado_en: actualizadoEn,
+      })
+      continue
+    }
+
+    if (candidatoNombre) {
+      if (votacion.tipo_votacion !== "eleccion_lideres" || (votacion.ronda_numero || 1) !== 1) {
+        return NextResponse.json(
+          { ok: false, error: "NOMBRES_MANUALES_SOLO_PRIMERA_RONDA" },
+          { status: 400 }
+        )
+      }
+
+      const { data: candidatoExistente, error: errorBuscarCandidato } = await supabaseAdmin
+        .from("candidatos")
+        .select("id, nombre")
+        .eq("votacion_id", votacionId)
+        .ilike("nombre", candidatoNombre)
+        .maybeSingle()
+
+      if (errorBuscarCandidato) {
+        return NextResponse.json(
+          { ok: false, error: errorBuscarCandidato.message },
+          { status: 500 }
+        )
+      }
+
+      let candidatoId = candidatoExistente?.id
+
+      if (!candidatoId) {
+        const { data: candidatoCreado, error: errorCrearCandidato } = await supabaseAdmin
+          .from("candidatos")
+          .insert({
+            votacion_id: votacionId,
+            nombre: candidatoNombre,
+          })
+          .select("id")
+          .single()
+
+        if (errorCrearCandidato || !candidatoCreado) {
+          return NextResponse.json(
+            { ok: false, error: errorCrearCandidato?.message || "ERROR_CANDIDATO_MANUAL" },
+            { status: 500 }
+          )
+        }
+
+        candidatoId = candidatoCreado.id
+      }
+
+      filas.push({
+        votacion_id: votacionId,
+        opcion: null,
+        candidato_id: candidatoId,
+        cantidad,
+        registrado_por: registradoPor,
+        actualizado_en: actualizadoEn,
+      })
+      continue
+    }
+
+    if (opcion) {
+      filas.push({
+        votacion_id: votacionId,
+        opcion,
+        candidato_id: null,
+        cantidad,
+        registrado_por: registradoPor,
+        actualizado_en: actualizadoEn,
+      })
+    }
+  }
 
   const totalManual = filas.reduce((total, voto) => total + voto.cantidad, 0)
   const { count: votantesManualesPresentes, error: errorConteo } =

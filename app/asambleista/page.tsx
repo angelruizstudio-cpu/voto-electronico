@@ -44,6 +44,7 @@ const MENSAJES_VOTO: Record<string, string> = {
 }
 
 const MENSAJES_NOMINACION: Record<string, string> = {
+  YA_VOTO: "Ya registraste tu voto en esta votacion",
   TOKEN_INVALIDO: "Tu sesión no es válida, vuelve a hacer check-in",
   NO_HABILITADO: "No estás habilitado para nominar. Pasa por la mesa de registro.",
   NO_PRESENTE: "No puedes nominar porque no figuras presente en la asamblea.",
@@ -72,7 +73,7 @@ export default function AsambleistaPage() {
     yaVoto,
     setYaVoto,
     cargarVotacionActiva,
-  } = useVotacion(asambleaId)
+  } = useVotacion(asambleaId, { ocultarCandidatosPrimeraRonda: true })
 
   // token ahora almacena el token_hash (retornado por /api/checkin)
   const [token, setToken] = useState("")
@@ -244,15 +245,17 @@ export default function AsambleistaPage() {
         )
       )
       if (data.error === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
+      if (data.error === "YA_VOTO") setYaVoto(true)
       return
     }
 
     setNominacion("")
+    setYaVoto(true)
     await cargarVotacionActiva()
     alert(
       data.duplicado
-        ? t("Ese nombre ya estaba nominado", "That name was already nominated")
-        : t("Nominación registrada", "Nomination registered")
+        ? t("Voto de primera ronda registrado", "First-round vote registered")
+        : t("Nominacion y voto registrados", "Nomination and vote registered")
     )
   }
 
@@ -489,15 +492,15 @@ export default function AsambleistaPage() {
 
             {tipoVotacion === "eleccion_lideres" && estado === "abierta" && estadoAsamblea !== "receso" && (
               <div className="mt-5 space-y-3">
-                {rondaNumero === 1 && votosEmitidos === 0 && (
+                {rondaNumero === 1 && !yaVoto && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p className="mb-3 text-sm font-black text-slate-700">
-                      {t("Nominar candidato", "Nominate candidate")}
+                      {t("Primera ronda: escribe el nombre de tu candidato", "First round: enter your candidate's name")}
                     </p>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder={t("Nombre del nominado", "Nominee name")}
+                        placeholder={t("Nombre del candidato", "Candidate name")}
                         value={nominacion}
                         onChange={(e) => setNominacion(e.target.value)}
                         className="h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
@@ -507,24 +510,35 @@ export default function AsambleistaPage() {
                         disabled={!token || cargando}
                         className="h-11 rounded-lg bg-[#16382f] font-bold hover:bg-[#0f2b24]"
                       >
-                        {t("Nominar", "Nominate")}
+                        {t("Registrar", "Submit")}
                       </Button>
                     </div>
                   </div>
                 )}
 
-                <div className={conteoCandidatos.length > 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
-                  {conteoCandidatos.map((c, index) => (
-                    <Button
-                      key={c.id}
-                      onClick={() => votarCandidato(c.id)}
-                      disabled={!token || estado !== "abierta" || yaVoto || cargando}
-                      className={["min-h-16 w-full justify-center whitespace-normal rounded-xl border-2 px-3 py-3 text-center text-base font-black leading-tight text-slate-800", claseRanking(index)].join(" ")}
-                    >
-                      {c.nombre}
-                    </Button>
-                  ))}
-                </div>
+                {rondaNumero === 1 && !yaVoto && (
+                  <p className="rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                    {t(
+                      "Los nombres registrados en esta primera ronda no se muestran a los demas asambleistas.",
+                      "Names submitted in this first round are not shown to other assembly members."
+                    )}
+                  </p>
+                )}
+
+                {rondaNumero > 1 && (
+                  <div className={conteoCandidatos.length > 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+                    {conteoCandidatos.map((c, index) => (
+                      <Button
+                        key={c.id}
+                        onClick={() => votarCandidato(c.id)}
+                        disabled={!token || estado !== "abierta" || yaVoto || cargando}
+                        className={["min-h-16 w-full justify-center whitespace-normal rounded-xl border-2 px-3 py-3 text-center text-base font-black leading-tight text-slate-800", claseRanking(index)].join(" ")}
+                      >
+                        {c.nombre}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

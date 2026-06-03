@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
-export function useVotacion(asambleaId: string | null) {
+export function useVotacion(
+  asambleaId: string | null,
+  opciones: { ocultarCandidatosPrimeraRonda?: boolean } = {}
+) {
   const [estado, setEstado] = useState("cerrada")
   const [votacionId, setVotacionId] = useState<string | null>(null)
   const [titulo, setTitulo] = useState("")
@@ -120,7 +123,10 @@ export function useVotacion(asambleaId: string | null) {
     setVotosEnContra(votosContra)
     setVotosAbstencion(abstenciones)
 
-    if (data.tipo_votacion === "eleccion_lideres") {
+    if (
+      data.tipo_votacion === "eleccion_lideres" &&
+      !(opciones.ocultarCandidatosPrimeraRonda && (data.ronda_numero || 1) === 1)
+    ) {
       const { data: candidatosData } = await supabase
         .from("candidatos")
         .select("*")
@@ -152,7 +158,7 @@ export function useVotacion(asambleaId: string | null) {
       setCandidatos([])
       setConteoCandidatos([])
     }
-  }, [asambleaId, limpiarVotacion])
+  }, [asambleaId, limpiarVotacion, opciones.ocultarCandidatosPrimeraRonda])
 
   useEffect(() => {
     cargarVotacionActivaRef.current = cargarVotacionActiva

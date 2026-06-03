@@ -129,11 +129,25 @@ export default function DetalleAsamblea({
           .select("*")
           .eq("votacion_id", votacion.id)
 
-        const emitidos = votos?.length || 0
-        const favor = votos?.filter((v) => v.opcion === "favor").length || 0
-        const contra = votos?.filter((v) => v.opcion === "contra").length || 0
+        const { data: votosManuales } = await supabase
+          .from("votos_manuales")
+          .select("*")
+          .eq("votacion_id", votacion.id)
+
+        const manuales = (votosManuales || []).reduce(
+          (total, voto) => total + Number(voto.cantidad || 0),
+          0
+        )
+        const emitidos = (votos?.length || 0) + manuales
+        const favor =
+          (votos?.filter((v) => v.opcion === "favor").length || 0) +
+          Number(votosManuales?.find((v) => v.opcion === "favor")?.cantidad || 0)
+        const contra =
+          (votos?.filter((v) => v.opcion === "contra").length || 0) +
+          Number(votosManuales?.find((v) => v.opcion === "contra")?.cantidad || 0)
         const abstencion =
-          votos?.filter((v) => v.opcion === "abstencion").length || 0
+          (votos?.filter((v) => v.opcion === "abstencion").length || 0) +
+          Number(votosManuales?.find((v) => v.opcion === "abstencion")?.cantidad || 0)
 
         const necesarios = calcularNecesarios(
           votacion.tipo_votacion === "eleccion_lideres"
@@ -156,8 +170,10 @@ export default function DetalleAsamblea({
             candidatos?.map((candidato) => ({
               nombre: candidato.nombre,
               votos:
-                votos?.filter((v) => v.candidato_id === candidato.id).length ||
-                0,
+                (votos?.filter((v) => v.candidato_id === candidato.id).length || 0) +
+                (votosManuales || [])
+                  .filter((v) => v.candidato_id === candidato.id)
+                  .reduce((total, voto) => total + Number(voto.cantidad || 0), 0),
             })) || []
 
           if (votacion.ganador_id) {

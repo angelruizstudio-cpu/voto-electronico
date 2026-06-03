@@ -10,6 +10,9 @@ function crearSupabaseAdmin() {
 
 export async function POST(req: Request) {
   try {
+    const userAgent = req.headers.get("user-agent") || "unknown"
+    const forwardedFor = req.headers.get("x-forwarded-for")
+    const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
     const { token, votacionId, nombre, deviceId } = await req.json()
     const nombreLimpio = String(nombre || "").trim()
 
@@ -91,7 +94,16 @@ export async function POST(req: Request) {
       .eq("votacion_id", votacionId)
 
     if ((votosEmitidos || 0) > 0) {
-      return NextResponse.json({ ok: false, error: "NOMINACION_CERRADA" }, { status: 400 })
+      const { data: votoExistente } = await supabaseAdmin
+        .from("votos")
+        .select("id")
+        .eq("votacion_id", votacionId)
+        .eq("asambleista_id", tokenRow.asambleista_id)
+        .maybeSingle()
+
+      if (votoExistente) {
+        return NextResponse.json({ ok: false, error: "YA_VOTO" }, { status: 400 })
+      }
     }
 
     const { data: candidatoExistente } = await supabaseAdmin
@@ -101,27 +113,53 @@ export async function POST(req: Request) {
       .ilike("nombre", nombreLimpio)
       .maybeSingle()
 
-    if (candidatoExistente) {
-      return NextResponse.json({ ok: true, candidato: candidatoExistente, duplicado: true })
+    let candidato = candidatoExistente
+
+    if (!candidato) {
+      const { data: candidatoCreado, error } = await supabaseAdmin
+        .from("candidatos")
+        .insert({
+          votacion_id: votacionId,
+          nombre: nombreLimpio,
+        })
+        .select("id, nombre")
+        .single()
+
+      if (error || !candidatoCreado) {
+        return NextResponse.json(
+          { ok: false, error: error?.message || "ERROR_NOMINACION" },
+          { status: 500 }
+        )
+      }
+
+      candidato = candidatoCreado
     }
 
-    const { data: candidato, error } = await supabaseAdmin
-      .from("candidatos")
-      .insert({
-        votacion_id: votacionId,
-        nombre: nombreLimpio,
-      })
-      .select("id, nombre")
-      .single()
+    const { data: resultadoVoto, error: errorVoto } = await supabaseAdmin.rpc("registrar_voto", {
+      p_token: token,
+      p_votacion_id: votacionId,
+      p_opcion: null,
+      p_candidato_id: candidato.id,
+      p_device_id: String(deviceId).trim(),
+      p_ip: ip,
+      p_user_agent: userAgent,
+    })
 
-    if (error || !candidato) {
+    if (errorVoto) {
       return NextResponse.json(
-        { ok: false, error: error?.message || "ERROR_NOMINACION" },
+        { ok: false, error: errorVoto.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ ok: true, candidato })
+    if (resultadoVoto !== "OK") {
+      return NextResponse.json(
+        { ok: false, error: resultadoVoto },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({ ok: true, candidato, duplicado: Boolean(candidatoExistente) })
   } catch {
     return NextResponse.json({ ok: false, error: "ERROR_SERVIDOR" }, { status: 500 })
   }

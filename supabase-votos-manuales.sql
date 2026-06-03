@@ -15,7 +15,7 @@ where metodo_voto is null;
 create table if not exists public.votos_manuales (
   id uuid primary key default gen_random_uuid(),
   votacion_id uuid not null references public.votaciones(id) on delete cascade,
-  opcion text check (opcion in ('favor', 'contra', 'abstencion')),
+  opcion text check (opcion in ('favor', 'contra', 'abstencion', 'nula', 'danada')),
   candidato_id uuid references public.candidatos(id) on delete cascade,
   cantidad integer not null check (cantidad >= 0),
   registrado_por text,
