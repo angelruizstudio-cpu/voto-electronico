@@ -108,9 +108,11 @@ export async function POST(req: Request) {
 
     const { data: candidatoExistente } = await supabaseAdmin
       .from("candidatos")
-      .select("id, nombre")
+      .select("id, nombre, visible_asambleistas")
       .eq("votacion_id", votacionId)
       .ilike("nombre", nombreLimpio)
+      .order("visible_asambleistas", { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     let candidato = candidatoExistente
@@ -121,8 +123,9 @@ export async function POST(req: Request) {
         .insert({
           votacion_id: votacionId,
           nombre: nombreLimpio,
+          visible_asambleistas: false,
         })
-        .select("id, nombre")
+        .select("id, nombre, visible_asambleistas")
         .single()
 
       if (error || !candidatoCreado) {

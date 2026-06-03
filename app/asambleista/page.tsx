@@ -525,7 +525,7 @@ export default function AsambleistaPage() {
                   </p>
                 )}
 
-                {rondaNumero > 1 && (
+                {(rondaNumero > 1 || conteoCandidatos.length > 0) && (
                   <div className={conteoCandidatos.length > 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
                     {conteoCandidatos.map((c, index) => (
                       <Button

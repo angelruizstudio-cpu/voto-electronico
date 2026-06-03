@@ -16,6 +16,7 @@ export type Candidato = {
   id: string
   nombre: string
   votacion_id?: string
+  visible_asambleistas?: boolean | null
 }
 
 export type ConteoCandidato = {

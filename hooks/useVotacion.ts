@@ -123,10 +123,7 @@ export function useVotacion(
     setVotosEnContra(votosContra)
     setVotosAbstencion(abstenciones)
 
-    if (
-      data.tipo_votacion === "eleccion_lideres" &&
-      !(opciones.ocultarCandidatosPrimeraRonda && (data.ronda_numero || 1) === 1)
-    ) {
+    if (data.tipo_votacion === "eleccion_lideres") {
       const { data: candidatosData } = await supabase
         .from("candidatos")
         .select("*")
@@ -134,8 +131,12 @@ export function useVotacion(
         .order("nombre", { ascending: true })
 
       const totalVotos = votos.length
+      const candidatosVisibles =
+        opciones.ocultarCandidatosPrimeraRonda && (data.ronda_numero || 1) === 1
+          ? (candidatosData || []).filter((candidato) => candidato.visible_asambleistas !== false)
+          : candidatosData || []
 
-      const candidatosConConteo = (candidatosData || []).map((candidato) => {
+      const candidatosConConteo = candidatosVisibles.map((candidato) => {
         const votosDelCandidato = votos.filter(
           (voto) => String(voto.candidato_id) === String(candidato.id)
         ).length
@@ -152,7 +153,7 @@ export function useVotacion(
         }
       })
 
-      setCandidatos(candidatosData || [])
+      setCandidatos(candidatosVisibles)
       setConteoCandidatos(candidatosConConteo)
     } else {
       setCandidatos([])

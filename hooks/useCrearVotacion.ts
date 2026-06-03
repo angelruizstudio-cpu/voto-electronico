@@ -100,6 +100,7 @@ export function useCrearVotacion(
       const candidatosParaInsertar = candidatosLimpios.map((nombre) => ({
         votacion_id: votacionCreada.id,
         nombre,
+        visible_asambleistas: true,
       }))
 
       const { error: errorCandidatos } = await supabase

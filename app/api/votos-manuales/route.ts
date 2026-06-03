@@ -339,9 +339,11 @@ export async function POST(req: NextRequest) {
 
       const { data: candidatoExistente, error: errorBuscarCandidato } = await supabaseAdmin
         .from("candidatos")
-        .select("id, nombre")
+        .select("id, nombre, visible_asambleistas")
         .eq("votacion_id", votacionId)
         .ilike("nombre", candidatoNombre)
+        .order("visible_asambleistas", { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       if (errorBuscarCandidato) {
@@ -359,6 +361,7 @@ export async function POST(req: NextRequest) {
           .insert({
             votacion_id: votacionId,
             nombre: candidatoNombre,
+            visible_asambleistas: false,
           })
           .select("id")
           .single()

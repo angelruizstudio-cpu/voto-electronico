@@ -5,6 +5,9 @@ alter table public.votaciones
   add column if not exists resultado text,
   add column if not exists ganador_id uuid;
 
+alter table public.candidatos
+  add column if not exists visible_asambleistas boolean not null default true;
+
 do $$
 begin
   if not exists (
