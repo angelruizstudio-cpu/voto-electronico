@@ -76,6 +76,7 @@ export default function Moderador() {
   const [ganadorSorteoId, setGanadorSorteoId] = useState("")
   const [mociones, setMociones] = useState<Mocion[]>([])
   const [procesandoCreacion, setProcesandoCreacion] = useState(false)
+  const [creandoSiguienteRonda, setCreandoSiguienteRonda] = useState(false)
   const [enmiendaEnPreparacion, setEnmiendaEnPreparacion] = useState<Mocion | null>(null)
   const [resultadoManualActualizado, setResultadoManualActualizado] =
     useState<ResultadoManualActualizado | null>(null)
@@ -207,11 +208,14 @@ export default function Moderador() {
     if (tipoVotacion === "eleccion_lideres") {
       return {
         tipo: "eleccion_lideres",
+        votacionId,
         titulo: titulo || "Votación cerrada",
         emitidos: votosEmitidos,
         electronicos: votosEmitidos,
         manuales: 0,
         necesarios: votosNecesariosLider,
+        rondaNumero,
+        eleccionGrupoId: eleccionGrupoId || votacionId,
         resultado: resultado || "sin_eleccion",
         ganadorId: candidatoElecto?.id || null,
         ganadorNombre: candidatoElecto?.nombre || null,
@@ -417,30 +421,48 @@ export default function Moderador() {
     })
   }
 
-  const crearSiguienteRonda = async () => {
+  const crearSiguienteRonda = async (
+    resultadoManual?: Extract<ResultadoManualActualizado, { tipo: "eleccion_lideres" }>
+  ) => {
     if (estadoAsamblea === "receso") {
-      alert("La asamblea está en receso. Reanuda los trabajos antes de crear otra ronda.")
+      alert("La asamblea esta en receso. Reanuda los trabajos antes de crear otra ronda.")
       return
     }
 
-    if (!asambleaId || !votacionId || !requiereNuevaRonda) {
+    const votacionOrigenId = resultadoManual?.votacionId || votacionId
+    const rondaOrigen = resultadoManual?.rondaNumero || rondaNumero
+    const requiereRonda =
+      resultadoManual?.resultado === "requiere_nueva_ronda" || (!resultadoManual && requiereNuevaRonda)
+    const cantidadCandidatos = rondaOrigen === 1 ? 3 : 2
+    const candidatosOrigen = resultadoManual?.candidatos || candidatosOrdenados
+    const candidatosParaNuevaRonda = candidatosOrigen.slice(0, cantidadCandidatos)
+
+    if (!asambleaId || !votacionOrigenId || !requiereRonda) {
       alert("No hay una nueva ronda disponible")
       return
     }
 
-    if (candidatosSiguienteRonda.length < cantidadSiguienteRonda) {
+    if (candidatosParaNuevaRonda.length < cantidadCandidatos) {
       alert("No hay suficientes candidatos para crear la siguiente ronda")
       return
     }
 
-    const proximaRonda = rondaNumero + 1
-    const tituloBase = titulo.replace(/\s+-\s+Ronda\s+\d+$/i, "")
-    const grupoId = eleccionGrupoId || votacionId
+    setCreandoSiguienteRonda(true)
 
-    await supabase
+    const proximaRonda = rondaOrigen + 1
+    const tituloBase = (resultadoManual?.titulo || titulo).replace(/\s+-\s+Ronda\s+\d+$/i, "")
+    const grupoId = resultadoManual?.eleccionGrupoId || eleccionGrupoId || votacionOrigenId
+
+    const { error: errorCerrarOrigen } = await supabase
       .from("votaciones")
       .update({ estado: "cerrada" })
-      .eq("id", votacionId)
+      .eq("id", votacionOrigenId)
+
+    if (errorCerrarOrigen) {
+      setCreandoSiguienteRonda(false)
+      alert(errorCerrarOrigen.message)
+      return
+    }
 
     const { data: nuevaVotacion, error: errorVotacion } = await supabase
       .from("votaciones")
@@ -453,28 +475,32 @@ export default function Moderador() {
         publicada: false,
         ronda_numero: proximaRonda,
         eleccion_grupo_id: grupoId,
-        votacion_anterior_id: votacionId,
+        votacion_anterior_id: votacionOrigenId,
       })
       .select()
       .single()
 
     if (errorVotacion || !nuevaVotacion) {
+      setCreandoSiguienteRonda(false)
       alert(errorVotacion?.message || "No se pudo crear la siguiente ronda")
       return
     }
 
     const { error: errorCandidatos } = await supabase.from("candidatos").insert(
-      candidatosSiguienteRonda.map((c) => ({
+      candidatosParaNuevaRonda.map((c) => ({
         votacion_id: nuevaVotacion.id,
         nombre: c.nombre,
       }))
     )
 
     if (errorCandidatos) {
+      setCreandoSiguienteRonda(false)
       alert(errorCandidatos.message)
       return
     }
 
+    setResultadoManualActualizado(null)
+    setCreandoSiguienteRonda(false)
     alert(`Ronda ${proximaRonda} creada`)
     await cargarVotacionActiva()
   }
@@ -1147,13 +1173,19 @@ export default function Moderador() {
                 <Button onClick={cerrarVotacion}>Cerrar votación</Button>
                 <Button onClick={publicarResultados}>Publicar resultados</Button>
                 {requiereNuevaRonda && (
-                  <Button onClick={crearSiguienteRonda}>Crear siguiente ronda</Button>
+                  <Button onClick={() => crearSiguienteRonda()} disabled={creandoSiguienteRonda}>
+                    {creandoSiguienteRonda ? "Creando ronda..." : "Crear siguiente ronda"}
+                  </Button>
                 )}
               </div>
             )}
           </CardContent>
             </Card>
-            <ResultadoOficialActualizado resultado={resultadoManualActualizado} />
+            <ResultadoOficialActualizado
+              resultado={resultadoManualActualizado}
+              onCrearSiguienteRonda={crearSiguienteRonda}
+              creandoSiguienteRonda={creandoSiguienteRonda}
+            />
           </aside>
         </div>
       </div>

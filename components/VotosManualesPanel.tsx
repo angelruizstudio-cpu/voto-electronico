@@ -44,11 +44,14 @@ export type ResultadoManualActualizado =
     }
   | {
       tipo: "eleccion_lideres"
+      votacionId: string
       titulo: string
       emitidos: number
       electronicos: number
       manuales: number
       necesarios: number
+      rondaNumero: number
+      eleccionGrupoId: string | null
       resultado: string
       ganadorId: string | null
       ganadorNombre: string | null
@@ -74,8 +77,14 @@ const numeroSeguro = (valor: string) => {
 
 export function ResultadoOficialActualizado({
   resultado,
+  onCrearSiguienteRonda,
+  creandoSiguienteRonda = false,
 }: {
   resultado: ResultadoManualActualizado | null
+  onCrearSiguienteRonda?: (
+    resultado: Extract<ResultadoManualActualizado, { tipo: "eleccion_lideres" }>
+  ) => void
+  creandoSiguienteRonda?: boolean
 }) {
   if (!resultado) return null
 
@@ -164,6 +173,16 @@ export function ResultadoOficialActualizado({
               ? "hay empate final; corresponde sorteo físico."
               : "no hubo elección."}
           </p>
+          {resultado.resultado === "requiere_nueva_ronda" && (
+            <Button
+              type="button"
+              onClick={() => onCrearSiguienteRonda?.(resultado)}
+              disabled={!onCrearSiguienteRonda || creandoSiguienteRonda}
+              className="w-full"
+            >
+              {creandoSiguienteRonda ? "Creando ronda..." : "Crear siguiente ronda"}
+            </Button>
+          )}
         </div>
       )}
     </div>

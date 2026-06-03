@@ -73,6 +73,7 @@ async function calcularResultadosActualizados(
     tipo_votacion: string
     tipo_mayoria?: string | null
     ronda_numero?: number | null
+    eleccion_grupo_id?: string | null
   }
 ) {
   const { data: votosData, error: errorVotos } = await supabaseAdmin
@@ -150,11 +151,14 @@ async function calcularResultadosActualizados(
     return {
       resultado: {
         tipo: "eleccion_lideres",
+        votacionId: votacion.id,
         titulo: votacion.titulo,
         emitidos,
         electronicos,
         manuales,
         necesarios,
+        rondaNumero: votacion.ronda_numero || 1,
+        eleccionGrupoId: votacion.eleccion_grupo_id || votacion.id,
         resultado,
         ganadorId: ganador?.id || null,
         ganadorNombre: ganador?.nombre || null,
@@ -217,7 +221,7 @@ export async function GET(req: NextRequest) {
 
   const { data: votacion, error: errorVotacion } = await supabaseAdmin
     .from("votaciones")
-    .select("id, titulo, estado, tipo_votacion, tipo_mayoria, ronda_numero, asamblea_id")
+    .select("id, titulo, estado, tipo_votacion, tipo_mayoria, ronda_numero, eleccion_grupo_id, asamblea_id")
     .eq("id", votacionId)
     .maybeSingle()
 
@@ -275,7 +279,7 @@ export async function POST(req: NextRequest) {
 
   const { data: votacion, error: errorVotacion } = await supabaseAdmin
     .from("votaciones")
-    .select("id, titulo, estado, tipo_votacion, tipo_mayoria, ronda_numero, asamblea_id")
+    .select("id, titulo, estado, tipo_votacion, tipo_mayoria, ronda_numero, eleccion_grupo_id, asamblea_id")
     .eq("id", votacionId)
     .maybeSingle()
 
