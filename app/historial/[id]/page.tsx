@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
 import {
   calcularNecesarios,
+  calcularVotosValidosCandidatos,
   mostrarEstadoParlamentario,
   mostrarTipoMayoria,
   mostrarTipoMocion,
@@ -149,13 +150,6 @@ export default function DetalleAsamblea({
           (votos?.filter((v) => v.opcion === "abstencion").length || 0) +
           Number(votosManuales?.find((v) => v.opcion === "abstencion")?.cantidad || 0)
 
-        const necesarios = calcularNecesarios(
-          votacion.tipo_votacion === "eleccion_lideres"
-            ? emitidos
-            : favor + contra,
-          votacion.tipo_mayoria
-        )
-
         let ganadorNombre = ""
         let candidatosConteo: { nombre: string; votos: number }[] = []
 
@@ -186,6 +180,13 @@ export default function DetalleAsamblea({
             ganadorNombre = ganador?.nombre || ""
           }
         }
+
+        const necesarios = calcularNecesarios(
+          votacion.tipo_votacion === "eleccion_lideres"
+            ? calcularVotosValidosCandidatos(candidatosConteo)
+            : favor + contra,
+          votacion.tipo_mayoria
+        )
 
         return {
           id: votacion.id,

@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable"
 import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
+  calcularVotosValidosCandidatos,
   mostrarEstadoParlamentario,
   mostrarTipoMayoria,
   mostrarTipoMocion,
@@ -326,11 +327,6 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
       const contra = contraElectronico + contraManual
       const abstencion = abstencionElectronica + abstencionManual
 
-      const necesarios = calcularNecesarios(
-        votacion.tipo_votacion === "eleccion_lideres" ? emitidos : favor + contra,
-        votacion.tipo_mayoria
-      )
-
       let ganadorNombre = ""
       let candidatosConteo: { nombre: string; votos: number }[] = []
 
@@ -361,6 +357,13 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
           ganadorNombre = ganador?.nombre || ""
         }
       }
+
+      const necesarios = calcularNecesarios(
+        votacion.tipo_votacion === "eleccion_lideres"
+          ? calcularVotosValidosCandidatos(candidatosConteo)
+          : favor + contra,
+        votacion.tipo_mayoria
+      )
 
       return {
         id: votacion.id,

@@ -14,9 +14,12 @@ import {
 import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
+  calcularVotosValidosCandidatos,
   mostrarEstadoParlamentario,
   mostrarTipoMayoria,
   mostrarTipoMocion,
+  obtenerCandidatosParaSiguienteRonda,
+  obtenerGanadorMayoriaSimple,
 } from "@/lib/votacionHelpers"
 import type { Mocion } from "@/lib/types"
 
@@ -151,16 +154,14 @@ export default function Moderador() {
     tipoPanelResultados === "eleccion_lideres" && votacionId
       ? candidatosOrdenados
       : candidatosVistaPrevia
-  const votosNecesariosLider = calcularNecesarios(votosEmitidos, "mayoria_simple")
-  const candidatoElecto =
-    votosEmitidos > 0
-      ? candidatosOrdenados.find((c) => c.votos >= votosNecesariosLider)
-      : undefined
+  const votosValidosLider = calcularVotosValidosCandidatos(candidatosOrdenados)
+  const votosNecesariosLider = calcularNecesarios(votosValidosLider, "mayoria_simple")
+  const candidatoElecto = obtenerGanadorMayoriaSimple(candidatosOrdenados) || undefined
   const empateSorteo =
     tipoVotacion === "eleccion_lideres" &&
     rondaNumero >= 3 &&
-    candidatosOrdenados.length === 2 &&
-    votosEmitidos > 0 &&
+    candidatosOrdenados.filter((c) => c.votos > 0).length === 2 &&
+    votosValidosLider > 0 &&
     candidatosOrdenados[0]?.votos === candidatosOrdenados[1]?.votos
   const requiereNuevaRonda =
     tipoVotacion === "eleccion_lideres" &&
@@ -168,8 +169,10 @@ export default function Moderador() {
     !candidatoElecto &&
     !empateSorteo &&
     rondaNumero < 3
-  const cantidadSiguienteRonda = rondaNumero === 1 ? 3 : 2
-  const candidatosSiguienteRonda = candidatosOrdenados.slice(0, cantidadSiguienteRonda)
+  const candidatosSiguienteRonda = obtenerCandidatosParaSiguienteRonda(
+    candidatosOrdenados,
+    rondaNumero
+  )
 
   const mocionEstaFinalizada = (mocion: Mocion) =>
     mocion.estado_parlamentario === "aprobada" ||
@@ -435,16 +438,18 @@ export default function Moderador() {
     const rondaOrigen = resultadoManual?.rondaNumero || rondaNumero
     const requiereRonda =
       resultadoManual?.resultado === "requiere_nueva_ronda" || (!resultadoManual && requiereNuevaRonda)
-    const cantidadCandidatos = rondaOrigen === 1 ? 3 : 2
     const candidatosOrigen = resultadoManual?.candidatos || candidatosOrdenados
-    const candidatosParaNuevaRonda = candidatosOrigen.slice(0, cantidadCandidatos)
+    const candidatosParaNuevaRonda = obtenerCandidatosParaSiguienteRonda(
+      candidatosOrigen,
+      rondaOrigen
+    )
 
     if (!asambleaId || !votacionOrigenId || !requiereRonda) {
       alert("No hay una nueva ronda disponible")
       return
     }
 
-    if (candidatosParaNuevaRonda.length < cantidadCandidatos) {
+    if (candidatosParaNuevaRonda.length < 2) {
       alert("No hay suficientes candidatos para crear la siguiente ronda")
       return
     }

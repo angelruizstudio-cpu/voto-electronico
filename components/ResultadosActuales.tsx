@@ -5,6 +5,7 @@ import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import {
   calcularNecesarios,
+  calcularVotosValidosCandidatos,
   mostrarTipoMayoria,
   mostrarTipoMocion,
   mostrarTipoVotacion,
@@ -25,14 +26,15 @@ export function ResultadosActuales() {
     conteoCandidatos,
   } = useVotacion(asambleaId)
 
-  const totalValidos = votosAFavor + votosEnContra
-  const necesarios = calcularNecesarios(
-    tipoVotacion === "eleccion_lideres" ? votosEmitidos : totalValidos,
-    tipoVotacion === "eleccion_lideres" ? "mayoria_simple" : tipoMayoria
-  )
   const candidatosOrdenados = conteoCandidatos
     .slice()
     .sort((a, b) => b.votos - a.votos)
+  const totalValidos = votosAFavor + votosEnContra
+  const votosValidosCandidatos = calcularVotosValidosCandidatos(candidatosOrdenados)
+  const necesarios = calcularNecesarios(
+    tipoVotacion === "eleccion_lideres" ? votosValidosCandidatos : totalValidos,
+    tipoVotacion === "eleccion_lideres" ? "mayoria_simple" : tipoMayoria
+  )
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">

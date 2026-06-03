@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { calcularNecesarios } from "@/lib/votacionHelpers"
+import {
+  calcularNecesarios,
+  calcularVotosValidosCandidatos,
+  obtenerGanadorMayoriaSimple,
+} from "@/lib/votacionHelpers"
 
 type VotoManualEntrada = {
   opcion?: "favor" | "contra" | "abstencion" | "nula" | "danada"
@@ -140,12 +144,13 @@ async function calcularResultadosActualizados(
       })
       .sort((a, b) => b.votos - a.votos)
 
-    const necesarios = calcularNecesarios(emitidos, "mayoria_simple")
-    const ganador = emitidos > 0 ? conteoCandidatos.find((candidato) => candidato.votos >= necesarios) : null
+    const validosCandidatos = calcularVotosValidosCandidatos(conteoCandidatos)
+    const necesarios = calcularNecesarios(validosCandidatos, "mayoria_simple")
+    const ganador = obtenerGanadorMayoriaSimple(conteoCandidatos)
     const empateSorteo =
       (votacion.ronda_numero || 1) >= 3 &&
-      conteoCandidatos.length === 2 &&
-      emitidos > 0 &&
+      conteoCandidatos.filter((candidato) => candidato.votos > 0).length === 2 &&
+      validosCandidatos > 0 &&
       conteoCandidatos[0]?.votos === conteoCandidatos[1]?.votos
     const resultado = ganador
       ? "electo"
