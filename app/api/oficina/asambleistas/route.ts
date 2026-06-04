@@ -226,6 +226,35 @@ function obtenerErrorSent(status: number, contentType: string, body: string) {
   return `SENT_HTTP_${status}`
 }
 
+function validarConfigSent() {
+  const apiKey = process.env.SENT_API_KEY
+  const senderId = process.env.SENT_SENDER_ID
+  const templateId = process.env.SENT_TEMPLATE_ID
+
+  console.log("Sent.dm SENT_SENDER_ID loaded", {
+    loaded: Boolean(senderId),
+    preview: senderId ? `${senderId.slice(0, 4)}...${senderId.slice(-4)}` : null,
+  })
+
+  if (!apiKey) {
+    throw new Error("Missing required environment variable SENT_API_KEY")
+  }
+
+  if (!senderId) {
+    throw new Error("Missing required environment variable SENT_SENDER_ID")
+  }
+
+  if (!templateId) {
+    throw new Error("Missing required environment variable SENT_TEMPLATE_ID")
+  }
+
+  return {
+    apiKey,
+    senderId,
+    templateId,
+  }
+}
+
 async function enviarCredencialPorSms({
   telefono,
   nombre,
@@ -243,15 +272,9 @@ async function enviarCredencialPorSms({
     return { enviado: false }
   }
 
-  const apiKey = process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY
-  const senderId = process.env.SENT_SENDER_ID
-  const templateId = process.env.SENT_TEMPLATE_ID || process.env.SENT_DM_TEMPLATE_ID
+  const { apiKey, senderId, templateId } = validarConfigSent()
   const sandbox = process.env.SENT_SANDBOX === "true"
   const linkVotacion = obtenerLinkVotacion(organizacionSlug)
-
-  if (!apiKey || !senderId || !templateId) {
-    return { enviado: false, error: "FALTA_SENT_CONFIG" }
-  }
 
   const payload = {
     to: [telefono],
