@@ -30,7 +30,7 @@ type Asambleista = {
 
 export default function OficinaRegionalPage() {
   const { t } = useI18n()
-  const { asambleaId } = useAsamblea()
+  const { asambleaId, organizacionNombreSesion } = useAsamblea()
 
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
   const [cargando, setCargando] = useState(false)
@@ -292,7 +292,7 @@ export default function OficinaRegionalPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6f5b1d]">
-            {t("Oficina regional", "Regional office")}
+            {organizacionNombreSesion}
           </p>
           <div className="mt-2 flex items-end justify-between gap-6">
             <div>

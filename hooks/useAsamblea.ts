@@ -25,6 +25,7 @@ function useAsambleaState() {
   const [nuevaOrganizacion, setNuevaOrganizacion] = useState("")
   const [organizacionIdSesion, setOrganizacionIdSesion] = useState<string | null>(null)
   const [organizacionSlugSesion, setOrganizacionSlugSesion] = useState("kingdom-tech-group")
+  const [organizacionNombreSesion, setOrganizacionNombreSesion] = useState("Kingdom Tech Group")
 
   const cargarOrganizacionSesion = useCallback(async () => {
     const slugUrl =
@@ -48,21 +49,45 @@ function useAsambleaState() {
     const data = await res.json().catch(() => null)
 
     if (data?.organizacion) {
+      const tenant = {
+        id: data.organizacion.id || null,
+        nombre: data.organizacion.nombre || "Kingdom Tech Group",
+        slug: data.organizacion.slug || slugUrl || slugGuardado || "kingdom-tech-group",
+      }
+
       setOrganizacionIdSesion(data.organizacion.id || null)
-      setOrganizacionSlugSesion(data.organizacion.slug || slugUrl || slugGuardado || "kingdom-tech-group")
+      setOrganizacionNombreSesion(tenant.nombre)
+      setOrganizacionSlugSesion(tenant.slug)
+
+      return tenant
     }
+
+    const fallback = {
+      id: null,
+      nombre: "Kingdom Tech Group",
+      slug: slugUrl || slugGuardado || "kingdom-tech-group",
+    }
+
+    setOrganizacionNombreSesion(fallback.nombre)
+    return fallback
   }, [])
 
-  const cargarAsambleaActiva = useCallback(async () => {
+  const cargarAsambleaActiva = useCallback(async (tenantSesion?: {
+    id: string | null
+    slug: string
+  }) => {
     let query = supabase
       .from("asambleas")
       .select("*")
       .in("estado", ["abierta", "receso"])
 
-    if (organizacionIdSesion) {
-      query = query.eq("organizacion_id", organizacionIdSesion)
-    } else if (organizacionSlugSesion) {
-      query = query.eq("organizacion_slug", organizacionSlugSesion)
+    const tenantId = tenantSesion?.id ?? organizacionIdSesion
+    const tenantSlug = tenantSesion?.slug ?? organizacionSlugSesion
+
+    if (tenantId) {
+      query = query.eq("organizacion_id", tenantId)
+    } else if (tenantSlug) {
+      query = query.eq("organizacion_slug", tenantSlug)
     }
 
     const { data, error } = await query.maybeSingle()
@@ -292,8 +317,10 @@ function useAsambleaState() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      void cargarOrganizacionSesion()
-      void cargarAsambleaActiva()
+      void (async () => {
+        const tenant = await cargarOrganizacionSesion()
+        await cargarAsambleaActiva(tenant || undefined)
+      })()
     })
 
     const canalAsambleas = supabase
@@ -321,6 +348,7 @@ function useAsambleaState() {
     anioAsamblea,
     lugarAsamblea,
     organizacionAsamblea,
+    organizacionNombreSesion,
     estadoAsamblea,
     nuevoAnio,
     nuevoLugar,
