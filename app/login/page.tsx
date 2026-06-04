@@ -23,7 +23,7 @@ import {
   Users,
 } from "lucide-react"
 
-type RolAcceso = "owner" | "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
+type RolAcceso = "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
 
 type Organizacion = {
   id: string
@@ -40,15 +40,6 @@ const roles: {
   href: string
   icon: typeof MonitorCheck
 }[] = [
-  {
-    id: "owner",
-    labelEs: "Dueño del sistema",
-    labelEn: "System Owner",
-    descriptionEs: "Organizaciones cliente y acceso inicial.",
-    descriptionEn: "Client organizations and initial access.",
-    href: "/sistema",
-    icon: Building2,
-  },
   {
     id: "admin",
     labelEs: "Administrador",
@@ -139,7 +130,7 @@ export default function LoginPage() {
       return
     }
 
-    if ((rol !== "owner" && !organizacionSlug) || !password) return
+    if (!organizacionSlug || !password) return
     setCargando(true)
     localStorage.setItem("organizacion_slug", organizacionSlug)
 
@@ -344,7 +335,6 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-7 grid gap-5 sm:grid-cols-2">
-              {rol !== "owner" && (
               <div className="space-y-2 sm:col-span-2">
                 <label className="text-base font-bold text-slate-800" htmlFor="organizacion">
                   {t("Organización", "Organization")}
@@ -372,7 +362,6 @@ export default function LoginPage() {
                   </select>
                 </div>
               </div>
-              )}
 
               {rol !== "asambleista" && (
                 <div className="space-y-2">

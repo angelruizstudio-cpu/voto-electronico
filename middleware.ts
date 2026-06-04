@@ -29,7 +29,8 @@ export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
 
   if (!session) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    const destino = pathname.startsWith("/sistema") ? "/ktgsga-admin" : "/login"
+    return NextResponse.redirect(new URL(destino, req.url))
   }
 
   const tieneRol = (rolesPermitidos: string[]) =>
@@ -44,7 +45,8 @@ export function middleware(req: NextRequest) {
     pathname === "/"
 
   if (!permitido) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    const destino = pathname.startsWith("/sistema") ? "/ktgsga-admin" : "/login"
+    return NextResponse.redirect(new URL(destino, req.url))
   }
 
   return NextResponse.next()

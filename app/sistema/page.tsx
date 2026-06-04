@@ -106,7 +106,7 @@ export default function SistemaPage() {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
-    router.push("/login")
+    router.push("/ktgsga-admin")
     router.refresh()
   }
 

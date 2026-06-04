@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 
 const rutasPorRol = {
+  owner: "/sistema",
   admin: "/admin",
   moderador: "/moderador",
   oficina: "/oficina",
@@ -32,7 +33,11 @@ async function leerRolesSesion() {
 
 export default async function HomePage() {
   const roles = await leerRolesSesion()
-  const rolDestino: RolRuta = roles.includes("admin") ? "admin" : roles[0] || "moderador"
+  const rolDestino: RolRuta = roles.includes("owner")
+    ? "owner"
+    : roles.includes("admin")
+      ? "admin"
+      : roles[0] || "moderador"
 
   redirect(rutasPorRol[rolDestino])
 }
