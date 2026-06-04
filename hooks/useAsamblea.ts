@@ -23,13 +23,49 @@ function useAsambleaState() {
   const [nuevoAnio, setNuevoAnio] = useState("")
   const [nuevoLugar, setNuevoLugar] = useState("")
   const [nuevaOrganizacion, setNuevaOrganizacion] = useState("")
+  const [organizacionIdSesion, setOrganizacionIdSesion] = useState<string | null>(null)
+  const [organizacionSlugSesion, setOrganizacionSlugSesion] = useState("kingdom-tech-group")
+
+  const cargarOrganizacionSesion = useCallback(async () => {
+    const slugUrl =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("org") || ""
+        : ""
+    const slugGuardado =
+      typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") || "" : ""
+
+    if (slugUrl) {
+      localStorage.setItem("organizacion_slug", slugUrl)
+      setOrganizacionSlugSesion(slugUrl)
+    } else if (slugGuardado) {
+      setOrganizacionSlugSesion(slugGuardado)
+    }
+
+    const res = await fetch("/api/auth/me").catch(() => null)
+
+    if (!res?.ok) return
+
+    const data = await res.json().catch(() => null)
+
+    if (data?.organizacion) {
+      setOrganizacionIdSesion(data.organizacion.id || null)
+      setOrganizacionSlugSesion(data.organizacion.slug || slugUrl || slugGuardado || "kingdom-tech-group")
+    }
+  }, [])
 
   const cargarAsambleaActiva = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("asambleas")
       .select("*")
       .in("estado", ["abierta", "receso"])
-      .maybeSingle()
+
+    if (organizacionIdSesion) {
+      query = query.eq("organizacion_id", organizacionIdSesion)
+    } else if (organizacionSlugSesion) {
+      query = query.eq("organizacion_slug", organizacionSlugSesion)
+    }
+
+    const { data, error } = await query.maybeSingle()
 
     if (error || !data) {
       setAsambleaId(null)
@@ -45,7 +81,7 @@ function useAsambleaState() {
     setLugarAsamblea(data.lugar)
     setOrganizacionAsamblea(data.organizacion || "")
     setEstadoAsamblea(data.estado === "receso" ? "receso" : "abierta")
-  }, [])
+  }, [organizacionIdSesion, organizacionSlugSesion])
 
   const registrarEventoAsamblea = async (
     tipo: "receso_iniciado" | "trabajos_reanudados",
@@ -77,13 +113,23 @@ function useAsambleaState() {
   const abrirAsamblea = async () => {
     if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
-    await supabase
+    let cerrarActivas = supabase
       .from("asambleas")
       .update({ estado: "cerrada" })
       .in("estado", ["abierta", "receso"])
 
+    if (organizacionIdSesion) {
+      cerrarActivas = cerrarActivas.eq("organizacion_id", organizacionIdSesion)
+    } else if (organizacionSlugSesion) {
+      cerrarActivas = cerrarActivas.eq("organizacion_slug", organizacionSlugSesion)
+    }
+
+    await cerrarActivas
+
     const { error } = await supabase.from("asambleas").insert([
       {
+        organizacion_id: organizacionIdSesion,
+        organizacion_slug: organizacionSlugSesion,
         organizacion: nuevaOrganizacion.trim(),
         anio: Number(nuevoAnio),
         lugar: nuevoLugar.trim(),
@@ -246,6 +292,7 @@ function useAsambleaState() {
 
   useEffect(() => {
     queueMicrotask(() => {
+      void cargarOrganizacionSesion()
       void cargarAsambleaActiva()
     })
 
@@ -267,7 +314,7 @@ function useAsambleaState() {
     return () => {
       supabase.removeChannel(canalAsambleas)
     }
-  }, [cargarAsambleaActiva])
+  }, [cargarAsambleaActiva, cargarOrganizacionSesion])
 
   return {
     asambleaId,
@@ -278,6 +325,8 @@ function useAsambleaState() {
     nuevoAnio,
     nuevoLugar,
     nuevaOrganizacion,
+    organizacionIdSesion,
+    organizacionSlugSesion,
     setNuevoAnio,
     setNuevoLugar,
     setNuevaOrganizacion,

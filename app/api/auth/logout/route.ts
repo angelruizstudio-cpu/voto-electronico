@@ -9,6 +9,9 @@ export async function POST() {
     "auth_roles",
     "auth_name",
     "auth_user_id",
+    "auth_org_id",
+    "auth_org_name",
+    "auth_org_slug",
     "moderador_session",
   ]) {
     response.cookies.set(cookie, "", {

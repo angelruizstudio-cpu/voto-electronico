@@ -57,7 +57,7 @@ const MENSAJES_NOMINACION: Record<string, string> = {
 
 export default function AsambleistaPage() {
   const { t } = useI18n()
-  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
+  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea, organizacionSlugSesion } =
     useAsamblea()
 
   const {
@@ -141,7 +141,11 @@ export default function AsambleistaPage() {
     }
 
     setCargando(true)
-    const resultado = await hacerCheckin(credencial.trim().toUpperCase(), getDeviceId())
+    const resultado = await hacerCheckin(
+      credencial.trim().toUpperCase(),
+      getDeviceId(),
+      organizacionSlugSesion
+    )
     setCargando(false)
 
     if (!resultado.ok) {

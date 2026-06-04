@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const { credencial, deviceId } = await req.json()
+    const { credencial, deviceId, orgSlug } = await req.json()
 
     if (!credencial || !deviceId) {
       return NextResponse.json({ ok: false, error: "FALTA_CREDENCIAL" }, { status: 400 })
@@ -21,11 +21,18 @@ export async function POST(req: Request) {
     const forwardedFor = req.headers.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
 
-    const { data: asamblea } = await supabaseAdmin
+    let queryAsamblea = supabaseAdmin
       .from("asambleas")
       .select("id")
       .in("estado", ["abierta", "receso"])
-      .single()
+
+    const orgSlugLimpio = String(orgSlug || "").trim().toLowerCase()
+
+    if (orgSlugLimpio) {
+      queryAsamblea = queryAsamblea.eq("organizacion_slug", orgSlugLimpio)
+    }
+
+    const { data: asamblea } = await queryAsamblea.maybeSingle()
 
     if (!asamblea) {
       return NextResponse.json({ ok: false, error: "NO_HAY_ASAMBLEA" }, { status: 400 })

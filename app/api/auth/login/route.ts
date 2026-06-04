@@ -15,7 +15,8 @@ function setCookiesSesion(
   rol: RolSistema,
   nombre: string,
   userId: string,
-  roles: RolSistema[] = [rol]
+  roles: RolSistema[] = [rol],
+  organizacion?: { id?: string | null; nombre?: string | null; slug?: string | null }
 ) {
   const opciones = {
     path: "/",
@@ -29,6 +30,9 @@ function setCookiesSesion(
   response.cookies.set("auth_roles", JSON.stringify(roles), opciones)
   response.cookies.set("auth_name", nombre, opciones)
   response.cookies.set("auth_user_id", userId, opciones)
+  response.cookies.set("auth_org_id", organizacion?.id || "", opciones)
+  response.cookies.set("auth_org_name", organizacion?.nombre || "Kingdom Tech Group", opciones)
+  response.cookies.set("auth_org_slug", organizacion?.slug || "kingdom-tech-group", opciones)
   response.cookies.set("moderador_session", "true", opciones)
 }
 
@@ -52,7 +56,12 @@ export async function POST(req: NextRequest) {
         rolSolicitado as RolSistema,
         "Acceso administrativo",
         "emergency",
-        rolesEmergencia
+        rolesEmergencia,
+        {
+          id: process.env.DEFAULT_ORGANIZATION_ID || null,
+          nombre: process.env.DEFAULT_ORGANIZATION_NAME || "Kingdom Tech Group",
+          slug: process.env.DEFAULT_ORGANIZATION_SLUG || "kingdom-tech-group",
+        }
       )
       return response
     }
@@ -64,7 +73,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = crearSupabaseAdmin()
     const { data: usuario, error } = await supabaseAdmin
       .from("usuarios_sistema")
-      .select("*")
+      .select("*, organizaciones:organizacion_id(id, nombre, slug)")
       .eq("username", String(username).trim().toLowerCase())
       .maybeSingle()
 
@@ -96,7 +105,12 @@ export async function POST(req: NextRequest) {
       rolSolicitado as RolSistema,
       usuario.nombre,
       usuario.id,
-      usuario.roles
+      usuario.roles,
+      {
+        id: usuario.organizacion_id,
+        nombre: usuario.organizaciones?.nombre,
+        slug: usuario.organizaciones?.slug,
+      }
     )
 
     return response

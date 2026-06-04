@@ -35,5 +35,10 @@ export async function GET(req: NextRequest) {
     rol: req.cookies.get("auth_role")?.value || "admin",
     roles: leerRoles(req),
     nombre: req.cookies.get("auth_name")?.value || "Usuario",
+    organizacion: {
+      id: req.cookies.get("auth_org_id")?.value || null,
+      nombre: req.cookies.get("auth_org_name")?.value || "Kingdom Tech Group",
+      slug: req.cookies.get("auth_org_slug")?.value || "kingdom-tech-group",
+    },
   })
 }

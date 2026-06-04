@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { crearPasswordSeguro, ROLES_SISTEMA } from "@/lib/auth"
+import { obtenerOrganizacionId } from "@/lib/tenant"
 
 function esAdmin(req: NextRequest) {
   return (
@@ -23,10 +24,17 @@ export async function GET(req: NextRequest) {
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
-  const { data, error } = await supabaseAdmin
+  const organizacionId = obtenerOrganizacionId(req)
+  let query = supabaseAdmin
     .from("usuarios_sistema")
-    .select("id, nombre, username, roles, activo, creado_en")
+    .select("id, nombre, username, roles, activo, creado_en, organizacion_id")
     .order("nombre", { ascending: true })
+
+  if (organizacionId) {
+    query = query.eq("organizacion_id", organizacionId)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -51,6 +59,12 @@ export async function POST(req: NextRequest) {
 
   const { salt, hash } = crearPasswordSeguro(String(password))
   const supabaseAdmin = crearSupabaseAdmin()
+  const organizacionId = obtenerOrganizacionId(req)
+
+  if (!organizacionId) {
+    return NextResponse.json({ ok: false, error: "FALTA_ORGANIZACION" }, { status: 400 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from("usuarios_sistema")
     .insert({
@@ -60,8 +74,9 @@ export async function POST(req: NextRequest) {
       password_hash: hash,
       roles: rolesValidos,
       activo: true,
+      organizacion_id: organizacionId,
     })
-    .select("id, nombre, username, roles, activo, creado_en")
+    .select("id, nombre, username, roles, activo, creado_en, organizacion_id")
     .single()
 
   if (error || !data) {
@@ -108,12 +123,18 @@ export async function PATCH(req: NextRequest) {
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
-  const { data, error } = await supabaseAdmin
+  const organizacionId = obtenerOrganizacionId(req)
+  let query = supabaseAdmin
     .from("usuarios_sistema")
     .update(cambios)
     .eq("id", id)
-    .select("id, nombre, username, roles, activo, creado_en")
-    .single()
+    .select("id, nombre, username, roles, activo, creado_en, organizacion_id")
+
+  if (organizacionId) {
+    query = query.eq("organizacion_id", organizacionId)
+  }
+
+  const { data, error } = await query.single()
 
   if (error || !data) {
     return NextResponse.json(

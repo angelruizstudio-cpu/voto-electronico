@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { obtenerTenantSesion } from "@/lib/tenant"
 
 type CambiosAsambleista = {
   registrado?: boolean
@@ -86,7 +87,7 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function obtenerLinkVotacion() {
+function obtenerLinkVotacion(organizacionSlug = "kingdom-tech-group") {
   const baseUrl =
     process.env.APP_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -98,9 +99,11 @@ function obtenerLinkVotacion() {
     return "/asambleista"
   }
 
-  return baseUrlLimpio.endsWith("/asambleista")
+  const ruta = baseUrlLimpio.endsWith("/asambleista")
     ? baseUrlLimpio
     : `${baseUrlLimpio}/asambleista`
+
+  return `${ruta}?org=${encodeURIComponent(organizacionSlug)}`
 }
 
 async function obtenerErrorResend(res: Response) {
@@ -230,11 +233,13 @@ async function enviarCredencialPorSms({
   nombre,
   credencial,
   metodoVoto,
+  organizacionSlug,
 }: {
   telefono: string
   nombre: string
   credencial: string
   metodoVoto: "electronico" | "manual"
+  organizacionSlug?: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!telefono) {
     return { enviado: false }
@@ -243,7 +248,7 @@ async function enviarCredencialPorSms({
   const apiKey = process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY
   const templateId = process.env.SENT_TEMPLATE_ID || process.env.SENT_DM_TEMPLATE_ID
   const sandbox = process.env.SENT_SANDBOX === "true"
-  const linkVotacion = obtenerLinkVotacion()
+  const linkVotacion = obtenerLinkVotacion(organizacionSlug)
 
   if (!apiKey || !templateId) {
     return { enviado: false, error: "FALTA_SENT_CONFIG" }
@@ -296,12 +301,20 @@ export async function GET(req: NextRequest) {
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
+  const tenant = obtenerTenantSesion(req)
 
-  const { data: asambleaActiva, error: errorAsamblea } = await supabaseAdmin
+  let queryAsamblea = supabaseAdmin
     .from("asambleas")
     .select("id")
     .in("estado", ["abierta", "receso"])
-    .maybeSingle()
+
+  if (tenant.id) {
+    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
+  } else {
+    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
+  }
+
+  const { data: asambleaActiva, error: errorAsamblea } = await queryAsamblea.maybeSingle()
 
   if (errorAsamblea) {
     return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
@@ -348,7 +361,30 @@ export async function POST(req: NextRequest) {
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
+  const tenant = obtenerTenantSesion(req)
   const anio = new Date().getFullYear().toString().slice(-2)
+
+  let queryAsamblea = supabaseAdmin
+    .from("asambleas")
+    .select("id")
+    .eq("id", asambleaId)
+
+  if (tenant.id) {
+    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
+  } else {
+    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
+  }
+
+  const { data: asambleaPermitida, error: errorAsambleaPermitida } =
+    await queryAsamblea.maybeSingle()
+
+  if (errorAsambleaPermitida) {
+    return NextResponse.json({ ok: false, error: errorAsambleaPermitida.message }, { status: 500 })
+  }
+
+  if (!asambleaPermitida) {
+    return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
+  }
 
   const { count, error: errorCount } = await supabaseAdmin
     .from("asambleistas")
@@ -399,6 +435,7 @@ export async function POST(req: NextRequest) {
     nombre: nombreLimpio,
     credencial,
     metodoVoto: metodoVotoLimpio,
+    organizacionSlug: tenant.slug,
   })
 
   let asambleista = data
@@ -443,6 +480,41 @@ export async function PATCH(req: NextRequest) {
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
+  const tenant = obtenerTenantSesion(req)
+
+  const { data: asambleistaPermitido, error: errorAsambleistaPermitido } = await supabaseAdmin
+    .from("asambleistas")
+    .select("id, asamblea_id")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (errorAsambleistaPermitido) {
+    return NextResponse.json(
+      { ok: false, error: errorAsambleistaPermitido.message },
+      { status: 500 }
+    )
+  }
+
+  if (!asambleistaPermitido) {
+    return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
+  }
+
+  let queryAsamblea = supabaseAdmin
+    .from("asambleas")
+    .select("id")
+    .eq("id", asambleistaPermitido.asamblea_id)
+
+  if (tenant.id) {
+    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
+  } else {
+    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
+  }
+
+  const { data: asambleaPermitida } = await queryAsamblea.maybeSingle()
+
+  if (!asambleaPermitida) {
+    return NextResponse.json({ ok: false, error: "ASAMBLEISTA_NO_AUTORIZADO" }, { status: 403 })
+  }
 
   if (accion === "reset_dispositivo") {
     const { data: asambleistaActual } = await supabaseAdmin
