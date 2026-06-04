@@ -19,6 +19,8 @@ type Asamblea = {
   anio: number
   lugar: string
   estado: string
+  organizacion_id?: string | null
+  organizacion_slug?: string | null
 }
 
 type VotacionDetalle = {
@@ -109,13 +111,32 @@ export default function DetalleAsamblea({
   }
 
   const cargarDetalle = useCallback(async () => {
-    const { data: asambleaData } = await supabase
+    const res = await fetch("/api/auth/me").catch(() => null)
+    const sesion = res?.ok ? await res.json().catch(() => null) : null
+    const organizacionId = sesion?.organizacion?.id || null
+    const organizacionSlug =
+      sesion?.organizacion?.slug ||
+      (typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") : null)
+
+    let queryAsamblea = supabase
       .from("asambleas")
       .select("*")
       .eq("id", id)
-      .maybeSingle()
+
+    if (organizacionId) {
+      queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
+    } else if (organizacionSlug) {
+      queryAsamblea = queryAsamblea.eq("organizacion_slug", organizacionSlug)
+    }
+
+    const { data: asambleaData } = await queryAsamblea.maybeSingle()
 
     setAsamblea(asambleaData)
+
+    if (!asambleaData) {
+      setVotaciones([])
+      return
+    }
 
     const { data: votacionesData } = await supabase
       .from("votaciones")

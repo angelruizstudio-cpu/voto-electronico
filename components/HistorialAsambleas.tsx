@@ -9,6 +9,8 @@ type Asamblea = {
   anio: number
   lugar: string
   estado: string
+  organizacion_id?: string | null
+  organizacion_slug?: string | null
 }
 
 export function HistorialAsambleas() {
@@ -16,10 +18,25 @@ export function HistorialAsambleas() {
   const [asambleas, setAsambleas] = useState<Asamblea[]>([])
 
   const cargarAsambleas = useCallback(async () => {
-    const { data, error } = await supabase
+    const res = await fetch("/api/auth/me").catch(() => null)
+    const sesion = res?.ok ? await res.json().catch(() => null) : null
+    const organizacionId = sesion?.organizacion?.id || null
+    const organizacionSlug =
+      sesion?.organizacion?.slug ||
+      (typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") : null)
+
+    let query = supabase
       .from("asambleas")
       .select("*")
       .order("anio", { ascending: false })
+
+    if (organizacionId) {
+      query = query.eq("organizacion_id", organizacionId)
+    } else if (organizacionSlug) {
+      query = query.eq("organizacion_slug", organizacionSlug)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error(error)

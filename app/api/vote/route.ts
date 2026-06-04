@@ -51,11 +51,18 @@ export async function POST(req: Request) {
 
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
-      .select("asambleista_id, asambleistas(dispositivo_autorizado_id, dispositivo_alerta_en)")
+      .select("asamblea_id, asambleista_id, asambleistas(dispositivo_autorizado_id, dispositivo_alerta_en)")
       .eq("token_hash", token)
       .eq("activo", true)
       .eq("bloqueado", false)
       .maybeSingle()
+
+    if (!tokenRow || tokenRow.asamblea_id !== votacion.asamblea_id) {
+      return NextResponse.json(
+        { ok: false, code: "TOKEN_INVALIDO" },
+        { status: 401 }
+      )
+    }
 
     const asambleistaToken = Array.isArray(tokenRow?.asambleistas)
       ? tokenRow?.asambleistas[0]

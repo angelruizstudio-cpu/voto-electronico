@@ -6,6 +6,7 @@ import {
   calcularVotosValidosCandidatos,
   obtenerGanadorMayoriaSimple,
 } from "@/lib/votacionHelpers"
+import { obtenerTenantSesion } from "@/lib/tenant"
 
 type VotoManualEntrada = {
   opcion?: "favor" | "contra" | "abstencion" | "nula" | "danada"
@@ -48,6 +49,29 @@ function crearSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+async function validarVotacionDelTenant(
+  req: NextRequest,
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
+  asambleaId: string
+) {
+  const tenant = obtenerTenantSesion(req)
+  const { data: asamblea, error } = await supabaseAdmin
+    .from("asambleas")
+    .select("id, organizacion_id, organizacion_slug")
+    .eq("id", asambleaId)
+    .maybeSingle()
+
+  if (error || !asamblea) {
+    return false
+  }
+
+  if (tenant.id) {
+    return asamblea.organizacion_id === tenant.id
+  }
+
+  return asamblea.organizacion_slug === tenant.slug
 }
 
 function normalizarCantidad(valor: unknown) {
@@ -246,6 +270,12 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  const perteneceAlTenant = await validarVotacionDelTenant(req, supabaseAdmin, votacion.asamblea_id)
+
+  if (!perteneceAlTenant) {
+    return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 403 })
+  }
+
   const { data: votosManuales, error: errorManuales } = await supabaseAdmin
     .from("votos_manuales")
     .select("*")
@@ -302,6 +332,12 @@ export async function POST(req: NextRequest) {
       { ok: false, error: errorVotacion?.message || "VOTACION_NO_EXISTE" },
       { status: 404 }
     )
+  }
+
+  const perteneceAlTenant = await validarVotacionDelTenant(req, supabaseAdmin, votacion.asamblea_id)
+
+  if (!perteneceAlTenant) {
+    return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 403 })
   }
 
   if (votacion.estado !== "cerrada") {
