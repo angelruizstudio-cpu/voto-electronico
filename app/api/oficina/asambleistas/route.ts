@@ -204,28 +204,26 @@ async function enviarCredencialPorEmail({
   return { enviado: false, error: "ERROR_RESEND" }
 }
 
-async function obtenerErrorSent(res: Response) {
-  const contentType = res.headers.get("content-type") || ""
+function obtenerErrorSent(status: number, contentType: string, body: string) {
+  const contentTypeLimpio = contentType || ""
 
-  if (contentType.includes("application/json")) {
-    const data = await res.json().catch(() => null)
+  if (contentTypeLimpio.includes("application/json")) {
+    const data = JSON.parse(body || "null")
     const mensaje =
       data?.error?.message ||
       data?.error?.code ||
       data?.message ||
       data?.code ||
-      `SENT_HTTP_${res.status}`
+      `SENT_HTTP_${status}`
 
     return String(mensaje).slice(0, 300)
   }
 
-  await res.text().catch(() => "")
-
-  if (res.status >= 500) {
-    return `SENT_TEMPORAL_${res.status}`
+  if (status >= 500) {
+    return `SENT_TEMPORAL_${status}`
   }
 
-  return `SENT_HTTP_${res.status}`
+  return `SENT_HTTP_${status}`
 }
 
 async function enviarCredencialPorSms({
@@ -246,11 +244,12 @@ async function enviarCredencialPorSms({
   }
 
   const apiKey = process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY
+  const senderId = process.env.SENT_SENDER_ID
   const templateId = process.env.SENT_TEMPLATE_ID || process.env.SENT_DM_TEMPLATE_ID
   const sandbox = process.env.SENT_SANDBOX === "true"
   const linkVotacion = obtenerLinkVotacion(organizacionSlug)
 
-  if (!apiKey || !templateId) {
+  if (!apiKey || !senderId || !templateId) {
     return { enviado: false, error: "FALTA_SENT_CONFIG" }
   }
 
@@ -274,6 +273,7 @@ async function enviarCredencialPorSms({
       method: "POST",
       headers: {
         "x-api-key": apiKey,
+        "x-sender-id": senderId,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -283,7 +283,18 @@ async function enviarCredencialPorSms({
       return { enviado: true }
     }
 
-    const error = await obtenerErrorSent(res)
+    const responseBody = await res.text().catch(() => "")
+    console.error("Sent.dm SMS request failed", {
+      status: res.status,
+      body: responseBody,
+    })
+
+    let error = `SENT_HTTP_${res.status}`
+    try {
+      error = obtenerErrorSent(res.status, res.headers.get("content-type") || "", responseBody)
+    } catch {
+      error = res.status >= 500 ? `SENT_TEMPORAL_${res.status}` : `SENT_HTTP_${res.status}`
+    }
 
     if (res.status < 500 || intento === 2) {
       return { enviado: false, error }
