@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { etiquetaRol, ROLES_SISTEMA, type RolSistema } from "@/lib/auth"
 
+const ROLES_CLIENTE = ROLES_SISTEMA.filter((rol) => rol !== "owner")
+
 type UsuarioSistema = {
   id: string
   nombre: string
@@ -152,7 +154,7 @@ export default function AdminPage() {
               className="rounded border p-2"
             />
             <div className="flex flex-wrap gap-2">
-              {ROLES_SISTEMA.map((rol) => (
+              {ROLES_CLIENTE.map((rol) => (
                 <button
                   key={rol}
                   type="button"

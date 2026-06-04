@@ -1,8 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto"
 
-export type RolSistema = "admin" | "moderador" | "oficina" | "puerta"
+export type RolSistema = "owner" | "admin" | "moderador" | "oficina" | "puerta"
 
 export const ROLES_SISTEMA: RolSistema[] = [
+  "owner",
   "admin",
   "moderador",
   "oficina",
@@ -10,6 +11,7 @@ export const ROLES_SISTEMA: RolSistema[] = [
 ]
 
 export const etiquetaRol = (rol: string) => {
+  if (rol === "owner") return "Dueño del sistema"
   if (rol === "admin") return "Administrador"
   if (rol === "moderador") return "Moderador"
   if (rol === "oficina") return "Oficina"

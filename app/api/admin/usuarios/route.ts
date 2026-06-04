@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js"
 import { crearPasswordSeguro, ROLES_SISTEMA } from "@/lib/auth"
 import { obtenerOrganizacionId } from "@/lib/tenant"
 
+const ROLES_CLIENTE = ROLES_SISTEMA.filter((rol) => rol !== "owner")
+
 function esAdmin(req: NextRequest) {
   return (
     req.cookies.get("auth_session")?.value === "true" &&
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   const { nombre, username, password, roles } = await req.json()
   const rolesValidos = Array.isArray(roles)
-    ? roles.filter((rol) => ROLES_SISTEMA.includes(rol))
+    ? roles.filter((rol) => ROLES_CLIENTE.includes(rol))
     : []
 
   if (!nombre || !username || !password || rolesValidos.length === 0) {
@@ -109,7 +111,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (Array.isArray(roles)) {
-    cambios.roles = roles.filter((rol) => ROLES_SISTEMA.includes(rol))
+    cambios.roles = roles.filter((rol) => ROLES_CLIENTE.includes(rol))
   }
 
   if (typeof activo === "boolean") {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { LanguageToggle } from "@/components/LanguageToggle"
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { useI18n } from "@/lib/i18n"
 import {
   ArrowRight,
+  Building2,
   CheckCircle,
   DoorOpen,
   EyeOff,
@@ -22,7 +23,13 @@ import {
   Users,
 } from "lucide-react"
 
-type RolAcceso = "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
+type RolAcceso = "owner" | "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
+
+type Organizacion = {
+  id: string
+  nombre: string
+  slug: string
+}
 
 const roles: {
   id: RolAcceso
@@ -33,6 +40,15 @@ const roles: {
   href: string
   icon: typeof MonitorCheck
 }[] = [
+  {
+    id: "owner",
+    labelEs: "Dueño del sistema",
+    labelEn: "System Owner",
+    descriptionEs: "Organizaciones cliente y acceso inicial.",
+    descriptionEn: "Client organizations and initial access.",
+    href: "/sistema",
+    icon: Building2,
+  },
   {
     id: "admin",
     labelEs: "Administrador",
@@ -86,22 +102,51 @@ export default function LoginPage() {
   const [rol, setRol] = useState<RolAcceso>("moderador")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [organizaciones, setOrganizaciones] = useState<Organizacion[]>([])
+  const [organizacionSlug, setOrganizacionSlug] = useState("")
   const [cargando, setCargando] = useState(false)
   const rolSeleccionado = roles.find((item) => item.id === rol) || roles[0]
 
+  useEffect(() => {
+    const cargarOrganizaciones = async () => {
+      const res = await fetch("/api/organizaciones").catch(() => null)
+
+      if (!res?.ok) return
+
+      const data = await res.json().catch(() => null)
+      const lista = Array.isArray(data?.organizaciones) ? data.organizaciones : []
+
+      setOrganizaciones(lista)
+
+      const guardada = localStorage.getItem("organizacion_slug") || ""
+      const inicial = lista.find((org: Organizacion) => org.slug === guardada)?.slug || lista[0]?.slug || ""
+      setOrganizacionSlug(inicial)
+
+      if (inicial) {
+        localStorage.setItem("organizacion_slug", inicial)
+      }
+    }
+
+    void cargarOrganizaciones()
+  }, [])
+
   const login = async () => {
     if (rol === "asambleista") {
-      router.push("/asambleista")
+      const destino = organizacionSlug
+        ? `/asambleista?org=${encodeURIComponent(organizacionSlug)}`
+        : "/asambleista"
+      router.push(destino)
       return
     }
 
-    if (!password) return
+    if ((rol !== "owner" && !organizacionSlug) || !password) return
     setCargando(true)
+    localStorage.setItem("organizacion_slug", organizacionSlug)
 
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, rol }),
+      body: JSON.stringify({ username, password, rol, organizacionSlug }),
     })
 
     setCargando(false)
@@ -299,6 +344,36 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-7 grid gap-5 sm:grid-cols-2">
+              {rol !== "owner" && (
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-base font-bold text-slate-800" htmlFor="organizacion">
+                  {t("Organización", "Organization")}
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <select
+                    id="organizacion"
+                    value={organizacionSlug}
+                    onChange={(e) => {
+                      setOrganizacionSlug(e.target.value)
+                      localStorage.setItem("organizacion_slug", e.target.value)
+                    }}
+                    className="h-14 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-10 text-base font-semibold text-slate-800 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
+                  >
+                    {organizaciones.length === 0 ? (
+                      <option value="">{t("Cargando organizaciones...", "Loading organizations...")}</option>
+                    ) : (
+                      organizaciones.map((organizacion) => (
+                        <option key={organizacion.id} value={organizacion.slug}>
+                          {organizacion.nombre}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+              )}
+
               {rol !== "asambleista" && (
                 <div className="space-y-2">
                   <label className="text-base font-bold text-slate-800" htmlFor="username">

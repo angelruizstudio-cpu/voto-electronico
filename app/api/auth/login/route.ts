@@ -38,16 +38,66 @@ function setCookiesSesion(
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password, rol } = await req.json()
+    const { username, password, rol, organizacionSlug } = await req.json()
     const rolSolicitado = String(rol || "")
+    const organizacionSlugSolicitada = String(organizacionSlug || "").trim().toLowerCase()
 
     if (!ROLES_SISTEMA.includes(rolSolicitado as RolSistema)) {
       return NextResponse.json({ ok: false, error: "ROL_INVALIDO" }, { status: 400 })
     }
 
+    if (rolSolicitado === "owner") {
+      const ownerUsername = process.env.SYSTEM_OWNER_USERNAME || "owner"
+      const ownerPassword = process.env.SYSTEM_OWNER_PASSWORD
+
+      if (
+        !ownerPassword ||
+        String(username || "").trim().toLowerCase() !== ownerUsername.trim().toLowerCase() ||
+        String(password || "") !== ownerPassword
+      ) {
+        return NextResponse.json({ ok: false, error: "ACCESO_DENEGADO" }, { status: 401 })
+      }
+
+      const response = NextResponse.json({ ok: true })
+      setCookiesSesion(response, "owner", "Kingdom Tech Group", "system-owner", ["owner"], {
+        id: null,
+        nombre: "Kingdom Tech Group",
+        slug: "kingdom-tech-group",
+      })
+      response.cookies.set("auth_owner_session", "true", {
+        path: "/",
+        maxAge: 7200,
+        httpOnly: true,
+        sameSite: "strict",
+      })
+      return response
+    }
+
     const passwordCorrecta = process.env.MODERADOR_PASSWORD
 
     if (!username && passwordCorrecta && password === passwordCorrecta) {
+      let organizacionEmergencia = {
+        id: process.env.DEFAULT_ORGANIZATION_ID || null,
+        nombre: process.env.DEFAULT_ORGANIZATION_NAME || "Kingdom Tech Group",
+        slug: process.env.DEFAULT_ORGANIZATION_SLUG || "kingdom-tech-group",
+      }
+
+      if (organizacionSlugSolicitada) {
+        const supabaseAdmin = crearSupabaseAdmin()
+        const { data: organizacion } = await supabaseAdmin
+          .from("organizaciones")
+          .select("id, nombre, slug")
+          .eq("slug", organizacionSlugSolicitada)
+          .eq("activa", true)
+          .maybeSingle()
+
+        if (!organizacion) {
+          return NextResponse.json({ ok: false, error: "ORGANIZACION_INVALIDA" }, { status: 401 })
+        }
+
+        organizacionEmergencia = organizacion
+      }
+
       const response = NextResponse.json({ ok: true })
       const rolesEmergencia =
         rolSolicitado === "admin" ? ROLES_SISTEMA : [rolSolicitado as RolSistema]
@@ -57,11 +107,7 @@ export async function POST(req: NextRequest) {
         "Acceso administrativo",
         "emergency",
         rolesEmergencia,
-        {
-          id: process.env.DEFAULT_ORGANIZATION_ID || null,
-          nombre: process.env.DEFAULT_ORGANIZATION_NAME || "Kingdom Tech Group",
-          slug: process.env.DEFAULT_ORGANIZATION_SLUG || "kingdom-tech-group",
-        }
+        organizacionEmergencia
       )
       return response
     }
@@ -71,11 +117,16 @@ export async function POST(req: NextRequest) {
     }
 
     const supabaseAdmin = crearSupabaseAdmin()
-    const { data: usuario, error } = await supabaseAdmin
+    let queryUsuario = supabaseAdmin
       .from("usuarios_sistema")
-      .select("*, organizaciones:organizacion_id(id, nombre, slug)")
+      .select("*, organizaciones:organizacion_id!inner(id, nombre, slug)")
       .eq("username", String(username).trim().toLowerCase())
-      .maybeSingle()
+
+    if (organizacionSlugSolicitada) {
+      queryUsuario = queryUsuario.eq("organizaciones.slug", organizacionSlugSolicitada)
+    }
+
+    const { data: usuario, error } = await queryUsuario.maybeSingle()
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
