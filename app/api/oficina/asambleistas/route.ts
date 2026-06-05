@@ -87,23 +87,27 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function obtenerLinkVotacion(organizacionSlug = "kingdom-tech-group") {
+function obtenerLinkVotacion(organizacionCodigo = "KTG") {
   const baseUrl =
     process.env.APP_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     ""
-  const baseUrlLimpio = baseUrl.trim().replace(/\/+$/, "").replace(/\/asambleista\/?$/i, "")
+  const baseUrlLimpio = baseUrl
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/asambleista\/?$/i, "")
+    .replace(/\/votar\/?$/i, "")
 
   if (!baseUrlLimpio) {
-    return "/asambleista"
+    return "/votar"
   }
 
-  const ruta = baseUrlLimpio.endsWith("/asambleista")
+  const ruta = baseUrlLimpio.endsWith("/votar")
     ? baseUrlLimpio
-    : `${baseUrlLimpio}/asambleista`
+    : `${baseUrlLimpio}/votar`
 
-  return `${ruta}?org=${encodeURIComponent(organizacionSlug)}`
+  return `${ruta}?org=${encodeURIComponent(organizacionCodigo)}`
 }
 
 async function obtenerErrorResend(res: Response) {
@@ -260,13 +264,13 @@ async function enviarCredencialPorSms({
   nombre,
   credencial,
   metodoVoto,
-  organizacionSlug,
+  organizacionCodigo,
 }: {
   telefono: string
   nombre: string
   credencial: string
   metodoVoto: "electronico" | "manual"
-  organizacionSlug?: string
+  organizacionCodigo?: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!telefono) {
     return { enviado: false }
@@ -274,7 +278,7 @@ async function enviarCredencialPorSms({
 
   const { apiKey, senderId, templateId } = validarConfigSent()
   const sandbox = process.env.SENT_SANDBOX === "true"
-  const linkVotacion = obtenerLinkVotacion(organizacionSlug)
+  const linkVotacion = obtenerLinkVotacion(organizacionCodigo)
 
   const payload = {
     to: [telefono],
@@ -469,7 +473,7 @@ export async function POST(req: NextRequest) {
     nombre: nombreLimpio,
     credencial,
     metodoVoto: metodoVotoLimpio,
-    organizacionSlug: tenant.slug,
+    organizacionCodigo: tenant.codigoAcceso || tenant.slug,
   })
 
   let asambleista = data

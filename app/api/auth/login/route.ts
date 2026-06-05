@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { ROLES_SISTEMA, verificarPassword, type RolSistema } from "@/lib/auth"
+import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
 
 function crearSupabaseAdmin() {
   return createClient(
@@ -10,13 +11,37 @@ function crearSupabaseAdmin() {
   )
 }
 
+async function buscarOrganizacionActiva(
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
+  valor: string
+) {
+  const slug = limpiarSlugOrganizacion(valor)
+  const codigo = limpiarCodigoAccesoOrganizacion(valor)
+
+  if (!slug && !codigo) return null
+
+  const { data } = await supabaseAdmin
+    .from("organizaciones")
+    .select("id, nombre, slug, codigo_acceso")
+    .or(`slug.eq.${slug},codigo_acceso.eq.${codigo}`)
+    .eq("activa", true)
+    .maybeSingle()
+
+  return data || null
+}
+
 function setCookiesSesion(
   response: NextResponse,
   rol: RolSistema,
   nombre: string,
   userId: string,
   roles: RolSistema[] = [rol],
-  organizacion?: { id?: string | null; nombre?: string | null; slug?: string | null }
+  organizacion?: {
+    id?: string | null
+    nombre?: string | null
+    slug?: string | null
+    codigo_acceso?: string | null
+  }
 ) {
   const opciones = {
     path: "/",
@@ -33,6 +58,7 @@ function setCookiesSesion(
   response.cookies.set("auth_org_id", organizacion?.id || "", opciones)
   response.cookies.set("auth_org_name", organizacion?.nombre || "Kingdom Tech Group", opciones)
   response.cookies.set("auth_org_slug", organizacion?.slug || "kingdom-tech-group", opciones)
+  response.cookies.set("auth_org_code", organizacion?.codigo_acceso || "KTG", opciones)
   response.cookies.set("moderador_session", "true", opciones)
 }
 
@@ -40,7 +66,7 @@ export async function POST(req: NextRequest) {
   try {
     const { username, password, rol, organizacionSlug } = await req.json()
     const rolSolicitado = String(rol || "")
-    const organizacionSlugSolicitada = String(organizacionSlug || "").trim().toLowerCase()
+    const organizacionBuscada = String(organizacionSlug || "").trim()
 
     if (!ROLES_SISTEMA.includes(rolSolicitado as RolSistema)) {
       return NextResponse.json({ ok: false, error: "ROL_INVALIDO" }, { status: 400 })
@@ -63,6 +89,7 @@ export async function POST(req: NextRequest) {
         id: null,
         nombre: "Kingdom Tech Group",
         slug: "kingdom-tech-group",
+        codigo_acceso: "KTG",
       })
       response.cookies.set("auth_owner_session", "true", {
         path: "/",
@@ -80,16 +107,12 @@ export async function POST(req: NextRequest) {
         id: process.env.DEFAULT_ORGANIZATION_ID || null,
         nombre: process.env.DEFAULT_ORGANIZATION_NAME || "Kingdom Tech Group",
         slug: process.env.DEFAULT_ORGANIZATION_SLUG || "kingdom-tech-group",
+        codigo_acceso: process.env.DEFAULT_ORGANIZATION_CODE || "KTG",
       }
 
-      if (organizacionSlugSolicitada) {
+      if (organizacionBuscada) {
         const supabaseAdmin = crearSupabaseAdmin()
-        const { data: organizacion } = await supabaseAdmin
-          .from("organizaciones")
-          .select("id, nombre, slug")
-          .eq("slug", organizacionSlugSolicitada)
-          .eq("activa", true)
-          .maybeSingle()
+        const organizacion = await buscarOrganizacionActiva(supabaseAdmin, organizacionBuscada)
 
         if (!organizacion) {
           return NextResponse.json({ ok: false, error: "ORGANIZACION_INVALIDA" }, { status: 401 })
@@ -117,13 +140,21 @@ export async function POST(req: NextRequest) {
     }
 
     const supabaseAdmin = crearSupabaseAdmin()
+    const organizacion = organizacionBuscada
+      ? await buscarOrganizacionActiva(supabaseAdmin, organizacionBuscada)
+      : null
+
+    if (organizacionBuscada && !organizacion) {
+      return NextResponse.json({ ok: false, error: "ORGANIZACION_INVALIDA" }, { status: 401 })
+    }
+
     let queryUsuario = supabaseAdmin
       .from("usuarios_sistema")
-      .select("*, organizaciones:organizacion_id!inner(id, nombre, slug)")
+      .select("*, organizaciones:organizacion_id!inner(id, nombre, slug, codigo_acceso)")
       .eq("username", String(username).trim().toLowerCase())
 
-    if (organizacionSlugSolicitada) {
-      queryUsuario = queryUsuario.eq("organizaciones.slug", organizacionSlugSolicitada)
+    if (organizacion?.id) {
+      queryUsuario = queryUsuario.eq("organizacion_id", organizacion.id)
     }
 
     const { data: usuario, error } = await queryUsuario.maybeSingle()
@@ -161,6 +192,7 @@ export async function POST(req: NextRequest) {
         id: usuario.organizacion_id,
         nombre: usuario.organizaciones?.nombre,
         slug: usuario.organizaciones?.slug,
+        codigo_acceso: usuario.organizaciones?.codigo_acceso,
       }
     )
 

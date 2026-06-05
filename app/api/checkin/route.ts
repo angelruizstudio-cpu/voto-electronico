@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
 
 
 
@@ -21,14 +22,30 @@ export async function POST(req: Request) {
     const forwardedFor = req.headers.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
 
+    let organizacionId: string | null = null
+    const orgParam = String(orgSlug || "").trim()
+    const orgSlugLimpio = limpiarSlugOrganizacion(orgParam)
+    const orgCodigoLimpio = limpiarCodigoAccesoOrganizacion(orgParam)
+
+    if (orgParam) {
+      const { data: organizacion } = await supabaseAdmin
+        .from("organizaciones")
+        .select("id")
+        .or(`slug.eq.${orgSlugLimpio},codigo_acceso.eq.${orgCodigoLimpio}`)
+        .eq("activa", true)
+        .maybeSingle()
+
+      organizacionId = organizacion?.id || null
+    }
+
     let queryAsamblea = supabaseAdmin
       .from("asambleas")
       .select("id")
       .in("estado", ["abierta", "receso"])
 
-    const orgSlugLimpio = String(orgSlug || "").trim().toLowerCase()
-
-    if (orgSlugLimpio) {
+    if (organizacionId) {
+      queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
+    } else if (orgSlugLimpio) {
       queryAsamblea = queryAsamblea.eq("organizacion_slug", orgSlugLimpio)
     }
 

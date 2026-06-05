@@ -53,6 +53,7 @@ function useAsambleaState() {
         id: data.organizacion.id || null,
         nombre: data.organizacion.nombre || "Kingdom Tech Group",
         slug: data.organizacion.slug || slugUrl || slugGuardado || "kingdom-tech-group",
+        codigoAcceso: data.organizacion.codigoAcceso || "KTG",
       }
 
       setOrganizacionIdSesion(data.organizacion.id || null)
@@ -62,10 +63,45 @@ function useAsambleaState() {
       return tenant
     }
 
+    const orgParam = slugUrl || slugGuardado
+
+    if (orgParam) {
+      const resOrganizaciones = await fetch("/api/organizaciones").catch(() => null)
+      const dataOrganizaciones = resOrganizaciones?.ok
+        ? await resOrganizaciones.json().catch(() => null)
+        : null
+      const organizaciones = Array.isArray(dataOrganizaciones?.organizaciones)
+        ? dataOrganizaciones.organizaciones
+        : []
+      const orgParamNormalizado = orgParam.trim().toLowerCase()
+      const orgParamCodigo = orgParam.trim().toUpperCase()
+      const organizacion = organizaciones.find(
+        (org: { slug?: string; codigo_acceso?: string }) =>
+          org.slug === orgParamNormalizado || org.codigo_acceso === orgParamCodigo
+      )
+
+      if (organizacion) {
+        const tenant = {
+          id: organizacion.id || null,
+          nombre: organizacion.nombre || "Kingdom Tech Group",
+          slug: organizacion.slug || orgParamNormalizado,
+          codigoAcceso: organizacion.codigo_acceso || orgParamCodigo,
+        }
+
+        localStorage.setItem("organizacion_slug", tenant.codigoAcceso || tenant.slug)
+        setOrganizacionIdSesion(tenant.id)
+        setOrganizacionNombreSesion(tenant.nombre)
+        setOrganizacionSlugSesion(tenant.slug)
+
+        return tenant
+      }
+    }
+
     const fallback = {
       id: null,
       nombre: "Kingdom Tech Group",
       slug: slugUrl || slugGuardado || "kingdom-tech-group",
+      codigoAcceso: "KTG",
     }
 
     setOrganizacionNombreSesion(fallback.nombre)

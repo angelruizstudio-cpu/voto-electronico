@@ -4,17 +4,35 @@ create table if not exists public.organizaciones (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
   slug text not null unique,
+  codigo_acceso text unique,
   activa boolean not null default true,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
 
-insert into public.organizaciones (nombre, slug)
-values ('Kingdom Tech Group', 'kingdom-tech-group')
+alter table public.organizaciones
+  add column if not exists codigo_acceso text;
+
+insert into public.organizaciones (nombre, slug, codigo_acceso)
+values ('Kingdom Tech Group', 'kingdom-tech-group', 'KTG')
 on conflict (slug) do update
 set nombre = excluded.nombre,
+    codigo_acceso = coalesce(public.organizaciones.codigo_acceso, excluded.codigo_acceso),
     activa = true,
     actualizado_en = now();
+
+update public.organizaciones
+set codigo_acceso = case
+  when slug = 'kingdom-tech-group' then 'KTG'
+  else upper(left(regexp_replace(slug, '[^a-zA-Z0-9]', '', 'g'), 5))
+end
+where codigo_acceso is null or btrim(codigo_acceso) = '';
+
+alter table public.organizaciones
+  alter column codigo_acceso set not null;
+
+create unique index if not exists organizaciones_codigo_acceso_key
+  on public.organizaciones (codigo_acceso);
 
 alter table public.asambleas
   add column if not exists organizacion_id uuid references public.organizaciones(id),

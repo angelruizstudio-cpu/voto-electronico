@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("organizaciones")
-    .select("id, nombre, slug")
+    .select("id, nombre, slug, codigo_acceso")
     .eq("activa", true)
     .order("nombre", { ascending: true })
 

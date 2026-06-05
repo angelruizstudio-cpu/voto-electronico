@@ -12,6 +12,7 @@ export async function POST() {
     "auth_org_id",
     "auth_org_name",
     "auth_org_slug",
+    "auth_org_code",
     "auth_owner_session",
     "moderador_session",
   ]) {

@@ -260,7 +260,7 @@ export default function OficinaRegionalPage() {
 
     if (nuevoTelefono.trim()) {
       const erroresSms: Record<string, string> = {
-        FALTA_SENT_CONFIG: "falta configurar SENT_API_KEY y SENT_TEMPLATE_ID",
+        FALTA_SENT_CONFIG: "falta configurar SENT_API_KEY, SENT_SENDER_ID y SENT_TEMPLATE_ID",
         SENT_TEMPORAL_500: "Sent tuvo un error temporal 500; intenta reenviar más tarde",
         SENT_TEMPORAL_502: "Sent tuvo un error temporal 502; intenta reenviar más tarde",
         SENT_TEMPORAL_503: "Sent tuvo un error temporal 503; intenta reenviar más tarde",

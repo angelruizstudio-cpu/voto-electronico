@@ -29,6 +29,7 @@ type Organizacion = {
   id: string
   nombre: string
   slug: string
+  codigo_acceso?: string | null
 }
 
 const roles: {
@@ -110,7 +111,14 @@ export default function LoginPage() {
       setOrganizaciones(lista)
 
       const guardada = localStorage.getItem("organizacion_slug") || ""
-      const inicial = lista.find((org: Organizacion) => org.slug === guardada)?.slug || lista[0]?.slug || ""
+      const inicial =
+        lista.find((org: Organizacion) => org.slug === guardada || org.codigo_acceso === guardada)
+          ?.codigo_acceso ||
+        lista.find((org: Organizacion) => org.slug === guardada || org.codigo_acceso === guardada)
+          ?.slug ||
+        lista[0]?.codigo_acceso ||
+        lista[0]?.slug ||
+        ""
       setOrganizacionSlug(inicial)
 
       if (inicial) {
@@ -124,8 +132,8 @@ export default function LoginPage() {
   const login = async () => {
     if (rol === "asambleista") {
       const destino = organizacionSlug
-        ? `/asambleista?org=${encodeURIComponent(organizacionSlug)}`
-        : "/asambleista"
+        ? `/votar?org=${encodeURIComponent(organizacionSlug)}`
+        : "/votar"
       router.push(destino)
       return
     }
@@ -354,7 +362,7 @@ export default function LoginPage() {
                       <option value="">{t("Cargando organizaciones...", "Loading organizations...")}</option>
                     ) : (
                       organizaciones.map((organizacion) => (
-                        <option key={organizacion.id} value={organizacion.slug}>
+                        <option key={organizacion.id} value={organizacion.codigo_acceso || organizacion.slug}>
                           {organizacion.nombre}
                         </option>
                       ))

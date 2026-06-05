@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation"
 import { Building2, LogOut, Plus, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { sugerirCodigoAccesoOrganizacion } from "@/lib/tenant"
 
 type Organizacion = {
   id: string
   nombre: string
   slug: string
+  codigo_acceso: string | null
   activa: boolean
   creado_en: string
 }
@@ -27,12 +29,17 @@ export default function SistemaPage() {
   const [organizaciones, setOrganizaciones] = useState<Organizacion[]>([])
   const [nombre, setNombre] = useState("")
   const [slug, setSlug] = useState("")
+  const [codigoAcceso, setCodigoAcceso] = useState("")
   const [adminNombre, setAdminNombre] = useState("")
   const [adminUsername, setAdminUsername] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
   const [cargando, setCargando] = useState(false)
 
   const slugPreview = useMemo(() => slugSugerido(slug || nombre), [nombre, slug])
+  const codigoPreview = useMemo(
+    () => (codigoAcceso || sugerirCodigoAccesoOrganizacion(nombre)).trim().toUpperCase(),
+    [codigoAcceso, nombre]
+  )
 
   const cargarOrganizaciones = useCallback(async () => {
     const res = await fetch("/api/sistema/organizaciones")
@@ -65,6 +72,7 @@ export default function SistemaPage() {
       body: JSON.stringify({
         nombre,
         slug: slugPreview,
+        codigoAcceso: codigoPreview,
         adminNombre,
         adminUsername,
         adminPassword,
@@ -80,6 +88,7 @@ export default function SistemaPage() {
 
     setNombre("")
     setSlug("")
+    setCodigoAcceso("")
     setAdminNombre("")
     setAdminUsername("")
     setAdminPassword("")
@@ -161,6 +170,12 @@ export default function SistemaPage() {
               className="h-12"
             />
             <Input
+              value={codigoAcceso}
+              onChange={(e) => setCodigoAcceso(e.target.value.toUpperCase())}
+              placeholder={`Código corto sugerido: ${codigoPreview || "ORG"}`}
+              className="h-12"
+            />
+            <Input
               value={adminNombre}
               onChange={(e) => setAdminNombre(e.target.value)}
               placeholder="Nombre del administrador"
@@ -191,6 +206,13 @@ export default function SistemaPage() {
 
           <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-600">
             Slug final: <span className="text-[#16382f]">{slugPreview || "pendiente"}</span>
+            {" · "}
+            Código para enlace: <span className="text-[#16382f]">{codigoPreview || "pendiente"}</span>
+            {" · "}
+            Link:{" "}
+            <span className="text-[#16382f]">
+              {codigoPreview ? `/votar?org=${codigoPreview}` : "pendiente"}
+            </span>
           </p>
         </section>
 
@@ -222,6 +244,9 @@ export default function SistemaPage() {
                     <p className="text-lg font-black">{organizacion.nombre}</p>
                     <p className="text-sm font-semibold text-slate-500">
                       {organizacion.slug}
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[#16382f]">
+                      Link corto: /votar?org={organizacion.codigo_acceso || organizacion.slug}
                     </p>
                     <p
                       className={

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { crearPasswordSeguro } from "@/lib/auth"
-import { limpiarSlugOrganizacion } from "@/lib/tenant"
+import {
+  limpiarCodigoAccesoOrganizacion,
+  limpiarSlugOrganizacion,
+  sugerirCodigoAccesoOrganizacion,
+} from "@/lib/tenant"
 
 function esOwner(req: NextRequest) {
   return (
@@ -26,7 +30,7 @@ export async function GET(req: NextRequest) {
   const supabaseAdmin = crearSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("organizaciones")
-    .select("id, nombre, slug, activa, creado_en")
+    .select("id, nombre, slug, codigo_acceso, activa, creado_en")
     .order("nombre", { ascending: true })
 
   if (error) {
@@ -41,9 +45,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { nombre, slug, adminNombre, adminUsername, adminPassword } = await req.json()
+  const { nombre, slug, codigoAcceso, adminNombre, adminUsername, adminPassword } = await req.json()
   const nombreLimpio = String(nombre || "").trim()
   const slugLimpio = limpiarSlugOrganizacion(slug || nombre)
+  const codigoAccesoLimpio =
+    limpiarCodigoAccesoOrganizacion(codigoAcceso) ||
+    sugerirCodigoAccesoOrganizacion(nombreLimpio)
   const adminNombreLimpio = String(adminNombre || "").trim()
   const adminUsernameLimpio = String(adminUsername || "").trim().toLowerCase()
   const adminPasswordLimpio = String(adminPassword || "")
@@ -51,6 +58,7 @@ export async function POST(req: NextRequest) {
   if (
     !nombreLimpio ||
     !slugLimpio ||
+    !codigoAccesoLimpio ||
     !adminNombreLimpio ||
     !adminUsernameLimpio ||
     adminPasswordLimpio.length < 8
@@ -64,9 +72,10 @@ export async function POST(req: NextRequest) {
     .insert({
       nombre: nombreLimpio,
       slug: slugLimpio,
+      codigo_acceso: codigoAccesoLimpio,
       activa: true,
     })
-    .select("id, nombre, slug, activa, creado_en")
+    .select("id, nombre, slug, codigo_acceso, activa, creado_en")
     .single()
 
   if (errorOrganizacion || !organizacion) {
@@ -118,7 +127,7 @@ export async function PATCH(req: NextRequest) {
       actualizado_en: new Date().toISOString(),
     })
     .eq("id", id)
-    .select("id, nombre, slug, activa, creado_en")
+    .select("id, nombre, slug, codigo_acceso, activa, creado_en")
     .single()
 
   if (error || !data) {

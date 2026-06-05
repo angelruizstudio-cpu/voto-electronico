@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       id: req.cookies.get("auth_org_id")?.value || null,
       nombre: req.cookies.get("auth_org_name")?.value || "Kingdom Tech Group",
       slug: req.cookies.get("auth_org_slug")?.value || "kingdom-tech-group",
+      codigoAcceso: req.cookies.get("auth_org_code")?.value || "KTG",
     },
   })
 }
