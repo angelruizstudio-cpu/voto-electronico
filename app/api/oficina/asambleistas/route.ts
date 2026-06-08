@@ -308,8 +308,8 @@ async function enviarCredencialPorSms({
     template: {
       id: templateId,
       parameters: {
-        code: credencial,
-        var_2: nombre,
+        nombre,
+        credencial,
       },
     },
     sandbox,
