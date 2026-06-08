@@ -104,29 +104,6 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function obtenerLinkVotacion(organizacionCodigo = "KTG") {
-  const baseUrl =
-    process.env.APP_BASE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    ""
-  const baseUrlLimpio = baseUrl
-    .trim()
-    .replace(/\/+$/, "")
-    .replace(/\/asambleista\/?$/i, "")
-    .replace(/\/votar\/?$/i, "")
-
-  if (!baseUrlLimpio) {
-    return "/votar"
-  }
-
-  const ruta = baseUrlLimpio.endsWith("/votar")
-    ? baseUrlLimpio
-    : `${baseUrlLimpio}/votar`
-
-  return `${ruta}?org=${encodeURIComponent(organizacionCodigo)}`
-}
-
 async function obtenerErrorResend(res: Response) {
   const contentType = res.headers.get("content-type") || ""
 
@@ -280,12 +257,10 @@ async function enviarCredencialPorSms({
   telefono,
   nombre,
   credencial,
-  organizacionCodigo,
 }: {
   telefono: string
   nombre: string
   credencial: string
-  organizacionCodigo?: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!telefono) {
     return { enviado: false }
@@ -293,7 +268,6 @@ async function enviarCredencialPorSms({
 
   const { apiKey, senderId, templateId } = validarConfigSent()
   const sandbox = process.env.SENT_SANDBOX === "true"
-  const linkVotacion = obtenerLinkVotacion(organizacionCodigo)
 
   const payload = {
     to: [telefono],
@@ -303,7 +277,6 @@ async function enviarCredencialPorSms({
       parameters: {
         nombre,
         credencial,
-        linkVotacion,
       },
     },
     sandbox,
@@ -505,7 +478,6 @@ export async function POST(req: NextRequest) {
     telefono: telefonoLimpio,
     nombre: nombreLimpio,
     credencial,
-    organizacionCodigo: tenant.codigoAcceso || tenant.slug,
   })
 
   let asambleista = data

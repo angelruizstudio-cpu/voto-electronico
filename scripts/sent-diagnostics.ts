@@ -204,7 +204,7 @@ async function main() {
             multiChannel: {
               type: "body",
               template:
-                "Saludos {{0:variable}}. Su credencial de asamblea es {{1:variable}}. Acceda al portal: {{2:link}}. Msg&Data rates may apply. Reply STOP to unsubscribe or HELP for help.",
+                "Saludos {{0:variable}}. Su credencial de asamblea es {{1:variable}} . Msg&Data rates may apply. Reply STOP to unsubscribe or HELP for help.",
               variables: [
                 {
                   id: 0,
@@ -231,20 +231,6 @@ async function main() {
                     url: null,
                     shortUrl: null,
                     alt: null,
-                    mediaType: null,
-                  },
-                },
-                {
-                  id: 2,
-                  name: "linkVotacion",
-                  type: "link",
-                  props: {
-                    variableType: "link",
-                    sample: "https://voto.kingdomtechgroup.org/votar?org=KTG",
-                    regex: null,
-                    url: "https://voto.kingdomtechgroup.org/votar?org=KTG",
-                    shortUrl: null,
-                    alt: "Portal de votacion",
                     mediaType: null,
                   },
                 },
@@ -303,7 +289,6 @@ async function main() {
           parameters: {
             nombre: "Angel Test",
             credencial: "AR26-01",
-            linkVotacion: "https://voto.kingdomtechgroup.org/votar?org=KTG",
           },
         },
         sandbox: true,
