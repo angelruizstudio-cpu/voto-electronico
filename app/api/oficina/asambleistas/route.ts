@@ -30,6 +30,7 @@ type SentMessageResponse = {
   error?: {
     message?: string
     code?: string
+    details?: unknown
   }
 }
 
@@ -202,17 +203,49 @@ async function enviarCredencialPorEmail({
   return { enviado: false, error: "ERROR_RESEND" }
 }
 
+function formatearDetalleSent(details: unknown) {
+  if (!details) {
+    return ""
+  }
+
+  if (typeof details === "string") {
+    return details
+  }
+
+  if (Array.isArray(details)) {
+    return details.map((item) => String(item)).join("; ")
+  }
+
+  if (typeof details === "object") {
+    return Object.entries(details)
+      .map(([campo, valor]) => {
+        if (Array.isArray(valor)) {
+          return `${campo}: ${valor.map((item) => String(item)).join(", ")}`
+        }
+
+        return `${campo}: ${String(valor)}`
+      })
+      .join("; ")
+  }
+
+  return String(details)
+}
+
+function formatearErrorSent(error: SentMessageResponse["error"], status: number) {
+  const mensaje = error?.message || error?.code || `SENT_HTTP_${status}`
+  const detalles = formatearDetalleSent(error?.details)
+
+  return detalles ? `${mensaje}: ${detalles}` : mensaje
+}
+
 function obtenerErrorSent(status: number, contentType: string, body: string) {
   const contentTypeLimpio = contentType || ""
 
   if (contentTypeLimpio.includes("application/json")) {
     const data = JSON.parse(body || "null")
-    const mensaje =
-      data?.error?.message ||
-      data?.error?.code ||
-      data?.message ||
-      data?.code ||
-      `SENT_HTTP_${status}`
+    const mensaje = data?.error
+      ? formatearErrorSent(data.error, status)
+      : data?.message || data?.code || `SENT_HTTP_${status}`
 
     return String(mensaje).slice(0, 300)
   }
@@ -317,13 +350,20 @@ async function enviarCredencialPorSms({
     console.error("[Sent.dm] Error enviando SMS:", {
       status: res.status,
       body: responseBody || data,
+      request: {
+        toCount: payload.to.length,
+        toPreview: telefono ? `${telefono.slice(0, 3)}...${telefono.slice(-4)}` : null,
+        channel: payload.channel,
+        templateId: templateId ? `${templateId.slice(0, 8)}...${templateId.slice(-8)}` : null,
+        parameterKeys: Object.keys(payload.template.parameters),
+        sandbox,
+      },
     })
 
     let error = `SENT_HTTP_${res.status}`
     try {
       error =
-        data?.error?.message ||
-        data?.error?.code ||
+        formatearErrorSent(data?.error, res.status) ||
         obtenerErrorSent(res.status, res.headers.get("content-type") || "", responseBody)
     } catch {
       error = res.status >= 500 ? `SENT_TEMPORAL_${res.status}` : `SENT_HTTP_${res.status}`
