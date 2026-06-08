@@ -290,8 +290,8 @@ async function main() {
         template: {
           id: templateId,
           parameters: {
-            nombre: "Angel Test",
-            credencial: "AR26-01",
+            code: "AR26-01",
+            var_2: "Angel Test",
           },
         },
         sandbox: true,
