@@ -32,6 +32,7 @@ type NombreManual = {
 export type ResultadoManualActualizado =
   | {
       tipo: "resolucion"
+      votacionId: string
       titulo: string
       emitidos: number
       electronicos: number
@@ -77,6 +78,7 @@ export type ResultadoManualActualizado =
 type VotosManualesPanelProps = {
   asambleaId: string | null
   onResultadosActualizados?: (resultado: ResultadoManualActualizado | null) => void
+  notificarResultadoGuardadoAlCargar?: boolean
 }
 
 const numeroSeguro = (valor: string) => {
@@ -211,6 +213,7 @@ export function ResultadoOficialActualizado({
 export function VotosManualesPanel({
   asambleaId,
   onResultadosActualizados,
+  notificarResultadoGuardadoAlCargar = true,
 }: VotosManualesPanelProps) {
   const [votaciones, setVotaciones] = useState<VotacionCerrada[]>([])
   const [votacionId, setVotacionId] = useState("")
@@ -225,6 +228,7 @@ export function VotosManualesPanel({
   const [hayGuardados, setHayGuardados] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [votantesManualesPresentes, setVotantesManualesPresentes] = useState(0)
+  const sinVotantesManuales = votantesManualesPresentes === 0
 
   const votacionSeleccionada = useMemo(
     () => votaciones.find((votacion) => votacion.id === votacionId) || null,
@@ -285,9 +289,11 @@ export function VotosManualesPanel({
     const votosManuales = (data.votosManuales || []) as VotoManual[]
     const tieneVotosManualesGuardados = votosManuales.length > 0
     setVotantesManualesPresentes(Number(data.votantesManualesPresentes) || 0)
-    onResultadosActualizados?.(
-      tieneVotosManualesGuardados ? data.resultadosActualizados || null : null
-    )
+    if (notificarResultadoGuardadoAlCargar) {
+      onResultadosActualizados?.(
+        tieneVotosManualesGuardados ? data.resultadosActualizados || null : null
+      )
+    }
     setHayGuardados(tieneVotosManualesGuardados)
     setFavor(votosManuales.find((voto) => voto.opcion === "favor")?.cantidad || 0)
     setContra(votosManuales.find((voto) => voto.opcion === "contra")?.cantidad || 0)
@@ -319,7 +325,7 @@ export function VotosManualesPanel({
         return acc
       }, {})
     )
-  }, [onResultadosActualizados, votacionId])
+  }, [notificarResultadoGuardadoAlCargar, onResultadosActualizados, votacionId])
 
   const totalManual = useMemo(() => {
     if (votacionSeleccionada?.tipo_votacion === "eleccion_lideres") {
@@ -425,7 +431,11 @@ export function VotosManualesPanel({
     onResultadosActualizados?.(data.resultadosActualizados || null)
     setHayGuardados(true)
     await cargarDetalle()
-    alert("Votos manuales guardados. Resultados oficiales actualizados.")
+    alert(
+      sinVotantesManuales
+        ? "Resultado electrónico preparado para certificación."
+        : "Votos manuales guardados. Resultados oficiales actualizados."
+    )
   }
 
   return (
@@ -463,7 +473,17 @@ export function VotosManualesPanel({
             ))}
           </select>
 
-          {votacionSeleccionada?.tipo_votacion === "eleccion_lideres" ? (
+          {sinVotantesManuales ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-black text-emerald-900">
+                No hay asambleístas registrados para voto manual.
+              </p>
+              <p className="mt-1 text-sm font-semibold text-emerald-800">
+                El Comité de Escrutinio solo debe preparar y certificar el resultado electrónico de
+                esta votación.
+              </p>
+            </div>
+          ) : votacionSeleccionada?.tipo_votacion === "eleccion_lideres" ? (
             <div className="space-y-2">
               {candidatos.map((candidato) => (
                 <label
@@ -628,7 +648,9 @@ export function VotosManualesPanel({
                 : "bg-slate-50 text-slate-600"
             }`}
           >
-            Votos manuales registrados: {totalManual} / {votantesManualesPresentes} asambleístas manuales presentes.
+            {sinVotantesManuales
+              ? "Resultado electrónico listo para revisión del Comité de Escrutinio."
+              : `Votos manuales registrados: ${totalManual} / ${votantesManualesPresentes} asambleístas manuales presentes.`}
           </p>
 
           {hayGuardados && (
@@ -643,7 +665,7 @@ export function VotosManualesPanel({
             disabled={cargando || !votacionId || totalManual > votantesManualesPresentes}
             className="bg-[#16382f] hover:bg-[#0f2b24]"
           >
-            Guardar votos manuales
+            {sinVotantesManuales ? "Preparar resultado para certificar" : "Guardar votos manuales"}
           </Button>
         </div>
       )}

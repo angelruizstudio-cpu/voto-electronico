@@ -135,6 +135,31 @@ export default function EscrutinioPage() {
     useAsamblea()
   const [resultado, setResultado] = useState<ResultadoManualActualizado | null>(null)
   const [certificado, setCertificado] = useState(false)
+  const [certificando, setCertificando] = useState(false)
+  const [modoEdicion, setModoEdicion] = useState(false)
+
+  const certificarResultado = async () => {
+    if (!resultado) return
+
+    setCertificando(true)
+
+    const res = await fetch("/api/escrutinio/certificaciones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ votacionId: resultado.votacionId, resultado }),
+    })
+    const data = await res.json().catch(() => null)
+
+    setCertificando(false)
+
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudo certificar el resultado")
+      return
+    }
+
+    setCertificado(true)
+    setModoEdicion(false)
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
@@ -195,6 +220,7 @@ export default function EscrutinioPage() {
               onClick={() => {
                 setResultado(null)
                 setCertificado(false)
+                setModoEdicion(true)
               }}
               className="h-11 gap-2"
             >
@@ -203,11 +229,12 @@ export default function EscrutinioPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => setCertificado(true)}
+              onClick={certificarResultado}
+              disabled={certificando}
               className="h-11 gap-2 bg-[#16382f] px-4 hover:bg-[#0f2b24]"
             >
               <Send className="h-4 w-4" />
-              Certificar y enviar resultado
+              {certificando ? "Certificando..." : "Certificar y enviar resultado"}
             </Button>
           </div>
         </section>
@@ -228,9 +255,11 @@ export default function EscrutinioPage() {
 
           <VotosManualesPanel
             asambleaId={asambleaId}
+            notificarResultadoGuardadoAlCargar={!modoEdicion}
             onResultadosActualizados={(resultadoActualizado) => {
               setResultado(resultadoActualizado)
               setCertificado(false)
+              setModoEdicion(false)
             }}
           />
         </section>

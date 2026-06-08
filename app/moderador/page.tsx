@@ -8,7 +8,6 @@ import { useCrearVotacion } from "@/hooks/useCrearVotacion"
 import { useVotacion } from "@/hooks/useVotacion"
 import {
   ResultadoOficialActualizado,
-  VotosManualesPanel,
   type ResultadoManualActualizado,
 } from "@/components/VotosManualesPanel"
 import { supabase } from "@/lib/supabaseClient"
@@ -83,7 +82,44 @@ export default function Moderador() {
   const [enmiendaEnPreparacion, setEnmiendaEnPreparacion] = useState<Mocion | null>(null)
   const [resultadoManualActualizado, setResultadoManualActualizado] =
     useState<ResultadoManualActualizado | null>(null)
+  const [certificacionEscrutinio, setCertificacionEscrutinio] = useState<{
+    id: string
+    certificado_por: string
+    certificado_en: string
+    resultado: ResultadoManualActualizado
+  } | null>(null)
+  const [cargandoCertificacion, setCargandoCertificacion] = useState(false)
+  const [modalCertificacionAbierto, setModalCertificacionAbierto] = useState(false)
   const formularioVotacionRef = useRef<HTMLDivElement | null>(null)
+  const ultimaCertificacionMostradaRef = useRef<string | null>(null)
+
+  const cargarCertificacionEscrutinio = useCallback(async () => {
+    if (!asambleaId) {
+      setCertificacionEscrutinio(null)
+      return
+    }
+
+    setCargandoCertificacion(true)
+    const res = await fetch(
+      `/api/escrutinio/certificaciones?asambleaId=${encodeURIComponent(asambleaId)}`
+    )
+    const data = await res.json().catch(() => null)
+    setCargandoCertificacion(false)
+
+    if (!res.ok || !data?.ok) {
+      setCertificacionEscrutinio(null)
+      return
+    }
+
+    const certificacion = data.certificacion || null
+    setCertificacionEscrutinio(certificacion)
+    setResultadoManualActualizado(certificacion?.resultado || null)
+
+    if (certificacion?.id && certificacion.id !== ultimaCertificacionMostradaRef.current) {
+      ultimaCertificacionMostradaRef.current = certificacion.id
+      setModalCertificacionAbierto(true)
+    }
+  }, [asambleaId])
 
   const cargarMociones = useCallback(async () => {
     if (!asambleaId) {
@@ -113,6 +149,22 @@ export default function Moderador() {
       void cargarMociones()
     })
   }, [cargarMociones])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void cargarCertificacionEscrutinio()
+    })
+  }, [cargarCertificacionEscrutinio])
+
+  useEffect(() => {
+    if (!asambleaId) return
+
+    const intervalo = window.setInterval(() => {
+      void cargarCertificacionEscrutinio()
+    }, 7000)
+
+    return () => window.clearInterval(intervalo)
+  }, [asambleaId, cargarCertificacionEscrutinio])
 
   const totalValidos = votosAFavor + votosEnContra
   const totalResolucion = votosAFavor + votosEnContra + votosAbstencion
@@ -186,76 +238,6 @@ export default function Moderador() {
         !mocionEstaFinalizada(posibleHija)
     )
 
-  const contarAsambleistasVotoManual = async () => {
-    if (!asambleaId) return 0
-
-    const { count, error } = await supabase
-      .from("asambleistas")
-      .select("*", { count: "exact", head: true })
-      .eq("asamblea_id", asambleaId)
-      .eq("metodo_voto", "manual")
-
-    if (error) {
-      alert(error.message)
-      return null
-    }
-
-    return count || 0
-  }
-
-  const crearResultadoFinalElectronico = (
-    resultado: string | null
-  ): ResultadoManualActualizado | null => {
-    if (!votacionId) return null
-
-    if (tipoVotacion === "eleccion_lideres") {
-      return {
-        tipo: "eleccion_lideres",
-        votacionId,
-        titulo: titulo || "Votación cerrada",
-        emitidos: votosEmitidos,
-        electronicos: votosEmitidos,
-        manuales: 0,
-        necesarios: votosNecesariosLider,
-        nulas: 0,
-        danadas: 0,
-        rondaNumero,
-        eleccionGrupoId: eleccionGrupoId || votacionId,
-        resultado: resultado || "sin_eleccion",
-        ganadorId: candidatoElecto?.id || null,
-        ganadorNombre: candidatoElecto?.nombre || null,
-        candidatos: candidatosOrdenados.map((candidato) => ({
-          id: candidato.id,
-          nombre: candidato.nombre,
-          electronicos: candidato.votos,
-          manuales: 0,
-          votos: candidato.votos,
-          porcentaje: candidato.porcentaje,
-        })),
-      }
-    }
-
-    return {
-      tipo: "resolucion",
-      titulo: titulo || "Votación cerrada",
-      emitidos: votosEmitidos,
-      electronicos: votosEmitidos,
-      manuales: 0,
-      favor: votosAFavor,
-      contra: votosEnContra,
-      abstencion: votosAbstencion,
-      favorElectronico: votosAFavor,
-      contraElectronico: votosEnContra,
-      abstencionElectronica: votosAbstencion,
-      favorManual: 0,
-      contraManual: 0,
-      abstencionManual: 0,
-      validos: totalValidos,
-      necesarios: votosNecesariosResolucion,
-      resultado: resultado === "aprobada" ? "aprobada" : "rechazada",
-    }
-  }
-
   const describirSiguientePaso = (mocion: Mocion) => {
     if (mocion.resultado === "rechazada_sin_segundo") {
       return "No fue secundada. Se entiende rechazada por la asamblea."
@@ -319,15 +301,7 @@ export default function Moderador() {
       return
     }
 
-    const cantidadVotoManual = await contarAsambleistasVotoManual()
-
-    if (cantidadVotoManual === 0) {
-      setResultadoManualActualizado(
-        crearResultadoFinalElectronico(cambiosCierre.resultado || null)
-      )
-    } else if (cantidadVotoManual && cantidadVotoManual > 0) {
-      setResultadoManualActualizado(null)
-    }
+    setResultadoManualActualizado(null)
 
     alert("Votación cerrada")
     await cargarVotacionActiva()
@@ -590,6 +564,71 @@ export default function Moderador() {
 
   return (
     <main className="min-h-screen bg-[#f4f6f1] p-6">
+      {modalCertificacionAbierto && certificacionEscrutinio && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-emerald-200 bg-white p-6 shadow-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+              Resultado certificado
+            </p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">
+              El Comité de Escrutinio certificó los resultados
+            </h2>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              Certificado por {certificacionEscrutinio.certificado_por} el{" "}
+              {new Date(certificacionEscrutinio.certificado_en).toLocaleString("es-US")}.
+            </p>
+
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-lg font-black text-slate-950">
+                {certificacionEscrutinio.resultado.titulo}
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <p className="rounded bg-white p-3 text-sm font-bold text-slate-700">
+                  Emitidos: {certificacionEscrutinio.resultado.emitidos}
+                </p>
+                <p className="rounded bg-white p-3 text-sm font-bold text-slate-700">
+                  Necesarios: {certificacionEscrutinio.resultado.necesarios}
+                </p>
+                <p className="rounded bg-white p-3 text-sm font-bold text-emerald-800">
+                  {certificacionEscrutinio.resultado.tipo === "eleccion_lideres"
+                    ? certificacionEscrutinio.resultado.ganadorNombre
+                      ? `Electo: ${certificacionEscrutinio.resultado.ganadorNombre}`
+                      : "Requiere nueva ronda"
+                    : certificacionEscrutinio.resultado.resultado === "aprobada"
+                    ? "Aprobada"
+                    : "Rechazada"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalCertificacionAbierto(false)}
+                className="h-11"
+              >
+                Cerrar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setModalCertificacionAbierto(false)
+                  window.requestAnimationFrame(() => {
+                    document
+                      .getElementById("resultado-comite-escrutinio")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  })
+                }}
+                className="h-11 bg-[#16382f] hover:bg-[#0f2b24]"
+              >
+                Ver resultado
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6f5b1d]">
@@ -654,7 +693,7 @@ export default function Moderador() {
               </Card>
             )}
 
-            <Card className="rounded-lg border-slate-200 shadow-sm">
+            <Card id="resultado-comite-escrutinio" className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Asamblea activa</CardTitle>
           </CardHeader>
@@ -919,10 +958,33 @@ export default function Moderador() {
           </CardContent>
             </Card>
 
-            <VotosManualesPanel
-              asambleaId={asambleaId}
-              onResultadosActualizados={setResultadoManualActualizado}
-            />
+            <Card className="rounded-lg border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle>Resultado del Comité de Escrutinio</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm font-semibold text-slate-600">
+                  Los votos manuales se registran y certifican desde el módulo del Comité de
+                  Escrutinio. El moderador recibe aquí el resultado oficial en modo lectura.
+                </p>
+                <Button type="button" disabled className="bg-slate-500">
+                  {cargandoCertificacion
+                    ? "Esperando certificación..."
+                    : "Actualización automática activa"}
+                </Button>
+                {!certificacionEscrutinio && (
+                  <p className="rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-900">
+                    Todavía no hay un resultado certificado por el Comité de Escrutinio.
+                  </p>
+                )}
+                {certificacionEscrutinio && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
+                    Resultado certificado por {certificacionEscrutinio.certificado_por} el{" "}
+                    {new Date(certificacionEscrutinio.certificado_en).toLocaleString("es-US")}.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-6">

@@ -223,6 +223,7 @@ async function calcularResultadosActualizados(
   return {
     resultado: {
       tipo: "resolucion",
+      votacionId: votacion.id,
       titulo: votacion.titulo,
       emitidos,
       electronicos,
