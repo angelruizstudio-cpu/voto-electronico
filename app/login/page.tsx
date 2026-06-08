@@ -312,7 +312,6 @@ export default function LoginPage() {
                     onClick={() => setRol(item.id)}
                     className={[
                       "relative min-h-[120px] rounded-xl border p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d7b257]",
-                      item.id === "asambleista" ? "sm:col-span-2" : "",
                       activo
                         ? "border-[#d7b257] bg-[#063d31] text-white shadow-[0_16px_34px_rgba(6,61,49,0.26)]"
                         : "border-slate-200 bg-white text-slate-900 shadow-sm hover:border-[#d7b257] hover:bg-[#fffdfa]",
