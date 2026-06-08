@@ -228,6 +228,7 @@ function validarConfigSent() {
   const apiKey = process.env.SENT_API_KEY
   const senderId = process.env.SENT_SENDER_ID
   const templateId = process.env.SENT_TEMPLATE_ID
+  const templateName = process.env.SENT_TEMPLATE_NAME || "New Template"
 
   console.log("Sent.dm SENT_SENDER_ID loaded", {
     loaded: Boolean(senderId),
@@ -250,6 +251,7 @@ function validarConfigSent() {
     apiKey,
     senderId,
     templateId,
+    templateName,
   }
 }
 
@@ -266,7 +268,7 @@ async function enviarCredencialPorSms({
     return { enviado: false }
   }
 
-  const { apiKey, senderId, templateId } = validarConfigSent()
+  const { apiKey, senderId, templateId, templateName } = validarConfigSent()
   const sandbox = process.env.SENT_SANDBOX === "true"
 
   const payload = {
@@ -274,6 +276,7 @@ async function enviarCredencialPorSms({
     channel: ["sms"],
     template: {
       id: templateId,
+      name: templateName,
       parameters: {
         nombre,
         credencial,

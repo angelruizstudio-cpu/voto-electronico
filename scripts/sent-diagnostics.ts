@@ -38,6 +38,7 @@ loadEnvFile(".env")
 const apiKey = process.env.SENT_API_KEY
 const senderId = process.env.SENT_SENDER_ID
 const configuredTemplateId = process.env.SENT_TEMPLATE_ID
+const configuredTemplateName = process.env.SENT_TEMPLATE_NAME || TEMPLATE_NAME
 const testPhone = process.env.SENT_TEST_PHONE
 
 if (!apiKey) {
@@ -173,7 +174,7 @@ async function main() {
     (template) =>
       isApprovedTemplate(template) &&
       isSmsEnabled(template) &&
-      (String(template.name) === TEMPLATE_NAME || String(template.id) === configuredTemplateId)
+      (String(template.name) === configuredTemplateName || String(template.id) === configuredTemplateId)
   )
 
   if (!approvedSmsTemplate) {
@@ -286,6 +287,7 @@ async function main() {
         channel: ["sms"],
         template: {
           id: templateId,
+          name: configuredTemplateName,
           parameters: {
             nombre: "Angel Test",
             credencial: "AR26-01",
@@ -340,7 +342,7 @@ async function main() {
     profileSmsActive: profileSmsActive ? "✅" : "❌",
     template: {
       id: templateId,
-      name: approvedSmsTemplate?.name || TEMPLATE_NAME,
+      name: approvedSmsTemplate?.name || configuredTemplateName,
       created: templateCreated,
       approved: Boolean(approvedSmsTemplate),
     },
