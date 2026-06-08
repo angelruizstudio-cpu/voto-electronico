@@ -228,7 +228,7 @@ function validarConfigSent() {
   const apiKey = process.env.SENT_API_KEY
   const senderId = process.env.SENT_SENDER_ID
   const templateId = process.env.SENT_TEMPLATE_ID
-  const templateName = process.env.SENT_TEMPLATE_NAME || "New Template"
+  const templateName = process.env.SENT_TEMPLATE_NAME
 
   console.log("Sent.dm SENT_SENDER_ID loaded", {
     loaded: Boolean(senderId),
@@ -245,6 +245,10 @@ function validarConfigSent() {
 
   if (!templateId) {
     throw new Error("Missing required environment variable SENT_TEMPLATE_ID")
+  }
+
+  if (!templateName) {
+    throw new Error("Missing required environment variable SENT_TEMPLATE_NAME")
   }
 
   return {

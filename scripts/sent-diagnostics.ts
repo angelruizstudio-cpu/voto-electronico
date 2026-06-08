@@ -5,7 +5,6 @@ import { join } from "node:path"
 type JsonObject = Record<string, any>
 
 const SENT_BASE_URL = "https://api.sent.dm/v3"
-const TEMPLATE_NAME = "assembly_credential_sms"
 
 function loadEnvFile(fileName: string) {
   const filePath = join(process.cwd(), fileName)
@@ -38,7 +37,7 @@ loadEnvFile(".env")
 const apiKey = process.env.SENT_API_KEY
 const senderId = process.env.SENT_SENDER_ID
 const configuredTemplateId = process.env.SENT_TEMPLATE_ID
-const configuredTemplateName = process.env.SENT_TEMPLATE_NAME || TEMPLATE_NAME
+const configuredTemplateName = process.env.SENT_TEMPLATE_NAME
 const testPhone = process.env.SENT_TEST_PHONE
 
 if (!apiKey) {
@@ -49,8 +48,13 @@ if (!senderId) {
   throw new Error("Missing required environment variable SENT_SENDER_ID")
 }
 
+if (!configuredTemplateName) {
+  throw new Error("Missing required environment variable SENT_TEMPLATE_NAME")
+}
+
 const requiredApiKey = apiKey
 const requiredSenderId = senderId
+const requiredTemplateName = configuredTemplateName
 
 async function sentRequest(path: string, init: RequestInit = {}) {
   const res = await fetch(`${SENT_BASE_URL}${path}`, {
@@ -174,7 +178,7 @@ async function main() {
     (template) =>
       isApprovedTemplate(template) &&
       isSmsEnabled(template) &&
-      (String(template.name) === configuredTemplateName || String(template.id) === configuredTemplateId)
+      (String(template.name) === requiredTemplateName || String(template.id) === configuredTemplateId)
   )
 
   if (!approvedSmsTemplate) {
@@ -287,7 +291,7 @@ async function main() {
         channel: ["sms"],
         template: {
           id: templateId,
-          name: configuredTemplateName,
+          name: requiredTemplateName,
           parameters: {
             nombre: "Angel Test",
             credencial: "AR26-01",
@@ -342,7 +346,7 @@ async function main() {
     profileSmsActive: profileSmsActive ? "✅" : "❌",
     template: {
       id: templateId,
-      name: approvedSmsTemplate?.name || configuredTemplateName,
+      name: approvedSmsTemplate?.name || requiredTemplateName,
       created: templateCreated,
       approved: Boolean(approvedSmsTemplate),
     },
