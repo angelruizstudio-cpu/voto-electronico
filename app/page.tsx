@@ -5,6 +5,7 @@ const rutasPorRol = {
   owner: "/sistema",
   admin: "/admin",
   moderador: "/moderador",
+  escrutinio: "/escrutinio",
   oficina: "/oficina",
   puerta: "/puerta",
 } as const

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const ROLES = ["owner", "admin", "moderador", "oficina", "puerta"] as const
+const ROLES = ["owner", "admin", "moderador", "escrutinio", "oficina", "puerta"] as const
 
 function leerRoles(req: NextRequest) {
   const rolesCookie = req.cookies.get("auth_roles")?.value
@@ -40,6 +40,7 @@ export function middleware(req: NextRequest) {
     (pathname.startsWith("/sistema") && roles.includes("owner")) ||
     (pathname.startsWith("/admin") && tieneRol(["admin"])) ||
     (pathname.startsWith("/moderador") && tieneRol(["moderador"])) ||
+    (pathname.startsWith("/escrutinio") && tieneRol(["escrutinio"])) ||
     (pathname.startsWith("/oficina") && tieneRol(["oficina"])) ||
     (pathname.startsWith("/puerta") && tieneRol(["puerta"])) ||
     pathname === "/"
@@ -58,6 +59,8 @@ export const config = {
     "/",
     "/moderador",
     "/moderador/:path*",
+    "/escrutinio",
+    "/escrutinio/:path*",
     "/admin",
     "/admin/:path*",
     "/sistema",

@@ -8,6 +8,7 @@ El sistema esta organizado por roles:
 
 - Administrador
 - Moderador
+- Comite de Escrutinio
 - Oficina
 - Puerta
 - Asambleista
@@ -30,6 +31,7 @@ Areas disponibles:
 
 - Administrador
 - Moderador
+- Comite de Escrutinio
 - Oficina
 - Puerta
 - Asambleista
@@ -72,6 +74,7 @@ Roles administrativos:
 
 - Administrador: usuarios y permisos.
 - Moderador: control de asamblea, mociones, votaciones y resultados.
+- Comite de Escrutinio: registro de votos manuales y certificacion de resultado oficial.
 - Oficina: registro, pagos, habilitacion e historial.
 - Puerta: check-in y check-out.
 
@@ -385,11 +388,72 @@ La nominacion directa aparece cuando:
 - La votacion esta abierta.
 - Todavia no se han emitido votos.
 
-Cuando un asambleista nomina, el candidato se registra para todos. El sistema refresca la votacion activa para que los demas asambleistas vean la nominacion.
+Cuando un asambleista escribe un nombre, ese nombre queda asociado a su participacion y no se muestra automaticamente a los demas asambleistas.
+
+Nota operativa actual:
+
+En la primera ronda, los nombres escritos por un asambleista desde su pantalla quedan privados para los demas asambleistas. El Moderador conserva los candidatos oficiales que haya entrado, pero una nominacion escrita por un asambleista no aparece automaticamente en las pantallas de otros participantes.
+
+Los nombres recibidos por balota manual se registran despues de cerrar la votacion desde el modulo del Comite de Escrutinio.
 
 ---
 
-## 7. Resultados de Asambleista
+## 7. Comite de Escrutinio
+
+Ruta:
+
+```text
+/escrutinio
+```
+
+El Comite de Escrutinio registra votos manuales despues de cerrar una votacion electronica.
+
+Funciones principales:
+
+- Ver votaciones cerradas.
+- Registrar votos manuales por candidato.
+- Registrar nombres escritos en primera ronda.
+- Registrar balotas nulas.
+- Registrar balotas danadas.
+- Ver resultado oficial actualizado.
+- Certificar que el resultado esta listo para el Moderador.
+
+### Flujo de uso
+
+1. Entrar como Comite de Escrutinio.
+2. Seleccionar una votacion cerrada.
+3. Registrar los votos manuales.
+4. Guardar los votos manuales.
+5. Revisar el resumen oficial.
+6. Presionar `Certificar y enviar resultado`.
+
+### Resultado de elecciones
+
+La pantalla muestra:
+
+- Nombre de la eleccion.
+- Votos emitidos.
+- Votos necesarios.
+- Si hubo eleccion o no hubo eleccion.
+- Votos por candidato.
+- Balotas nulas.
+- Balotas danadas.
+
+### Resultado de resoluciones
+
+La pantalla muestra:
+
+- Nombre de la resolucion.
+- Votos emitidos.
+- Votos necesarios.
+- Votos a favor.
+- Votos en contra.
+- Abstenciones.
+- Si la resolucion fue aprobada o rechazada.
+
+---
+
+## 8. Resultados de Asambleista
 
 Ruta:
 
@@ -411,7 +475,7 @@ Los resultados dependen de lo que publique el Moderador.
 
 ---
 
-## 8. Historial del Asambleista
+## 9. Historial del Asambleista
 
 Ruta:
 
@@ -423,7 +487,7 @@ Permite consultar informacion historica disponible para el asambleista.
 
 ---
 
-## 9. Resultados Actuales
+## 10. Resultados Actuales
 
 Rutas:
 
@@ -447,7 +511,7 @@ Incluyen:
 
 ---
 
-## 10. Historial de Asambleas
+## 11. Historial de Asambleas
 
 Rutas:
 
@@ -463,7 +527,7 @@ Desde el historial se puede abrir el detalle de una asamblea.
 
 ---
 
-## 11. Detalle de Asamblea y PDF
+## 12. Detalle de Asamblea y PDF
 
 Ruta:
 
@@ -514,7 +578,7 @@ Si existe tercera ronda, el sistema genera otra tabla para continuar el acta sin
 
 ---
 
-## 12. Flujo Recomendado para una Asamblea Real
+## 13. Flujo Recomendado para una Asamblea Real
 
 Antes de la asamblea:
 
@@ -533,7 +597,8 @@ Durante la asamblea:
 4. Moderador presenta resoluciones o elecciones.
 5. Asambleistas votan desde sus dispositivos.
 6. Moderador cierra y publica resultados.
-7. Puerta puede marcar check-out cuando corresponda.
+7. Comite de Escrutinio registra votos manuales si aplica.
+8. Puerta puede marcar check-out cuando corresponda.
 
 Despues de la asamblea:
 
@@ -544,7 +609,7 @@ Despues de la asamblea:
 
 ---
 
-## 13. Recomendaciones Tecnicas
+## 14. Recomendaciones Tecnicas
 
 - Usar conexion estable de internet.
 - Probar el sistema antes de usarlo oficialmente.
@@ -556,7 +621,7 @@ Despues de la asamblea:
 
 ---
 
-## 14. Glosario
+## 15. Glosario
 
 Asamblea activa:
 Asamblea actualmente abierta para registro, asistencia o votacion.

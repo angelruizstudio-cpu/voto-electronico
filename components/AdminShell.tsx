@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   MonitorCheck,
+  Scale,
   Shield,
   X,
 } from "lucide-react"
@@ -22,13 +23,14 @@ import { supabase } from "@/lib/supabaseClient"
 
 type AdminShellProps = {
   children: React.ReactNode
-  role: "oficina" | "moderador"
+  role: "oficina" | "moderador" | "escrutinio"
 }
 
-type RolSesion = "admin" | "moderador" | "oficina" | "puerta"
+type RolSesion = "admin" | "moderador" | "escrutinio" | "oficina" | "puerta"
 
 const navItems = {
   moderador: { href: "/moderador", label: "Moderador", icon: MonitorCheck },
+  escrutinio: { href: "/escrutinio", label: "Escrutinio", icon: Scale },
   admin: { href: "/admin", label: "Administrador", icon: Shield },
   resumen: { href: "/moderador/resultados", label: "Resumen actual", icon: ListChecks },
   historial: { href: "/moderador/historial", label: "Historial", icon: History },
@@ -37,8 +39,9 @@ const navItems = {
 }
 
 const navKeysByRole: Record<RolSesion, (keyof typeof navItems)[]> = {
-  admin: ["moderador", "admin", "resumen", "historial", "oficina", "puerta"],
+  admin: ["moderador", "escrutinio", "admin", "resumen", "historial", "oficina", "puerta"],
   moderador: ["moderador", "resumen", "historial"],
+  escrutinio: ["escrutinio", "historial"],
   oficina: ["oficina"],
   puerta: ["puerta"],
 }
@@ -78,9 +81,11 @@ function AdminShellContent({ children, role }: AdminShellProps) {
     ? "Puerta"
     : pathname.startsWith("/admin")
       ? "Administrador"
-      : pathname.startsWith("/oficina")
-        ? "Oficina"
-        : "Moderador"
+      : pathname.startsWith("/escrutinio")
+        ? "Escrutinio"
+        : pathname.startsWith("/oficina")
+          ? "Oficina"
+          : "Moderador"
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -181,6 +186,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
                   pathname === item.href ||
                   (item.href !== "/oficina" &&
                     item.href !== "/moderador" &&
+                    item.href !== "/escrutinio" &&
                     pathname.startsWith(item.href))
 
                 return (
@@ -251,6 +257,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
               pathname === item.href ||
               (item.href !== "/oficina" &&
                 item.href !== "/moderador" &&
+                item.href !== "/escrutinio" &&
                 pathname.startsWith(item.href))
 
             return (

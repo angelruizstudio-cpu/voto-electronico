@@ -178,7 +178,7 @@ export function ResultadoOficialActualizado({
                 Balotas nulas: {resultado.nulas}
               </p>
               <p className="rounded bg-white p-3 text-sm font-bold text-amber-800">
-                Balotas daÃ±adas: {resultado.danadas}
+                Balotas dañadas: {resultado.danadas}
               </p>
             </div>
           )}
@@ -498,7 +498,7 @@ export function VotosManualesPanel({
                       </p>
                     </div>
                     <Button type="button" onClick={agregarNombreManual} className="shrink-0">
-                      AÃ±adir nombre
+                      Añadir nombre
                     </Button>
                   </div>
 
@@ -571,7 +571,7 @@ export function VotosManualesPanel({
                   />
                 </label>
                 <label className="space-y-1 text-sm font-bold text-amber-800">
-                  <span>Balotas daÃ±adas</span>
+                  <span>Balotas dañadas</span>
                   <input
                     type="number"
                     min={0}

@@ -17,13 +17,14 @@ import {
   Gavel,
   Lock,
   MonitorCheck,
+  Scale,
   Shield,
   Smartphone,
   User,
   Users,
 } from "lucide-react"
 
-type RolAcceso = "admin" | "moderador" | "oficina" | "puerta" | "asambleista"
+type RolAcceso = "admin" | "moderador" | "escrutinio" | "oficina" | "puerta" | "asambleista"
 
 type Organizacion = {
   id: string
@@ -58,6 +59,15 @@ const roles: {
     descriptionEn: "Assembly control, motions, and voting.",
     href: "/moderador",
     icon: MonitorCheck,
+  },
+  {
+    id: "escrutinio",
+    labelEs: "Comité de Escrutinio",
+    labelEn: "Counting Committee",
+    descriptionEs: "Votos manuales y resultado oficial.",
+    descriptionEn: "Manual votes and official result.",
+    href: "/escrutinio",
+    icon: Scale,
   },
   {
     id: "oficina",
