@@ -292,6 +292,8 @@ async function main() {
           parameters: {
             nombre: "Angel Test",
             credencial: "AR26-01",
+            code: "AR26-01",
+            var_2: "AR26-01",
           },
         },
         sandbox: true,

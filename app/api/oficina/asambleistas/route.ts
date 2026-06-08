@@ -310,6 +310,8 @@ async function enviarCredencialPorSms({
       parameters: {
         nombre,
         credencial,
+        code: credencial,
+        var_2: credencial,
       },
     },
     sandbox,
