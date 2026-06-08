@@ -31,7 +31,7 @@ El Moderador controla el desarrollo de la asamblea. Desde este módulo puede abr
 
 ### 2.3 Comité de Escrutinio
 
-El Comité de Escrutinio registra los votos manuales después de cerrar una votación electrónica. Este módulo permite sumar balotas manuales al resultado oficial, revisar el resumen final y preparar la lectura para el presidente de la asamblea.
+El Comité de Escrutinio registra los votos manuales después de cerrar una votación electrónica. Este módulo permite sumar balotas manuales al resultado oficial, revisar el resumen final, certificar el resultado y enviarlo al Moderador para su anuncio formal.
 
 ### 2.4 Oficina
 
@@ -195,17 +195,17 @@ Este módulo se usa después de cerrar una votación electrónica, cuando existe
 
 1. Entrar al área **Comité de Escrutinio**.
 2. Seleccionar una votación cerrada.
-3. Registrar los votos manuales correspondientes.
+3. Si hay asambleístas de voto manual, registrar los votos manuales correspondientes.
 4. En elecciones, ingresar votos para candidatos existentes.
 5. En primera ronda de elecciones, registrar nombres escritos en balotas manuales si aplica.
 6. Registrar balotas nulas o dañadas cuando corresponda.
-7. Guardar los votos manuales.
+7. Guardar los votos manuales o preparar el resultado electrónico si no hay votos manuales.
 8. Revisar la pantalla de resultado oficial.
 9. Presionar **Certificar y enviar resultado** cuando el comité confirme que el resultado está listo para el Moderador.
 
 ### 8.3 Pantalla de resultado del comité
 
-Una vez guardados los votos manuales, la pantalla cambia a un resumen de lectura. Para elecciones muestra:
+Una vez guardados los votos manuales, o preparado el resultado electrónico cuando no hay votantes manuales, la pantalla cambia a un resumen de lectura. Para elecciones muestra:
 
 - Título de la elección.
 - Votos emitidos.
@@ -229,7 +229,21 @@ Para resoluciones muestra:
 
 El Moderador sigue siendo responsable de abrir y cerrar votaciones. El Comité de Escrutinio solamente trabaja con votaciones cerradas y prepara el resultado oficial después de sumar votos electrónicos y manuales.
 
-El botón **Certificar y enviar resultado** sirve para indicar que el resultado ya fue revisado por el comité y está listo para ser comunicado. El resultado oficial queda disponible para revisión desde las pantallas de resultados e historial.
+El botón **Certificar y enviar resultado** guarda una certificación oficial del comité. Cuando esta certificación se registra, el Moderador recibe una pantalla flotante indicando que el resultado fue certificado.
+
+El Moderador no edita votos manuales desde su módulo. Su pantalla queda en modo lectura para el resultado del Comité de Escrutinio. Si el resultado requiere una nueva ronda, el Moderador puede continuar el procedimiento usando el resultado certificado.
+
+### 8.5 Caso sin votos manuales
+
+Si no hay asambleístas registrados para voto manual, el Comité de Escrutinio no tiene que entrar balotas físicas. En ese caso:
+
+1. Selecciona la votación cerrada.
+2. Revisa el resultado electrónico.
+3. Presiona **Preparar resultado para certificar**.
+4. Revisa el resumen.
+5. Presiona **Certificar y enviar resultado**.
+
+Este flujo mantiene el mismo control institucional: toda votación cerrada puede pasar por revisión y certificación del Comité de Escrutinio, aun cuando todos los votos fueron electrónicos.
 
 ---
 
@@ -385,7 +399,9 @@ Mensaje esperado:
 3. El Moderador monitorea el avance.
 4. El Moderador cierra la votación.
 5. El Comité de Escrutinio registra votos manuales si aplica.
-6. Se revisan resultados oficiales.
+6. Si no hay votos manuales, el Comité certifica el resultado electrónico.
+7. El Moderador recibe la pantalla flotante de resultado certificado.
+8. Se anuncian los resultados oficiales.
 
 ### Después de la votación
 
@@ -452,7 +468,10 @@ Use este checklist antes de presentar el sistema al Comité Ejecutivo.
 - [ ] Comité puede registrar balotas dañadas.
 - [ ] Resultado oficial suma electrónicos y manuales.
 - [ ] Pantalla cambia a resumen para lectura al presidente.
-- [ ] Botón **Certificar y enviar resultado** marca el resultado como listo.
+- [ ] Si no hay votantes manuales, Comité puede certificar resultado electrónico.
+- [ ] Botón **Certificar y enviar resultado** guarda certificación oficial.
+- [ ] Moderador recibe pantalla flotante al certificarse el resultado.
+- [ ] Moderador ve el resultado del comité en modo lectura.
 
 ### Seguridad de dispositivo
 
@@ -494,4 +513,5 @@ Los puntos que deben confirmarse antes del uso final son:
 - Aprobación final de SMS con Sent.
 - Prueba operativa con al menos 20 usuarios.
 - Confirmación de Supabase Realtime para avisos inmediatos de dispositivo.
+- Confirmación de la tabla `resultados_escrutinio` ejecutando `supabase-escrutinio-certificaciones.sql`.
 - Revisión final de capturas y redacción antes de entregar el manual formal.

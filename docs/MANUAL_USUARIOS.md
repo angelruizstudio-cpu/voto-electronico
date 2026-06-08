@@ -406,7 +406,7 @@ Ruta:
 /escrutinio
 ```
 
-El Comite de Escrutinio registra votos manuales despues de cerrar una votacion electronica.
+El Comite de Escrutinio registra votos manuales despues de cerrar una votacion electronica y certifica el resultado oficial para que el Moderador lo reciba.
 
 Funciones principales:
 
@@ -417,15 +417,32 @@ Funciones principales:
 - Registrar balotas danadas.
 - Ver resultado oficial actualizado.
 - Certificar que el resultado esta listo para el Moderador.
+- Enviar una notificacion flotante al Moderador cuando el resultado quede certificado.
 
 ### Flujo de uso
 
 1. Entrar como Comite de Escrutinio.
 2. Seleccionar una votacion cerrada.
-3. Registrar los votos manuales.
-4. Guardar los votos manuales.
+3. Registrar los votos manuales si existen asambleistas manuales.
+4. Guardar los votos manuales o preparar el resultado electronico si no hay votos manuales.
 5. Revisar el resumen oficial.
 6. Presionar `Certificar y enviar resultado`.
+
+Cuando el Comite certifica, el Moderador recibe una pantalla flotante indicando que el resultado fue certificado. El Moderador no modifica votos manuales; solo revisa y anuncia el resultado certificado.
+
+### Si no hay votos manuales
+
+Si no hay asambleistas registrados para voto manual, el Comite no necesita entrar balotas fisicas.
+
+Flujo:
+
+1. Seleccionar la votacion cerrada.
+2. Revisar el resultado electronico.
+3. Presionar `Preparar resultado para certificar`.
+4. Revisar el resumen.
+5. Presionar `Certificar y enviar resultado`.
+
+Este paso mantiene la certificacion formal del resultado aunque todos los votos hayan sido electronicos.
 
 ### Resultado de elecciones
 
@@ -597,8 +614,9 @@ Durante la asamblea:
 4. Moderador presenta resoluciones o elecciones.
 5. Asambleistas votan desde sus dispositivos.
 6. Moderador cierra y publica resultados.
-7. Comite de Escrutinio registra votos manuales si aplica.
-8. Puerta puede marcar check-out cuando corresponda.
+7. Comite de Escrutinio registra votos manuales si aplica o certifica resultado electronico.
+8. Moderador recibe la pantalla flotante de resultado certificado.
+9. Puerta puede marcar check-out cuando corresponda.
 
 Despues de la asamblea:
 
