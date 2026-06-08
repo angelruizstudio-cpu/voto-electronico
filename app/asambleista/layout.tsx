@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { BarChart3, History, LogOut, Vote } from "lucide-react"
 
 export default function AsambleistaLayout({
@@ -9,15 +9,18 @@ export default function AsambleistaLayout({
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter()
   const pathname = usePathname()
 
   const logout = () => {
     localStorage.removeItem("token_votacion")
     localStorage.removeItem("asambleista_id")
     localStorage.removeItem("asambleista_nombre")
-    router.push("/login")
-    window.location.reload()
+
+    const destino = pathname?.startsWith("/votar")
+      ? `/votar${window.location.search}`
+      : "/asambleista"
+
+    window.location.replace(destino)
   }
 
   return (

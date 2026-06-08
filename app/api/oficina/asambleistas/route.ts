@@ -14,6 +14,23 @@ type CambiosAsambleista = {
 type ResultadoEnvioCredencial = {
   enviado: boolean
   error?: string
+  messageId?: string
+}
+
+type SentMessageResponse = {
+  success?: boolean
+  data?: {
+    recipients?: Array<{
+      message_id?: string
+      id?: string
+    }>
+    message_id?: string
+    id?: string
+  }
+  error?: {
+    message?: string
+    code?: string
+  }
 }
 
 function validarSesion(req: NextRequest) {
@@ -263,13 +280,11 @@ async function enviarCredencialPorSms({
   telefono,
   nombre,
   credencial,
-  metodoVoto,
   organizacionCodigo,
 }: {
   telefono: string
   nombre: string
   credencial: string
-  metodoVoto: "electronico" | "manual"
   organizacionCodigo?: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!telefono) {
@@ -289,7 +304,6 @@ async function enviarCredencialPorSms({
         nombre,
         credencial,
         linkVotacion,
-        metodoVoto: metodoVoto === "manual" ? "manual" : "electronico",
       },
     },
     sandbox,
@@ -306,19 +320,38 @@ async function enviarCredencialPorSms({
       body: JSON.stringify(payload),
     })
 
-    if (res.status === 202 || res.ok) {
-      return { enviado: true }
+    const responseBody = await res.text().catch(() => "")
+    let data: SentMessageResponse | null = null
+
+    try {
+      data = responseBody ? (JSON.parse(responseBody) as SentMessageResponse) : null
+    } catch {
+      data = null
     }
 
-    const responseBody = await res.text().catch(() => "")
-    console.error("Sent.dm SMS request failed", {
+    if ((res.status === 202 || res.ok) && data?.success !== false) {
+      const messageId =
+        data?.data?.recipients?.[0]?.message_id ||
+        data?.data?.recipients?.[0]?.id ||
+        data?.data?.message_id ||
+        data?.data?.id
+
+      console.log("[Sent.dm] Mensaje enviado, message_id:", messageId || "no disponible")
+
+      return { enviado: true, messageId }
+    }
+
+    console.error("[Sent.dm] Error enviando SMS:", {
       status: res.status,
-      body: responseBody,
+      body: responseBody || data,
     })
 
     let error = `SENT_HTTP_${res.status}`
     try {
-      error = obtenerErrorSent(res.status, res.headers.get("content-type") || "", responseBody)
+      error =
+        data?.error?.message ||
+        data?.error?.code ||
+        obtenerErrorSent(res.status, res.headers.get("content-type") || "", responseBody)
     } catch {
       error = res.status >= 500 ? `SENT_TEMPORAL_${res.status}` : `SENT_HTTP_${res.status}`
     }
@@ -472,7 +505,6 @@ export async function POST(req: NextRequest) {
     telefono: telefonoLimpio,
     nombre: nombreLimpio,
     credencial,
-    metodoVoto: metodoVotoLimpio,
     organizacionCodigo: tenant.codigoAcceso || tenant.slug,
   })
 
