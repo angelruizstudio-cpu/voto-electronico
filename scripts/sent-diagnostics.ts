@@ -37,7 +37,6 @@ loadEnvFile(".env")
 const apiKey = process.env.SENT_API_KEY
 const senderId = process.env.SENT_SENDER_ID
 const configuredTemplateId = process.env.SENT_TEMPLATE_ID
-const configuredTemplateName = process.env.SENT_TEMPLATE_NAME
 const testPhone = process.env.SENT_TEST_PHONE
 
 if (!apiKey) {
@@ -48,13 +47,8 @@ if (!senderId) {
   throw new Error("Missing required environment variable SENT_SENDER_ID")
 }
 
-if (!configuredTemplateName) {
-  throw new Error("Missing required environment variable SENT_TEMPLATE_NAME")
-}
-
 const requiredApiKey = apiKey
 const requiredSenderId = senderId
-const requiredTemplateName = configuredTemplateName
 
 async function sentRequest(path: string, init: RequestInit = {}) {
   const res = await fetch(`${SENT_BASE_URL}${path}`, {
@@ -178,7 +172,7 @@ async function main() {
     (template) =>
       isApprovedTemplate(template) &&
       isSmsEnabled(template) &&
-      (String(template.name) === requiredTemplateName || String(template.id) === configuredTemplateId)
+      String(template.id) === configuredTemplateId
   )
 
   if (!approvedSmsTemplate) {
@@ -190,7 +184,7 @@ async function main() {
   let templateId = approvedSmsTemplate?.id || configuredTemplateId
   let templateCreated = false
 
-  if (!approvedSmsTemplate) {
+  if (!approvedSmsTemplate && !configuredTemplateId) {
     console.log("")
     console.log("3. No se encontro template SMS aprobado. Intentando crear uno nuevo...")
 
@@ -262,10 +256,14 @@ async function main() {
     templateCreated = Boolean(templateId)
   } else {
     console.log("")
-    console.log("3. Template SMS aprobado encontrado:", {
-      id: approvedSmsTemplate.id,
-      name: approvedSmsTemplate.name,
-    })
+    if (approvedSmsTemplate) {
+      console.log("3. Template SMS aprobado encontrado:", {
+        id: approvedSmsTemplate.id,
+        name: approvedSmsTemplate.name,
+      })
+    } else {
+      console.log("3. Usando SENT_TEMPLATE_ID configurado:", templateId)
+    }
   }
 
   let messageId: string | undefined
@@ -291,7 +289,6 @@ async function main() {
         channel: ["sms"],
         template: {
           id: templateId,
-          name: requiredTemplateName,
           parameters: {
             nombre: "Angel Test",
             credencial: "AR26-01",
@@ -346,7 +343,7 @@ async function main() {
     profileSmsActive: profileSmsActive ? "✅" : "❌",
     template: {
       id: templateId,
-      name: approvedSmsTemplate?.name || requiredTemplateName,
+      name: approvedSmsTemplate?.name || null,
       created: templateCreated,
       approved: Boolean(approvedSmsTemplate),
     },
