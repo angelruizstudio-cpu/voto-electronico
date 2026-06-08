@@ -1,8 +1,9 @@
 "use client"
 
-import { use, useCallback, useEffect, useState } from "react"
+import { use, useCallback, useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
+import { BarChart3, Download, RefreshCw, Trophy, Vote } from "lucide-react"
 import {
   calcularNecesarios,
   calcularVotosValidosCandidatos,
@@ -60,6 +61,8 @@ type GrupoEleccion = {
   rondas: VotacionDetalle[]
 }
 
+type FiltroResultados = "todos" | "elecciones" | "resoluciones"
+
 const cargarLogoOficial = async () => {
   try {
     const res = await fetch("/logo_voto_electronico.png")
@@ -87,6 +90,9 @@ export default function DetalleAsamblea({
 
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [votaciones, setVotaciones] = useState<VotacionDetalle[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
+  const [filtro, setFiltro] = useState<FiltroResultados>("todos")
 
   const mostrarResultado = (v: VotacionDetalle) => {
     if (v.resultado === "electo_por_sorteo") {
@@ -110,42 +116,66 @@ export default function DetalleAsamblea({
     return v.ganadorNombre || "Procesado"
   }
 
+  const claseResultado = (v: VotacionDetalle) => {
+    if (v.resultado === "electo" || v.resultado === "electo_por_sorteo" || v.resultado === "aprobada") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-800"
+    }
+
+    if (v.resultado === "requiere_nueva_ronda" || v.resultado === "empate_sorteo") {
+      return "border-amber-200 bg-amber-50 text-amber-800"
+    }
+
+    if (v.resultado === "rechazada" || v.resultado === "rechazada_sin_segundo" || !v.aprobado) {
+      return "border-rose-200 bg-rose-50 text-rose-800"
+    }
+
+    return "border-slate-200 bg-slate-50 text-slate-700"
+  }
+
+  const porcentaje = (votos: number, total: number) => {
+    if (!total) return 0
+    return Math.round((votos / total) * 100)
+  }
+
   const cargarDetalle = useCallback(async () => {
-    const res = await fetch("/api/auth/me").catch(() => null)
-    const sesion = res?.ok ? await res.json().catch(() => null) : null
-    const organizacionId = sesion?.organizacion?.id || null
-    const organizacionSlug =
-      sesion?.organizacion?.slug ||
-      (typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") : null)
+    setCargando(true)
 
-    let queryAsamblea = supabase
-      .from("asambleas")
-      .select("*")
-      .eq("id", id)
+    try {
+      const res = await fetch("/api/auth/me").catch(() => null)
+      const sesion = res?.ok ? await res.json().catch(() => null) : null
+      const organizacionId = sesion?.organizacion?.id || null
+      const organizacionSlug =
+        sesion?.organizacion?.slug ||
+        (typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") : null)
 
-    if (organizacionId) {
-      queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
-    } else if (organizacionSlug) {
-      queryAsamblea = queryAsamblea.eq("organizacion_slug", organizacionSlug)
-    }
+      let queryAsamblea = supabase
+        .from("asambleas")
+        .select("*")
+        .eq("id", id)
 
-    const { data: asambleaData } = await queryAsamblea.maybeSingle()
+      if (organizacionId) {
+        queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
+      } else if (organizacionSlug) {
+        queryAsamblea = queryAsamblea.eq("organizacion_slug", organizacionSlug)
+      }
 
-    setAsamblea(asambleaData)
+      const { data: asambleaData } = await queryAsamblea.maybeSingle()
 
-    if (!asambleaData) {
-      setVotaciones([])
-      return
-    }
+      setAsamblea(asambleaData)
 
-    const { data: votacionesData } = await supabase
-      .from("votaciones")
-      .select("*")
-      .eq("asamblea_id", id)
-      .order("titulo", { ascending: true })
+      if (!asambleaData) {
+        setVotaciones([])
+        return
+      }
 
-    const detalles = await Promise.all(
-      (votacionesData || []).map(async (votacion) => {
+      const { data: votacionesData } = await supabase
+        .from("votaciones")
+        .select("*")
+        .eq("asamblea_id", id)
+        .order("titulo", { ascending: true })
+
+      const detalles = await Promise.all(
+        (votacionesData || []).map(async (votacion) => {
         const { data: votos } = await supabase
           .from("votos")
           .select("*")
@@ -231,14 +261,24 @@ export default function DetalleAsamblea({
           aprobado: favor >= necesarios && favor + contra > 0,
           candidatos: candidatosConteo,
         }
-      })
-    )
+        })
+      )
 
-    setVotaciones(detalles)
+      setVotaciones(detalles)
+      setActualizadoEn(new Date())
+    } finally {
+      setCargando(false)
+    }
   }, [id])
 
   const elecciones = votaciones.filter((v) => v.tipo_votacion === "eleccion_lideres")
   const resoluciones = votaciones.filter((v) => v.tipo_votacion === "resolucion")
+  const votacionesFiltradas = useMemo(() => {
+    if (filtro === "elecciones") return elecciones
+    if (filtro === "resoluciones") return resoluciones
+    return votaciones
+  }, [elecciones, filtro, resoluciones, votaciones])
+  const totalEmitidos = votaciones.reduce((total, votacion) => total + votacion.emitidos, 0)
 
   const descargarPDF = async () => {
     if (!asamblea) return
@@ -507,95 +547,226 @@ export default function DetalleAsamblea({
   }, [cargarDetalle])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Detalle de Asamblea</h1>
+    <div className="min-h-screen bg-[#f4f6f1] px-4 py-6 text-slate-950 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-lg border border-[#d9dfd6] bg-white shadow-sm">
+          <div className="flex flex-col gap-5 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#b58b18]">
+                Archivo histórico
+              </p>
+              <h1 className="mt-1 text-3xl font-black text-[#123c32]">Detalle de Asamblea</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                {asamblea
+                  ? `${asamblea.anio} - ${asamblea.lugar}`
+                  : cargando
+                    ? "Cargando informacion de la asamblea..."
+                    : "Asamblea no encontrada"}
+              </p>
+              {actualizadoEn && (
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  Actualizado {actualizadoEn.toLocaleTimeString("es-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </p>
+              )}
+            </div>
 
-          {asamblea && (
-            <p className="text-slate-600">
-              {asamblea.anio} — {asamblea.lugar}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void cargarDetalle()}
+                disabled={cargando}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${cargando ? "animate-spin" : ""}`} />
+                Recargar
+              </Button>
+              <Button onClick={descargarPDF} disabled={!asamblea || cargando}>
+                <Download className="mr-2 h-4 w-4" />
+                Descargar PDF
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-5 md:grid-cols-4">
+            <div className="rounded-lg bg-[#f8faf8] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                Asuntos
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#123c32]">{votaciones.length}</p>
+            </div>
+            <div className="rounded-lg bg-[#f8faf8] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                Elecciones
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#123c32]">{elecciones.length}</p>
+            </div>
+            <div className="rounded-lg bg-[#f8faf8] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                Resoluciones
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#123c32]">{resoluciones.length}</p>
+            </div>
+            <div className="rounded-lg bg-[#f8faf8] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                Votos emitidos
+              </p>
+              <p className="mt-2 text-3xl font-black text-[#123c32]">{totalEmitidos}</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+          {[
+            { id: "todos", label: "Todos", total: votaciones.length },
+            { id: "elecciones", label: "Elecciones", total: elecciones.length },
+            { id: "resoluciones", label: "Resoluciones", total: resoluciones.length },
+          ].map((opcion) => (
+            <button
+              key={opcion.id}
+              type="button"
+              onClick={() => setFiltro(opcion.id as FiltroResultados)}
+              className={`rounded-md px-4 py-2 text-sm font-black transition ${
+                filtro === opcion.id
+                  ? "bg-[#123c32] text-white shadow-sm"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {opcion.label} <span className="ml-1 opacity-75">({opcion.total})</span>
+            </button>
+          ))}
+        </div>
+
+        {cargando ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="h-4 w-44 animate-pulse rounded bg-slate-200" />
+            <div className="mt-5 grid gap-3">
+              <div className="h-24 animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-24 animate-pulse rounded-lg bg-slate-100" />
+            </div>
+          </div>
+        ) : votacionesFiltradas.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+            <Vote className="mx-auto h-10 w-10 text-slate-300" />
+            <p className="mt-3 text-lg font-black">No hay votaciones en esta vista.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Usa Recargar si acabas de cerrar una votacion.
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {votacionesFiltradas.map((v) => {
+              const totalCandidatos = calcularVotosValidosCandidatos(v.candidatos || [])
+              const esEleccion = v.tipo_votacion === "eleccion_lideres"
 
-        <Button onClick={descargarPDF} disabled={!asamblea}>
-          Descargar PDF
-        </Button>
-      </div>
-
-      {votaciones.length === 0 ? (
-        <p>No hay votaciones en esta asamblea.</p>
-      ) : (
-        <div className="space-y-8">
-          {elecciones.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-xl font-bold">Elecciones de líderes</h2>
-              {elecciones.map((v) => (
-                <div key={v.id} className="p-4 bg-white rounded-lg border space-y-3">
-                  <div>
-                    <p className="font-bold text-lg">{v.titulo}</p>
-                    <p className="text-sm text-slate-600">
-                      Ronda {v.ronda_numero || 1} · {mostrarTipoMayoria(v.tipo_mayoria)}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <p>Emitidos: <span className="font-bold">{v.emitidos}</span></p>
-                    <p>Necesarios: <span className="font-bold">{v.necesarios}</span></p>
-                    <p className="col-span-2">
-                      Resultado: <span className="font-bold">{mostrarResultado(v)}</span>
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    {v.candidatos?.map((c) => (
-                      <div
-                        key={c.nombre}
-                        className="flex justify-between rounded border p-2"
-                      >
-                        <span>{c.nombre}</span>
-                        <span className="font-bold">{c.votos}</span>
+              return (
+                <details
+                  key={v.id}
+                  open
+                  className="group rounded-lg border border-slate-200 bg-white shadow-sm"
+                >
+                  <summary className="flex cursor-pointer list-none flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-full bg-[#e9f3ef] p-2 text-[#123c32]">
+                        {esEleccion ? <Trophy className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
+                      <div>
+                        <p className="text-lg font-black text-[#123c32]">{v.titulo}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {esEleccion
+                            ? `Ronda ${v.ronda_numero || 1} - ${mostrarTipoMayoria(v.tipo_mayoria)}`
+                            : `${mostrarTipoMocion(v.tipo_mocion)} - ${mostrarEstadoParlamentario(v.estado_parlamentario)}`}
+                        </p>
+                      </div>
+                    </div>
 
-          {resoluciones.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-xl font-bold">Resoluciones y enmiendas</h2>
-              {resoluciones.map((v) => (
-                <div key={v.id} className="p-4 bg-white rounded-lg border space-y-3">
-                  <div>
-                    <p className="font-bold text-lg">{v.titulo}</p>
-                    <p className="text-sm text-slate-600">
-                      {mostrarTipoMocion(v.tipo_mocion)} ·{" "}
-                      {mostrarEstadoParlamentario(v.estado_parlamentario)}
-                    </p>
-                  </div>
+                    <div className={`rounded-full border px-3 py-1 text-sm font-black ${claseResultado(v)}`}>
+                      {mostrarResultado(v)}
+                    </div>
+                  </summary>
 
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
-                    <p>Emitidos: <span className="font-bold">{v.emitidos}</span></p>
-                    <p>A favor: <span className="font-bold">{v.favor}</span></p>
-                    <p>En contra: <span className="font-bold">{v.contra}</span></p>
-                    <p>Abstención: <span className="font-bold">{v.abstencion}</span></p>
-                    <p>Necesarios: <span className="font-bold">{v.necesarios}</span></p>
-                    <p>
-                      Resultado:{" "}
-                      <span className={v.aprobado ? "font-bold text-green-600" : "font-bold text-red-600"}>
-                        {mostrarResultado(v)}
-                      </span>
-                    </p>
+                  <div className="border-t border-slate-100 px-5 pb-5">
+                    <div className="grid gap-3 py-4 md:grid-cols-3">
+                      <div className="rounded-lg bg-slate-50 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                          Emitidos
+                        </p>
+                        <p className="mt-1 text-2xl font-black">{v.emitidos}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                          Necesarios
+                        </p>
+                        <p className="mt-1 text-2xl font-black">{v.necesarios}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-3">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                          Estado
+                        </p>
+                        <p className="mt-1 text-lg font-black">{v.estado}</p>
+                      </div>
+                    </div>
+
+                    {esEleccion ? (
+                      <div className="space-y-3">
+                        {v.candidatos?.map((c) => {
+                          const pct = porcentaje(c.votos, totalCandidatos)
+
+                          return (
+                            <div key={c.nombre} className="rounded-lg border border-slate-100 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="font-black">{c.nombre}</p>
+                                <p className="text-sm font-black">
+                                  {c.votos} votos - {pct}%
+                                </p>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-slate-100">
+                                <div
+                                  className="h-2 rounded-full bg-[#123c32]"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {[
+                          { label: "A favor", votos: v.favor, color: "bg-emerald-600" },
+                          { label: "En contra", votos: v.contra, color: "bg-rose-600" },
+                          { label: "Abstencion", votos: v.abstencion, color: "bg-slate-500" },
+                        ].map((item) => {
+                          const pct = porcentaje(item.votos, v.emitidos)
+
+                          return (
+                            <div key={item.label} className="rounded-lg border border-slate-100 p-3">
+                              <div className="flex items-center justify-between">
+                                <p className="font-black">{item.label}</p>
+                                <p className="text-sm font-black">
+                                  {item.votos} - {pct}%
+                                </p>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-slate-100">
+                                <div
+                                  className={`h-2 rounded-full ${item.color}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
-            </section>
-          )}
-        </div>
-      )}
+                </details>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
