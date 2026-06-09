@@ -25,6 +25,39 @@ function validarSesion(req: NextRequest) {
   )
 }
 
+async function obtenerAsambleaDesdeTokenAsambleista(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get("token")
+
+  if (!token) {
+    return null
+  }
+
+  const supabaseAdmin = crearSupabaseAdmin()
+  const { data: tokenRow, error } = await supabaseAdmin
+    .from("tokens_acceso")
+    .select("asamblea_id, activo, bloqueado, expira_en")
+    .eq("token_hash", token)
+    .eq("activo", true)
+    .eq("bloqueado", false)
+    .maybeSingle()
+
+  if (error || !tokenRow) {
+    return null
+  }
+
+  if (tokenRow.expira_en && new Date(tokenRow.expira_en).getTime() < Date.now()) {
+    return null
+  }
+
+  const { data: asamblea } = await supabaseAdmin
+    .from("asambleas")
+    .select("id, organizacion_id, organizacion_slug")
+    .eq("id", tokenRow.asamblea_id)
+    .maybeSingle()
+
+  return asamblea || null
+}
+
 async function obtenerAsambleaActiva(req: NextRequest) {
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
@@ -49,12 +82,14 @@ async function obtenerAsambleaActiva(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!validarSesion(req)) {
+  const asambleaDesdeToken = await obtenerAsambleaDesdeTokenAsambleista(req)
+
+  if (!validarSesion(req) && !asambleaDesdeToken) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
   const supabaseAdmin = crearSupabaseAdmin()
-  const asamblea = await obtenerAsambleaActiva(req)
+  const asamblea = asambleaDesdeToken || (await obtenerAsambleaActiva(req))
 
   if (!asamblea) {
     return NextResponse.json({ ok: true, informes: [] })

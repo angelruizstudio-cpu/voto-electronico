@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, History, LogOut, Vote } from "lucide-react"
+import { BarChart3, FileText, History, LogOut, Vote } from "lucide-react"
 
 export default function AsambleistaLayout({
   children,
@@ -28,7 +28,7 @@ export default function AsambleistaLayout({
       {children}
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur">
-        <div className="grid grid-cols-4 text-center">
+        <div className="grid grid-cols-5 text-center">
           <Link
             href="/asambleista"
             className={`flex flex-col items-center gap-1 rounded-lg py-2 text-xs font-bold ${
@@ -57,6 +57,16 @@ export default function AsambleistaLayout({
           >
             <History className="h-6 w-6" />
             <span>Historial</span>
+          </Link>
+
+          <Link
+            href="/asambleista/documentos"
+            className={`flex flex-col items-center gap-1 rounded-lg py-2 text-xs font-bold ${
+              pathname === "/asambleista/documentos" ? "bg-[#e9f3ef] text-[#16382f]" : "text-slate-500"
+            }`}
+          >
+            <FileText className="h-6 w-6" />
+            <span>Informes</span>
           </Link>
 
           <button onClick={logout} className="flex flex-col items-center gap-1 rounded-lg py-2 text-xs font-bold text-red-600">
