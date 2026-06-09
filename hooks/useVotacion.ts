@@ -234,14 +234,14 @@ export function useVotacion(
   }, [votacionId])
 
   useEffect(() => {
-    if (!votacionId || estado !== "abierta") return
+    if (!asambleaId) return
 
     const refresco = window.setInterval(() => {
       cargarVotacionActivaRef.current()
     }, 3000)
 
     return () => window.clearInterval(refresco)
-  }, [votacionId, estado])
+  }, [asambleaId])
 
   return {
     estado,
