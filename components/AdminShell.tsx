@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import {
   ClipboardCheck,
   DoorOpen,
-  History,
+  FileText,
   ListChecks,
   LogOut,
   Menu,
@@ -33,16 +33,16 @@ const navItems = {
   escrutinio: { href: "/escrutinio", label: "Escrutinio", icon: Scale },
   admin: { href: "/admin", label: "Administrador", icon: Shield },
   resumen: { href: "/moderador/resultados", label: "Resumen actual", icon: ListChecks },
-  historial: { href: "/moderador/historial", label: "Historial", icon: History },
+  documentos: { href: "/documentos", label: "Documentos", icon: FileText },
   oficina: { href: "/oficina", label: "Oficina", icon: ClipboardCheck },
   puerta: { href: "/puerta", label: "Puerta", icon: DoorOpen },
 }
 
 const navKeysByRole: Record<RolSesion, (keyof typeof navItems)[]> = {
-  admin: ["moderador", "escrutinio", "admin", "resumen", "historial", "oficina", "puerta"],
-  moderador: ["moderador", "resumen", "historial"],
-  escrutinio: ["escrutinio", "historial"],
-  oficina: ["oficina"],
+  admin: ["moderador", "escrutinio", "admin", "resumen", "documentos", "oficina", "puerta"],
+  moderador: ["moderador", "resumen", "documentos"],
+  escrutinio: ["escrutinio", "documentos"],
+  oficina: ["oficina", "documentos"],
   puerta: ["puerta"],
 }
 

@@ -428,7 +428,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { asambleaId, nombre, iglesia, distrito, email, telefono, metodoVoto } = await req.json()
+  const {
+    asambleaId,
+    nombre,
+    iglesia,
+    distrito,
+    email,
+    telefono,
+    metodoVoto,
+    enviarCredenciales = true,
+  } = await req.json()
   const nombreLimpio = String(nombre || "").trim()
   const emailLimpio = limpiarEmail(email)
   const telefonoLimpio = limpiarTelefono(telefono)
@@ -510,17 +519,23 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const resultadoEmail = await enviarCredencialPorEmail({
-    email: emailLimpio,
-    nombre: nombreLimpio,
-    credencial,
-    metodoVoto: metodoVotoLimpio,
-  })
-  const resultadoSms = await enviarCredencialPorSms({
-    telefono: telefonoLimpio,
-    nombre: nombreLimpio,
-    credencial,
-  })
+  const resultadoEmail =
+    enviarCredenciales === false
+      ? { enviado: false }
+      : await enviarCredencialPorEmail({
+          email: emailLimpio,
+          nombre: nombreLimpio,
+          credencial,
+          metodoVoto: metodoVotoLimpio,
+        })
+  const resultadoSms =
+    enviarCredenciales === false
+      ? { enviado: false }
+      : await enviarCredencialPorSms({
+          telefono: telefonoLimpio,
+          nombre: nombreLimpio,
+          credencial,
+        })
 
   let asambleista = data
 
@@ -639,6 +654,61 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, asambleista: data })
+  }
+
+  if (accion === "activar_credencial") {
+    const { data: asambleistaActual, error: errorActual } = await supabaseAdmin
+      .from("asambleistas")
+      .select("id, nombre, credencial, email, telefono, metodo_voto")
+      .eq("id", id)
+      .single()
+
+    if (errorActual || !asambleistaActual) {
+      return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
+    }
+
+    const resultadoEmail = await enviarCredencialPorEmail({
+      email: asambleistaActual.email || "",
+      nombre: asambleistaActual.nombre,
+      credencial: asambleistaActual.credencial,
+      metodoVoto:
+        asambleistaActual.metodo_voto === "manual" ? "manual" : "electronico",
+    })
+    const resultadoSms = await enviarCredencialPorSms({
+      telefono: asambleistaActual.telefono || "",
+      nombre: asambleistaActual.nombre,
+      credencial: asambleistaActual.credencial,
+    })
+
+    const { data, error } = await supabaseAdmin
+      .from("asambleistas")
+      .update({
+        credencial_email_enviado_en: resultadoEmail.enviado
+          ? new Date().toISOString()
+          : null,
+        credencial_email_error: resultadoEmail.error || null,
+        credencial_sms_enviado_en: resultadoSms.enviado
+          ? new Date().toISOString()
+          : null,
+        credencial_sms_error: resultadoSms.error || null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json(
+        { ok: false, error: error?.message || "ERROR_ACTIVAR_CREDENCIAL" },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      ok: true,
+      asambleista: data,
+      credencialEmail: resultadoEmail,
+      credencialSms: resultadoSms,
+    })
   }
 
   if (accion === "mantener_dispositivo_actual") {

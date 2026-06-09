@@ -41,6 +41,8 @@ export default function OficinaRegionalPage() {
   const [nuevoMetodoVoto, setNuevoMetodoVoto] = useState<"electronico" | "manual">("electronico")
   const [nuevaIglesia, setNuevaIglesia] = useState("")
   const [nuevoDistrito, setNuevoDistrito] = useState("")
+  const [csvArchivo, setCsvArchivo] = useState<File | null>(null)
+  const [csvProcesando, setCsvProcesando] = useState(false)
 
   const cargarAsambleistas = useCallback(async () => {
     const res = await fetch("/api/oficina/asambleistas")
@@ -103,6 +105,202 @@ export default function OficinaRegionalPage() {
     }
 
     await cargarAsambleistas()
+  }
+
+  const describirEnvioCredencial = (data: {
+    credencialEmail?: { enviado?: boolean; error?: string }
+    credencialSms?: { enviado?: boolean; error?: string }
+  }) => {
+    const avisosEnvio: string[] = []
+
+    const erroresEmail: Record<string, string> = {
+      FALTA_RESEND_API_KEY: "falta configurar RESEND_API_KEY",
+      RESEND_TEMPORAL_500: "Resend tuvo un error temporal 500; intenta reenviar más tarde",
+      RESEND_TEMPORAL_502: "Resend tuvo un error temporal 502; intenta reenviar más tarde",
+      RESEND_TEMPORAL_503: "Resend tuvo un error temporal 503; intenta reenviar más tarde",
+      RESEND_TEMPORAL_504: "Resend tuvo un error temporal 504; intenta reenviar más tarde",
+      RESEND_TEMPORAL_520: "Resend respondió con error temporal 520; intenta reenviar más tarde",
+    }
+    const erroresSms: Record<string, string> = {
+      FALTA_SENT_CONFIG: "falta configurar SENT_API_KEY, SENT_SENDER_ID y SENT_TEMPLATE_ID",
+      SENT_TEMPORAL_500: "Sent tuvo un error temporal 500; intenta reenviar más tarde",
+      SENT_TEMPORAL_502: "Sent tuvo un error temporal 502; intenta reenviar más tarde",
+      SENT_TEMPORAL_503: "Sent tuvo un error temporal 503; intenta reenviar más tarde",
+      SENT_TEMPORAL_504: "Sent tuvo un error temporal 504; intenta reenviar más tarde",
+    }
+
+    if (data.credencialEmail) {
+      const errorEmail =
+        data.credencialEmail.error && erroresEmail[data.credencialEmail.error]
+          ? erroresEmail[data.credencialEmail.error]
+          : data.credencialEmail.error || "revisa la configuración de Resend"
+
+      avisosEnvio.push(
+        data.credencialEmail.enviado
+          ? "Email enviado"
+          : `No se pudo enviar el email: ${errorEmail}`
+      )
+    }
+
+    if (data.credencialSms) {
+      const errorSms =
+        data.credencialSms.error && erroresSms[data.credencialSms.error]
+          ? erroresSms[data.credencialSms.error]
+          : data.credencialSms.error || "revisa la configuración de Sent"
+
+      avisosEnvio.push(
+        data.credencialSms.enviado
+          ? "SMS enviado"
+          : `No se pudo enviar el SMS: ${errorSms}`
+      )
+    }
+
+    return avisosEnvio
+  }
+
+  const activarCredencial = async (id: string, nombre: string) => {
+    if (
+      !window.confirm(
+        t(
+          `¿Activar y enviar la credencial de ${nombre}?`,
+          `Activate and send ${nombre}'s credential?`
+        )
+      )
+    ) {
+      return
+    }
+
+    setCargando(true)
+
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id, accion: "activar_credencial" }),
+    })
+
+    const data = await res.json()
+
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || t("No se pudo activar la credencial", "Could not activate credential"))
+      return
+    }
+
+    await cargarAsambleistas()
+    alert([t("Credencial activada", "Credential activated"), ...describirEnvioCredencial(data)].join("\n"))
+  }
+
+  const parsearLineaCsv = (linea: string) => {
+    const columnas: string[] = []
+    let actual = ""
+    let dentroComillas = false
+
+    for (let i = 0; i < linea.length; i += 1) {
+      const caracter = linea[i]
+      const siguiente = linea[i + 1]
+
+      if (caracter === '"' && dentroComillas && siguiente === '"') {
+        actual += '"'
+        i += 1
+      } else if (caracter === '"') {
+        dentroComillas = !dentroComillas
+      } else if (caracter === "," && !dentroComillas) {
+        columnas.push(actual.trim())
+        actual = ""
+      } else {
+        actual += caracter
+      }
+    }
+
+    columnas.push(actual.trim())
+    return columnas
+  }
+
+  const importarCsv = async () => {
+    if (!asambleaId) {
+      alert(t("Primero debes abrir una asamblea", "You must open an assembly first"))
+      return
+    }
+
+    if (!csvArchivo) {
+      alert(t("Selecciona un archivo CSV", "Select a CSV file"))
+      return
+    }
+
+    setCsvProcesando(true)
+    const contenido = await csvArchivo.text()
+    const lineas = contenido
+      .split(/\r?\n/)
+      .map((linea) => linea.trim())
+      .filter(Boolean)
+
+    const encabezados = parsearLineaCsv(lineas[0] || "").map((columna) =>
+      columna.trim().toLowerCase()
+    )
+    const requeridos = ["nombre", "email", "telefono", "iglesia", "distrito", "metodo_voto"]
+    const faltantes = requeridos.filter((campo) => !encabezados.includes(campo))
+
+    if (faltantes.length > 0) {
+      setCsvProcesando(false)
+      alert(`El CSV debe incluir estas columnas: ${requeridos.join(", ")}`)
+      return
+    }
+
+    let creados = 0
+    const errores: string[] = []
+
+    for (const [indice, linea] of lineas.slice(1).entries()) {
+      const valores = parsearLineaCsv(linea)
+      const fila = Object.fromEntries(
+        encabezados.map((campo, posicion) => [campo, valores[posicion] || ""])
+      )
+
+      if (!String(fila.nombre || "").trim()) {
+        errores.push(`Fila ${indice + 2}: falta nombre`)
+        continue
+      }
+
+      const res = await fetch("/api/oficina/asambleistas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          asambleaId,
+          nombre: fila.nombre,
+          email: fila.email,
+          telefono: fila.telefono,
+          metodoVoto: fila.metodo_voto === "manual" ? "manual" : "electronico",
+          iglesia: fila.iglesia,
+          distrito: fila.distrito,
+          enviarCredenciales: false,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok || !data?.ok) {
+        errores.push(`Fila ${indice + 2}: ${data?.error || "no se pudo crear"}`)
+        continue
+      }
+
+      creados += 1
+    }
+
+    setCsvProcesando(false)
+    setCsvArchivo(null)
+    await cargarAsambleistas()
+
+    alert(
+      [
+        `Pre-registros creados: ${creados}`,
+        errores.length ? `Errores:\n${errores.slice(0, 8).join("\n")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    )
   }
 
   const resetearDispositivo = async (id: string, nombre: string) => {
@@ -397,6 +595,46 @@ export default function OficinaRegionalPage() {
           </button>
         </div>
 
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950">
+                {t("Pre-registro por CSV", "CSV pre-registration")}
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-600">
+                {t(
+                  "Carga asambleístas antes del evento sin enviar credenciales. Luego usa Activar credencial para enviar email y SMS.",
+                  "Load assembly members before the event without sending credentials. Then use Activate credential to send email and SMS."
+                )}
+              </p>
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-700">
+                nombre,email,telefono,iglesia,distrito,metodo_voto
+                <br />
+                Angel Ruiz,angel@email.com,+16168480206,ICP,Indiana,electronico
+              </div>
+            </div>
+
+            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => setCsvArchivo(event.target.files?.[0] || null)}
+                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={importarCsv}
+                disabled={csvProcesando || cargando || !csvArchivo}
+                className="mt-3 w-full rounded-lg bg-[#16382f] px-4 py-2.5 font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
+              >
+                {csvProcesando
+                  ? t("Importando...", "Importing...")
+                  : t("Subir pre-registro", "Upload pre-registration")}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-5">
             <h2 className="text-lg font-black text-slate-950">{t("Lista de asambleístas", "Assembly member list")}</h2>
@@ -568,6 +806,21 @@ export default function OficinaRegionalPage() {
                       className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
                       {t("Habilitar", "Approve")}
+                    </button>
+
+                    <button
+                      disabled={
+                        cargando ||
+                        (!a.email && !a.telefono) ||
+                        Boolean(
+                          (!a.email || a.credencial_email_enviado_en) &&
+                            (!a.telefono || a.credencial_sms_enviado_en)
+                        )
+                      }
+                      onClick={() => activarCredencial(a.id, a.nombre)}
+                      className="h-10 rounded-lg bg-[#8a6f1f] px-3 text-sm font-bold text-white disabled:opacity-40"
+                    >
+                      {t("Activar credencial", "Activate credential")}
                     </button>
 
                     {a.dispositivo_alerta_en ? (
