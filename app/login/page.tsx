@@ -148,7 +148,15 @@ export default function LoginPage() {
       return
     }
 
-    if (!organizacionSlug || !password) return
+    if (!organizacionSlug) {
+      alert(t("Selecciona una organización", "Select an organization"))
+      return
+    }
+
+    if (!password) {
+      alert(t("Ingresa la contraseña", "Enter the password"))
+      return
+    }
     setCargando(true)
     localStorage.setItem("organizacion_slug", organizacionSlug)
 
