@@ -504,9 +504,10 @@ export async function POST(req: NextRequest) {
       metodo_voto: metodoVotoLimpio,
       iglesia: String(iglesia || "").trim(),
       distrito: String(distrito || "").trim(),
-      registrado: false,
-      pago_confirmado: false,
-      habilitado: false,
+      registrado: enviarCredenciales !== false,
+      pago_confirmado: enviarCredenciales !== false,
+      habilitado: enviarCredenciales !== false,
+      habilitado_en: enviarCredenciales !== false ? new Date().toISOString() : null,
       presente: false,
     })
     .select("*")
@@ -543,6 +544,10 @@ export async function POST(req: NextRequest) {
     const { data: actualizado } = await supabaseAdmin
       .from("asambleistas")
       .update({
+        registrado: true,
+        pago_confirmado: true,
+        habilitado: true,
+        habilitado_en: new Date().toISOString(),
         credencial_email_enviado_en: resultadoEmail.enviado
           ? new Date().toISOString()
           : null,

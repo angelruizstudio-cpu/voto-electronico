@@ -158,7 +158,7 @@ export default function OficinaRegionalPage() {
     return avisosEnvio
   }
 
-  const activarCredencial = async (id: string, nombre: string) => {
+  const activarAsambleista = async (id: string, nombre: string) => {
     if (
       !window.confirm(
         t(
@@ -603,8 +603,8 @@ export default function OficinaRegionalPage() {
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-slate-600">
                 {t(
-                  "Carga asambleístas antes del evento sin enviar credenciales. Luego usa Activar credencial para enviar email y SMS.",
-                  "Load assembly members before the event without sending credentials. Then use Activate credential to send email and SMS."
+                  "Carga asambleístas antes del evento sin enviar credenciales. Luego usa Activar asambleísta para registrar pago, habilitar y enviar credenciales.",
+                  "Load assembly members before the event without sending credentials. Then use Activate member to record payment, approve, and send credentials."
                 )}
               </p>
               <div className="mt-3 rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-700">
@@ -770,57 +770,22 @@ export default function OficinaRegionalPage() {
                     </select>
 
                     <button
-                      disabled={cargando || a.registrado}
-                      onClick={() =>
-                        actualizarAsambleista(a.id, { registrado: true })
-                      }
-                      className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Registrar", "Register")}
-                    </button>
-
-                    <button
-                      disabled={cargando || a.pago_confirmado}
-                      onClick={() =>
-                        actualizarAsambleista(a.id, {
-                          pago_confirmado: true,
-                        })
-                      }
-                      className="h-10 rounded-lg bg-emerald-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Confirmar pago", "Confirm payment")}
-                    </button>
-
-                    <button
                       disabled={
                         cargando ||
-                        a.habilitado ||
-                        !a.registrado ||
-                        !a.pago_confirmado
-                      }
-                      onClick={() =>
-                        actualizarAsambleista(a.id, {
-                          habilitado: true,
-                        })
-                      }
-                      className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Habilitar", "Approve")}
-                    </button>
-
-                    <button
-                      disabled={
-                        cargando ||
-                        (!a.email && !a.telefono) ||
                         Boolean(
-                          (!a.email || a.credencial_email_enviado_en) &&
+                          a.registrado &&
+                            a.pago_confirmado &&
+                            a.habilitado &&
+                            (!a.email || a.credencial_email_enviado_en) &&
                             (!a.telefono || a.credencial_sms_enviado_en)
                         )
                       }
-                      onClick={() => activarCredencial(a.id, a.nombre)}
-                      className="h-10 rounded-lg bg-[#8a6f1f] px-3 text-sm font-bold text-white disabled:opacity-40"
+                      onClick={() => activarAsambleista(a.id, a.nombre)}
+                      className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      {t("Activar credencial", "Activate credential")}
+                      {a.habilitado
+                        ? t("Reenviar credencial", "Resend credential")
+                        : t("Activar asambleísta", "Activate member")}
                     </button>
 
                     {a.dispositivo_alerta_en ? (
