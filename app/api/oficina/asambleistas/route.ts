@@ -45,6 +45,37 @@ function crearSupabaseAdmin() {
   )
 }
 
+async function registrarAuditoria(
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
+  req: NextRequest,
+  {
+    asambleaId,
+    asambleistaId,
+    accion,
+    detalle,
+  }: {
+    asambleaId?: string | null
+    asambleistaId?: string | null
+    accion: string
+    detalle?: string | null
+  }
+) {
+  try {
+    await supabaseAdmin
+      .from("auditoria_operativa")
+      .insert({
+        asamblea_id: asambleaId || null,
+        asambleista_id: asambleistaId || null,
+        usuario_id: req.cookies.get("auth_user_id")?.value || null,
+        usuario_nombre: req.cookies.get("auth_name")?.value || "Usuario",
+        accion,
+        detalle: detalle || null,
+      })
+  } catch {
+    // La auditoría no debe bloquear la operación de registro el día de la asamblea.
+  }
+}
+
 function generarIniciales(nombre: string) {
   const partes = nombre.trim().split(/\s+/)
   const inicialNombre = partes[0]?.charAt(0).toUpperCase() || "X"
@@ -564,6 +595,13 @@ export async function POST(req: NextRequest) {
     asambleista = actualizado || data
   }
 
+  await registrarAuditoria(supabaseAdmin, req, {
+    asambleaId,
+    asambleistaId: asambleista.id,
+    accion: enviarCredenciales === false ? "pre_registro_asambleista" : "crear_y_activar_asambleista",
+    detalle: `${nombreLimpio} (${credencial})`,
+  })
+
   return NextResponse.json({
     ok: true,
     asambleista,
@@ -658,10 +696,22 @@ export async function PATCH(req: NextRequest) {
       })
     }
 
+    await registrarAuditoria(supabaseAdmin, req, {
+      asambleaId: asambleistaActual?.asamblea_id,
+      asambleistaId: id,
+      accion: "liberar_dispositivo",
+      detalle: asambleistaActual?.credencial || null,
+    })
+
     return NextResponse.json({ ok: true, asambleista: data })
   }
 
-  if (accion === "activar_credencial") {
+  if (
+    accion === "activar_credencial" ||
+    accion === "reenviar_credencial" ||
+    accion === "reenviar_email" ||
+    accion === "reenviar_sms"
+  ) {
     const { data: asambleistaActual, error: errorActual } = await supabaseAdmin
       .from("asambleistas")
       .select("id, nombre, credencial, email, telefono, metodo_voto")
@@ -672,31 +722,53 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
     }
 
-    const resultadoEmail = await enviarCredencialPorEmail({
-      email: asambleistaActual.email || "",
-      nombre: asambleistaActual.nombre,
-      credencial: asambleistaActual.credencial,
-      metodoVoto:
-        asambleistaActual.metodo_voto === "manual" ? "manual" : "electronico",
-    })
-    const resultadoSms = await enviarCredencialPorSms({
-      telefono: asambleistaActual.telefono || "",
-      nombre: asambleistaActual.nombre,
-      credencial: asambleistaActual.credencial,
-    })
+    const enviarEmail = accion !== "reenviar_sms"
+    const enviarSms = accion !== "reenviar_email"
+
+    const resultadoEmail = enviarEmail
+      ? await enviarCredencialPorEmail({
+          email: asambleistaActual.email || "",
+          nombre: asambleistaActual.nombre,
+          credencial: asambleistaActual.credencial,
+          metodoVoto:
+            asambleistaActual.metodo_voto === "manual" ? "manual" : "electronico",
+        })
+      : undefined
+    const resultadoSms = enviarSms
+      ? await enviarCredencialPorSms({
+          telefono: asambleistaActual.telefono || "",
+          nombre: asambleistaActual.nombre,
+          credencial: asambleistaActual.credencial,
+        })
+      : undefined
+
+    const cambiosEnvio: Record<string, boolean | string | null> =
+      accion === "activar_credencial"
+        ? {
+            registrado: true,
+            pago_confirmado: true,
+            habilitado: true,
+            habilitado_en: new Date().toISOString(),
+          }
+        : {}
+
+    if (resultadoEmail) {
+      cambiosEnvio.credencial_email_enviado_en = resultadoEmail.enviado
+        ? new Date().toISOString()
+        : null
+      cambiosEnvio.credencial_email_error = resultadoEmail.error || null
+    }
+
+    if (resultadoSms) {
+      cambiosEnvio.credencial_sms_enviado_en = resultadoSms.enviado
+        ? new Date().toISOString()
+        : null
+      cambiosEnvio.credencial_sms_error = resultadoSms.error || null
+    }
 
     const { data, error } = await supabaseAdmin
       .from("asambleistas")
-      .update({
-        credencial_email_enviado_en: resultadoEmail.enviado
-          ? new Date().toISOString()
-          : null,
-        credencial_email_error: resultadoEmail.error || null,
-        credencial_sms_enviado_en: resultadoSms.enviado
-          ? new Date().toISOString()
-          : null,
-        credencial_sms_error: resultadoSms.error || null,
-      })
+      .update(cambiosEnvio)
       .eq("id", id)
       .select("*")
       .single()
@@ -707,6 +779,13 @@ export async function PATCH(req: NextRequest) {
         { status: 500 }
       )
     }
+
+    await registrarAuditoria(supabaseAdmin, req, {
+      asambleaId: asambleistaPermitido.asamblea_id,
+      asambleistaId: id,
+      accion,
+      detalle: asambleistaActual.credencial,
+    })
 
     return NextResponse.json({
       ok: true,
@@ -751,6 +830,13 @@ export async function PATCH(req: NextRequest) {
         detalle: `Dispositivo anterior mantenido por ${req.cookies.get("auth_name")?.value || "Usuario autorizado"}`,
       })
     }
+
+    await registrarAuditoria(supabaseAdmin, req, {
+      asambleaId: asambleistaActual?.asamblea_id,
+      asambleistaId: id,
+      accion: "mantener_dispositivo_actual",
+      detalle: asambleistaActual?.credencial || null,
+    })
 
     return NextResponse.json({ ok: true, asambleista: data })
   }
@@ -809,6 +895,13 @@ export async function PATCH(req: NextRequest) {
       dispositivo_intento_id: alertaReciente.dispositivo_intento_id,
       accion: "nuevo_dispositivo_autorizado",
       detalle: `Nuevo dispositivo autorizado por ${req.cookies.get("auth_name")?.value || "Usuario autorizado"}`,
+    })
+
+    await registrarAuditoria(supabaseAdmin, req, {
+      asambleaId: asambleistaActual.asamblea_id,
+      asambleistaId: id,
+      accion: "autorizar_dispositivo_nuevo",
+      detalle: asambleistaActual.credencial,
     })
 
     return NextResponse.json({ ok: true, asambleista: data })
@@ -876,6 +969,13 @@ export async function PATCH(req: NextRequest) {
       { status: 500 }
     )
   }
+
+  await registrarAuditoria(supabaseAdmin, req, {
+    asambleaId: asambleistaPermitido.asamblea_id,
+    asambleistaId: id,
+    accion: "actualizar_asambleista",
+    detalle: Object.keys(cambiosPermitidos).join(", "),
+  })
 
   return NextResponse.json({ ok: true, asambleista: data })
 }
