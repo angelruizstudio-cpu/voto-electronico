@@ -16,7 +16,7 @@ export const etiquetaRol = (rol: string) => {
   if (rol === "admin") return "Administrador"
   if (rol === "moderador") return "Moderador"
   if (rol === "escrutinio") return "Comité de Escrutinio"
-  if (rol === "oficina") return "Oficina"
+  if (rol === "oficina") return "Registro"
   if (rol === "puerta") return "Puerta"
   return rol
 }

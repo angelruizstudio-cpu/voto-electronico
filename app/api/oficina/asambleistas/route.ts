@@ -423,7 +423,7 @@ export async function GET(req: NextRequest) {
   let queryAsamblea = supabaseAdmin
     .from("asambleas")
     .select("id")
-    .in("estado", ["abierta", "receso"])
+    .in("estado", ["preparacion", "abierta", "receso"])
 
   if (tenant.id) {
     queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)

@@ -29,13 +29,7 @@ export default function Moderador() {
     lugarAsamblea,
     organizacionAsamblea,
     estadoAsamblea,
-    nuevoAnio,
-    nuevoLugar,
-    nuevaOrganizacion,
-    setNuevoAnio,
-    setNuevoLugar,
-    setNuevaOrganizacion,
-    abrirAsamblea,
+    iniciarAsamblea,
     cerrarAsamblea,
     ponerAsambleaEnReceso,
     reanudarAsamblea,
@@ -343,6 +337,11 @@ export default function Moderador() {
   const abrirVotacionMocion = async (mocionId: string) => {
     if (!asambleaId) return
 
+    if (estadoAsamblea === "preparacion") {
+      alert("Primero inicia la asamblea antes de abrir una votación.")
+      return
+    }
+
     if (estadoAsamblea === "receso") {
       alert("La asamblea está en receso. Reanuda los trabajos antes de abrir una votación.")
       return
@@ -403,6 +402,11 @@ export default function Moderador() {
   const crearSiguienteRonda = async (
     resultadoManual?: Extract<ResultadoManualActualizado, { tipo: "eleccion_lideres" }>
   ) => {
+    if (estadoAsamblea === "preparacion") {
+      alert("Primero inicia la asamblea antes de crear otra ronda.")
+      return
+    }
+
     if (estadoAsamblea === "receso") {
       alert("La asamblea esta en receso. Reanuda los trabajos antes de crear otra ronda.")
       return
@@ -537,6 +541,11 @@ export default function Moderador() {
   }
 
   const crearVotacionYActualizar = async () => {
+    if (estadoAsamblea === "preparacion") {
+      alert("Primero inicia la asamblea antes de crear una votación.")
+      return
+    }
+
     if (estadoAsamblea === "receso") {
       alert("La asamblea está en receso. Reanuda los trabajos antes de crear una votación.")
       return
@@ -659,50 +668,30 @@ export default function Moderador() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(390px,0.78fr)] xl:items-start">
           <div className="space-y-6">
-            {!asambleaId && (
-              <Card className="rounded-lg border-slate-200 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Abrir Asamblea</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-[1.2fr_0.7fr_1fr_auto]">
-              <input
-                type="text"
-                placeholder="Organización"
-                value={nuevaOrganizacion}
-                onChange={(e) => setNuevaOrganizacion(e.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-              />
-              <input
-                type="text"
-                placeholder="Año"
-                value={nuevoAnio}
-                onChange={(e) => setNuevoAnio(e.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-              />
-              <input
-                type="text"
-                placeholder="Lugar"
-                value={nuevoLugar}
-                onChange={(e) => setNuevoLugar(e.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-              />
-                  <Button onClick={abrirAsamblea} className="h-11 bg-[#16382f] px-5 hover:bg-[#0f2b24]">
-                    Abrir
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
 
             <Card id="resultado-comite-escrutinio" className="rounded-lg border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Asamblea activa</CardTitle>
+            <CardTitle>Control de asamblea</CardTitle>
           </CardHeader>
           <CardContent>
             {asambleaId ? (
               <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 p-4">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">
-                    {estadoAsamblea === "receso" ? "En receso" : "En curso"}
+                  <p
+                    className={[
+                      "text-sm font-bold uppercase tracking-wide",
+                      estadoAsamblea === "preparacion"
+                        ? "text-sky-700"
+                        : estadoAsamblea === "receso"
+                          ? "text-amber-700"
+                          : "text-emerald-700",
+                    ].join(" ")}
+                  >
+                    {estadoAsamblea === "preparacion"
+                      ? "Preparada"
+                      : estadoAsamblea === "receso"
+                        ? "En receso"
+                        : "En curso"}
                   </p>
                   <p className="mt-1 text-xl font-black">
                     {organizacionAsamblea || "Organización no especificada"}
@@ -713,7 +702,11 @@ export default function Moderador() {
                 </div>
                 <div>
                   <div className="flex flex-wrap justify-end gap-2">
-                    {estadoAsamblea === "receso" ? (
+                    {estadoAsamblea === "preparacion" ? (
+                      <Button onClick={iniciarAsamblea} className="bg-emerald-700 hover:bg-emerald-800">
+                        Iniciar asamblea
+                      </Button>
+                    ) : estadoAsamblea === "receso" ? (
                       <Button onClick={reanudarAsamblea} className="bg-emerald-700 hover:bg-emerald-800">
                         Reanudar trabajos
                       </Button>
@@ -744,6 +737,12 @@ export default function Moderador() {
             {votacionId && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
                 Hay una votación activa: {titulo}. Puedes preparar una moción, pero cierra la votación activa antes de abrir otra.
+              </div>
+            )}
+
+            {estadoAsamblea === "preparacion" && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-900">
+                La asamblea está preparada por Registro. Inicia la asamblea antes de abrir votaciones.
               </div>
             )}
 
@@ -861,7 +860,11 @@ export default function Moderador() {
 
             <Button
               onClick={crearVotacionYActualizar}
-              disabled={procesandoCreacion || estadoAsamblea === "receso"}
+              disabled={
+                procesandoCreacion ||
+                estadoAsamblea === "preparacion" ||
+                estadoAsamblea === "receso"
+              }
               className="bg-[#16382f] hover:bg-[#0f2b24]"
             >
               {procesandoCreacion

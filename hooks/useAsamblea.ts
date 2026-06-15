@@ -19,7 +19,7 @@ function useAsambleaState() {
   const [anioAsamblea, setAnioAsamblea] = useState("")
   const [lugarAsamblea, setLugarAsamblea] = useState("")
   const [organizacionAsamblea, setOrganizacionAsamblea] = useState("")
-  const [estadoAsamblea, setEstadoAsamblea] = useState<"abierta" | "receso" | "cerrada">("cerrada")
+  const [estadoAsamblea, setEstadoAsamblea] = useState<"preparacion" | "abierta" | "receso" | "cerrada">("cerrada")
   const [nuevoAnio, setNuevoAnio] = useState("")
   const [nuevoLugar, setNuevoLugar] = useState("")
   const [nuevaOrganizacion, setNuevaOrganizacion] = useState("")
@@ -115,7 +115,7 @@ function useAsambleaState() {
     let query = supabase
       .from("asambleas")
       .select("*")
-      .in("estado", ["abierta", "receso"])
+      .in("estado", ["preparacion", "abierta", "receso"])
 
     const tenantId = tenantSesion?.id ?? organizacionIdSesion
     const tenantSlug = tenantSesion?.slug ?? organizacionSlugSesion
@@ -141,7 +141,9 @@ function useAsambleaState() {
     setAnioAsamblea(String(data.anio))
     setLugarAsamblea(data.lugar)
     setOrganizacionAsamblea(data.organizacion || "")
-    setEstadoAsamblea(data.estado === "receso" ? "receso" : "abierta")
+    setEstadoAsamblea(
+      data.estado === "preparacion" || data.estado === "receso" ? data.estado : "abierta"
+    )
   }, [organizacionIdSesion, organizacionSlugSesion])
 
   const registrarEventoAsamblea = async (
@@ -171,13 +173,13 @@ function useAsambleaState() {
     return true
   }
 
-  const abrirAsamblea = async () => {
+  const crearAsambleaPreparacion = async () => {
     if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
     let cerrarActivas = supabase
       .from("asambleas")
       .update({ estado: "cerrada" })
-      .in("estado", ["abierta", "receso"])
+      .in("estado", ["preparacion", "abierta", "receso"])
 
     if (organizacionIdSesion) {
       cerrarActivas = cerrarActivas.eq("organizacion_id", organizacionIdSesion)
@@ -194,7 +196,7 @@ function useAsambleaState() {
         organizacion: nuevaOrganizacion.trim(),
         anio: Number(nuevoAnio),
         lugar: nuevoLugar.trim(),
-        estado: "abierta",
+        estado: "preparacion",
       },
     ])
 
@@ -208,6 +210,43 @@ function useAsambleaState() {
     setNuevoLugar("")
     await cargarAsambleaActiva()
   }
+
+  const iniciarAsamblea = async () => {
+    if (!asambleaId) {
+      alert("No hay asamblea preparada")
+      return false
+    }
+
+    if (estadoAsamblea === "abierta") {
+      alert("La asamblea ya está iniciada")
+      return false
+    }
+
+    if (estadoAsamblea === "receso") {
+      alert("La asamblea está en receso. Usa Reanudar trabajos.")
+      return false
+    }
+
+    const confirmar = window.confirm("¿Iniciar oficialmente los trabajos de la asamblea?")
+
+    if (!confirmar) return false
+
+    const { error } = await supabase
+      .from("asambleas")
+      .update({ estado: "abierta" })
+      .eq("id", asambleaId)
+
+    if (error) {
+      alert(error.message)
+      return false
+    }
+
+    await cargarAsambleaActiva()
+    alert("Asamblea iniciada")
+    return true
+  }
+
+  const abrirAsamblea = crearAsambleaPreparacion
 
   const cerrarAsamblea = async () => {
     if (!asambleaId) {
@@ -396,6 +435,8 @@ function useAsambleaState() {
     setNuevaOrganizacion,
     cargarAsambleaActiva,
     abrirAsamblea,
+    crearAsambleaPreparacion,
+    iniciarAsamblea,
     cerrarAsamblea,
     ponerAsambleaEnReceso,
     reanudarAsamblea,
