@@ -7,19 +7,13 @@ function leerRoles(req: NextRequest): RolSistema[] {
 
   if (rolesCookie) {
     try {
-      const roles = JSON.parse(decodeURIComponent(rolesCookie))
+      const roles = JSON.parse(rolesCookie)
 
       if (Array.isArray(roles)) {
-        const rolesValidos = roles.filter((rol): rol is RolSistema =>
-          ROLES_SISTEMA.includes(rol)
-        )
-
-        if (rolesValidos.length > 0) {
-          return rolesValidos
-        }
+        return roles.filter((rol): rol is RolSistema => ROLES_SISTEMA.includes(rol))
       }
     } catch {
-      // Continua al fallback de auth_role.
+      return []
     }
   }
 
