@@ -314,17 +314,22 @@ export default function Moderador() {
   }
 
   const rechazarPorFaltaDeSegundo = async (mocionId: string) => {
-    const { error } = await supabase
-      .from("votaciones")
-      .update({
-        estado: "cerrada",
-        estado_parlamentario: "rechazada",
-        resultado: "rechazada_sin_segundo",
-      })
-      .eq("id", mocionId)
+    const res = await fetch("/api/moderador/votaciones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        votacionId: mocionId,
+        cambios: {
+          estado: "cerrada",
+          estado_parlamentario: "rechazada",
+          resultado: "rechazada_sin_segundo",
+        },
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudo rechazar la mocion")
       return
     }
 
@@ -332,13 +337,18 @@ export default function Moderador() {
   }
 
   const secundarMocion = async (mocionId: string) => {
-    const { error } = await supabase
-      .from("votaciones")
-      .update({ estado_parlamentario: "secundada" })
-      .eq("id", mocionId)
+    const res = await fetch("/api/moderador/votaciones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        votacionId: mocionId,
+        cambios: { estado_parlamentario: "secundada" },
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudo marcar la mocion como secundada")
       return
     }
 
@@ -358,16 +368,21 @@ export default function Moderador() {
       return
     }
 
-    const { error } = await supabase
-      .from("votaciones")
-      .update({
-        estado: "abierta",
-        estado_parlamentario: "en_votacion",
-      })
-      .eq("id", mocionId)
+    const res = await fetch("/api/moderador/votaciones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        votacionId: mocionId,
+        cambios: {
+          estado: "abierta",
+          estado_parlamentario: "en_votacion",
+        },
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudo abrir la votacion de la mocion")
       return
     }
 
