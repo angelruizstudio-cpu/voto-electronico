@@ -146,3 +146,85 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, votacion: votacionCreada })
 }
+
+export async function PATCH(req: NextRequest) {
+  if (!validarSesion(req)) {
+    return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
+  }
+
+  const { votacionId, cambios } = await req.json()
+
+  if (!votacionId || !cambios || typeof cambios !== "object") {
+    return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
+  }
+
+  const supabaseAdmin = crearSupabaseAdmin()
+  const tenant = obtenerTenantSesion(req)
+
+  const { data: votacion, error: errorVotacion } = await supabaseAdmin
+    .from("votaciones")
+    .select("id, asamblea_id")
+    .eq("id", votacionId)
+    .maybeSingle()
+
+  if (errorVotacion) {
+    return NextResponse.json({ ok: false, error: errorVotacion.message }, { status: 500 })
+  }
+
+  if (!votacion) {
+    return NextResponse.json({ ok: false, error: "VOTACION_NO_EXISTE" }, { status: 404 })
+  }
+
+  let queryAsamblea = supabaseAdmin
+    .from("asambleas")
+    .select("id")
+    .eq("id", votacion.asamblea_id)
+
+  if (tenant.id) {
+    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
+  } else {
+    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
+  }
+
+  const { data: asamblea, error: errorAsamblea } = await queryAsamblea.maybeSingle()
+
+  if (errorAsamblea) {
+    return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
+  }
+
+  if (!asamblea) {
+    return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
+  }
+
+  const camposPermitidos = [
+    "estado",
+    "resultado",
+    "ganador_id",
+    "estado_parlamentario",
+    "publicada",
+  ]
+
+  const cambiosPermitidos = Object.fromEntries(
+    Object.entries(cambios).filter(([campo]) => camposPermitidos.includes(campo))
+  )
+
+  if (Object.keys(cambiosPermitidos).length === 0) {
+    return NextResponse.json({ ok: false, error: "SIN_CAMBIOS_VALIDOS" }, { status: 400 })
+  }
+
+  const { data: votacionActualizada, error: errorActualizar } = await supabaseAdmin
+    .from("votaciones")
+    .update(cambiosPermitidos)
+    .eq("id", votacionId)
+    .select()
+    .single()
+
+  if (errorActualizar || !votacionActualizada) {
+    return NextResponse.json(
+      { ok: false, error: errorActualizar?.message || "ERROR_ACTUALIZAR_VOTACION" },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({ ok: true, votacion: votacionActualizada })
+}

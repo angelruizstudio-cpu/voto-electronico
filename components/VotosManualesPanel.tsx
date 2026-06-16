@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { supabase } from "@/lib/supabaseClient"
 
 type VotacionCerrada = {
   id: string
@@ -242,19 +241,15 @@ export function VotosManualesPanel({
       return
     }
 
-    const { data, error } = await supabase
-      .from("votaciones")
-      .select("id, titulo, tipo_votacion, estado, ronda_numero")
-      .eq("asamblea_id", asambleaId)
-      .eq("estado", "cerrada")
-      .order("creada_en", { ascending: false })
+    const res = await fetch(`/api/votos-manuales?asambleaId=${encodeURIComponent(asambleaId)}`)
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudieron cargar las votaciones cerradas")
       return
     }
 
-    const cerradas = (data || []) as VotacionCerrada[]
+    const cerradas = (data.votaciones || []) as VotacionCerrada[]
     setVotaciones(cerradas)
     setVotacionId((actual) => actual || cerradas[0]?.id || "")
   }, [asambleaId])
@@ -301,20 +296,9 @@ export function VotosManualesPanel({
     setBalotasDanadas(votosManuales.find((voto) => voto.opcion === "danada")?.cantidad || 0)
     setNombresManuales([])
 
-    const { data: candidatosData, error: errorCandidatos } = await supabase
-      .from("candidatos")
-      .select("id, nombre")
-      .eq("votacion_id", votacionId)
-      .order("nombre", { ascending: true })
-
     setCargando(false)
 
-    if (errorCandidatos) {
-      alert(errorCandidatos.message)
-      return
-    }
-
-    const candidatosLista = (candidatosData || []) as CandidatoManual[]
+    const candidatosLista = (data.candidatos || []) as CandidatoManual[]
     setCandidatos(candidatosLista)
     setVotosCandidato(
       candidatosLista.reduce<Record<string, number>>((acc, candidato) => {

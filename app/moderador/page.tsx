@@ -291,13 +291,18 @@ export default function Moderador() {
       cambiosCierre.estado_parlamentario = aprobada ? "aprobada" : "rechazada"
     }
 
-    const { error } = await supabase
-      .from("votaciones")
-      .update(cambiosCierre)
-      .eq("id", votacionId)
+    const res = await fetch("/api/moderador/votaciones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        votacionId,
+        cambios: cambiosCierre,
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || "No se pudo cerrar la votacion")
       return
     }
 

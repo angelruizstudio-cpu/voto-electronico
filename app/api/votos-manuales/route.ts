@@ -251,12 +251,33 @@ export async function GET(req: NextRequest) {
   }
 
   const votacionId = req.nextUrl.searchParams.get("votacionId")
+  const asambleaId = req.nextUrl.searchParams.get("asambleaId")
+  const supabaseAdmin = crearSupabaseAdmin()
 
   if (!votacionId) {
-    return NextResponse.json({ ok: false, error: "FALTA_VOTACION" }, { status: 400 })
-  }
+    if (!asambleaId) {
+      return NextResponse.json({ ok: false, error: "FALTA_VOTACION" }, { status: 400 })
+    }
 
-  const supabaseAdmin = crearSupabaseAdmin()
+    const perteneceAlTenant = await validarVotacionDelTenant(req, supabaseAdmin, asambleaId)
+
+    if (!perteneceAlTenant) {
+      return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 403 })
+    }
+
+    const { data: votaciones, error: errorVotaciones } = await supabaseAdmin
+      .from("votaciones")
+      .select("id, titulo, tipo_votacion, estado, ronda_numero")
+      .eq("asamblea_id", asambleaId)
+      .eq("estado", "cerrada")
+      .order("creada_en", { ascending: false })
+
+    if (errorVotaciones) {
+      return NextResponse.json({ ok: false, error: errorVotaciones.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, votaciones: votaciones || [] })
+  }
 
   const { data: votacion, error: errorVotacion } = await supabaseAdmin
     .from("votaciones")
@@ -286,6 +307,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: errorManuales.message }, { status: 500 })
   }
 
+  const { data: candidatos, error: errorCandidatos } = await supabaseAdmin
+    .from("candidatos")
+    .select("id, nombre")
+    .eq("votacion_id", votacionId)
+    .order("nombre", { ascending: true })
+
+  if (errorCandidatos) {
+    return NextResponse.json({ ok: false, error: errorCandidatos.message }, { status: 500 })
+  }
+
   const { count: votantesManualesPresentes, error: errorConteo } =
     await contarVotantesManualesPresentes(supabaseAdmin, votacion.asamblea_id)
 
@@ -304,6 +335,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     votacion,
     votosManuales: votosManuales || [],
+    candidatos: candidatos || [],
     votantesManualesPresentes,
     resultadosActualizados,
   })
