@@ -2,32 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
-type VotoActivo = {
-  opcion?: string | null
-  candidato_id?: string | null
-  token_id?: string | null
-}
-
-type VotacionActivaApi = {
-  ok?: boolean
-  votacion?: {
-    id: string
-    estado: string
-    titulo: string
-    tipo_mayoria?: string | null
-    tipo_votacion?: string | null
-    tipo_mocion?: string | null
-    mocion_padre_id?: string | null
-    resolucion_raiz_id?: string | null
-    publicada?: boolean | null
-    ronda_numero?: number | null
-    eleccion_grupo_id?: string | null
-  } | null
-  votos?: VotoActivo[]
-  candidatos?: Candidato[]
-  yaVoto?: boolean
-}
-
 export function useVotacion(
   asambleaId: string | null,
   opciones: { ocultarCandidatosPrimeraRonda?: boolean } = {}
@@ -84,29 +58,19 @@ export function useVotacion(
       return
     }
 
-    const tokenLocal =
-      typeof window !== "undefined"
-        ? localStorage.getItem("token_votacion")
-        : null
-    const orgLocal =
-      typeof window !== "undefined"
-        ? localStorage.getItem("organizacion_slug")
-        : null
+    const { data, error } = await supabase
+      .from("votaciones")
+      .select("*")
+      .eq("asamblea_id", asambleaId)
+      .eq("estado", "abierta")
+      .order("creada_en", { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    const params = new URLSearchParams({ asambleaId })
-
-    if (tokenLocal) params.set("token", tokenLocal)
-    if (orgLocal) params.set("org", orgLocal)
-
-    const respuesta = await fetch(`/api/asambleista/votacion-activa?${params.toString()}`)
-    const resultado = (await respuesta.json().catch(() => null)) as VotacionActivaApi | null
-
-    if (!respuesta.ok || !resultado?.ok || !resultado.votacion) {
+    if (error || !data) {
       limpiarVotacion()
       return
     }
-
-    const data = resultado.votacion
 
     setEstado(data.estado)
     setVotacionId(data.id)
@@ -120,10 +84,36 @@ export function useVotacion(
     setRondaNumero(data.ronda_numero || 1)
     setEleccionGrupoId(data.eleccion_grupo_id || data.id)
 
-    const votos: VotoActivo[] = resultado.votos || []
+    const { data: votosData } = await supabase
+      .from("votos")
+      .select("*")
+      .eq("votacion_id", data.id)
+
+    const votos = votosData || []
 
     setVotosEmitidos(votos.length)
-    setYaVoto(Boolean(resultado.yaVoto))
+
+    const tokenLocal =
+      typeof window !== "undefined"
+        ? localStorage.getItem("token_votacion")
+        : null
+
+    if (tokenLocal) {
+      const { data: tokenRow } = await supabase
+        .from("tokens_acceso")
+        .select("id")
+        .eq("token_hash", tokenLocal)
+        .maybeSingle()
+
+      if (tokenRow) {
+        const yaVotoUsuario = votos.some((voto) => voto.token_id === tokenRow.id)
+        setYaVoto(yaVotoUsuario)
+      } else {
+        setYaVoto(false)
+      }
+    } else {
+      setYaVoto(false)
+    }
 
     const votosFavor = votos.filter((voto) => voto.opcion === "favor").length
     const votosContra = votos.filter((voto) => voto.opcion === "contra").length
@@ -134,12 +124,17 @@ export function useVotacion(
     setVotosAbstencion(abstenciones)
 
     if (data.tipo_votacion === "eleccion_lideres") {
+      const { data: candidatosData } = await supabase
+        .from("candidatos")
+        .select("*")
+        .eq("votacion_id", data.id)
+        .order("nombre", { ascending: true })
+
       const totalVotos = votos.length
-      const candidatosData: Candidato[] = resultado.candidatos || []
       const candidatosVisibles =
         opciones.ocultarCandidatosPrimeraRonda && (data.ronda_numero || 1) === 1
-          ? candidatosData.filter((candidato: Candidato) => candidato.visible_asambleistas !== false)
-          : candidatosData
+          ? (candidatosData || []).filter((candidato) => candidato.visible_asambleistas !== false)
+          : candidatosData || []
 
       const candidatosConConteo = candidatosVisibles.map((candidato) => {
         const votosDelCandidato = votos.filter(
