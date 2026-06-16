@@ -69,6 +69,7 @@ export default function AsambleistaPage() {
     tipoMocion,
     rondaNumero,
     conteoCandidatos,
+    votosEmitidos,
     yaVoto,
     setYaVoto,
     cargarVotacionActiva,
