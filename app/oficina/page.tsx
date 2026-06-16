@@ -43,39 +43,6 @@ export default function OficinaRegionalPage() {
   const [nuevoDistrito, setNuevoDistrito] = useState("")
   const [csvArchivo, setCsvArchivo] = useState<File | null>(null)
   const [csvProcesando, setCsvProcesando] = useState(false)
-  const [busqueda, setBusqueda] = useState("")
-  const [filtro, setFiltro] = useState<
-    | "todos"
-    | "pendientes"
-    | "habilitados"
-    | "manuales"
-    | "email_fallido"
-    | "sms_fallido"
-    | "dispositivo"
-  >("todos")
-
-  const resumenOperacion = {
-    pendientes: asambleistas.filter((a) => !a.habilitado).length,
-    emailFallido: asambleistas.filter((a) => a.email && !a.credencial_email_enviado_en).length,
-    smsFallido: asambleistas.filter((a) => a.telefono && !a.credencial_sms_enviado_en).length,
-    dispositivos: asambleistas.filter((a) => a.dispositivo_alerta_en).length,
-    manuales: asambleistas.filter((a) => a.metodo_voto === "manual").length,
-  }
-
-  const asambleistasFiltrados = asambleistas.filter((a) => {
-    const texto = `${a.nombre} ${a.credencial} ${a.email || ""} ${a.telefono || ""} ${a.iglesia || ""} ${a.distrito || ""}`.toLowerCase()
-    const coincideBusqueda = texto.includes(busqueda.trim().toLowerCase())
-
-    if (!coincideBusqueda) return false
-    if (filtro === "pendientes") return !a.habilitado
-    if (filtro === "habilitados") return a.habilitado
-    if (filtro === "manuales") return a.metodo_voto === "manual"
-    if (filtro === "email_fallido") return Boolean(a.email && !a.credencial_email_enviado_en)
-    if (filtro === "sms_fallido") return Boolean(a.telefono && !a.credencial_sms_enviado_en)
-    if (filtro === "dispositivo") return Boolean(a.dispositivo_alerta_en)
-
-    return true
-  })
 
   const cargarAsambleistas = useCallback(async () => {
     const res = await fetch("/api/oficina/asambleistas")
@@ -191,25 +158,14 @@ export default function OficinaRegionalPage() {
     return avisosEnvio
   }
 
-  const ejecutarEnvioCredencial = async (
-    id: string,
-    nombre: string,
-    accion: "activar_credencial" | "reenviar_credencial" | "reenviar_email" | "reenviar_sms"
-  ) => {
-    const mensajeConfirmacion =
-      accion === "activar_credencial"
-        ? t(
-            `¿Activar a ${nombre}? Esto registrará el pago, habilitará su participación y enviará sus credenciales.`,
-            `Activate ${nombre}? This will record payment, approve participation, and send credentials.`
-          )
-        : accion === "reenviar_email"
-          ? t(`¿Reenviar email a ${nombre}?`, `Resend email to ${nombre}?`)
-          : accion === "reenviar_sms"
-            ? t(`¿Reenviar SMS a ${nombre}?`, `Resend SMS to ${nombre}?`)
-            : t(`¿Reenviar credenciales a ${nombre}?`, `Resend credentials to ${nombre}?`)
-
+  const activarAsambleista = async (id: string, nombre: string) => {
     if (
-      !window.confirm(mensajeConfirmacion)
+      !window.confirm(
+        t(
+          `¿Activar y enviar la credencial de ${nombre}?`,
+          `Activate and send ${nombre}'s credential?`
+        )
+      )
     ) {
       return
     }
@@ -221,7 +177,7 @@ export default function OficinaRegionalPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ id, accion }),
+      body: JSON.stringify({ id, accion: "activar_credencial" }),
     })
 
     const data = await res.json()
@@ -229,19 +185,12 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || t("No se pudo completar la acción", "Could not complete the action"))
+      alert(data.error || t("No se pudo activar la credencial", "Could not activate credential"))
       return
     }
 
     await cargarAsambleistas()
-    alert(
-      [
-        accion === "activar_credencial"
-          ? t("Asambleísta activado", "Assembly member activated")
-          : t("Reenvío procesado", "Resend processed"),
-        ...describirEnvioCredencial(data),
-      ].join("\n")
-    )
+    alert([t("Credencial activada", "Credential activated"), ...describirEnvioCredencial(data)].join("\n"))
   }
 
   const parsearLineaCsv = (linea: string) => {
@@ -583,69 +532,6 @@ export default function OficinaRegionalPage() {
           </div>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-5">
-          <button
-            type="button"
-            onClick={() => setFiltro("pendientes")}
-            className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-left shadow-sm transition hover:bg-amber-100"
-          >
-            <p className="text-xs font-black uppercase tracking-wide text-amber-700">
-              {t("Pendientes", "Pending")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-amber-900">
-              {resumenOperacion.pendientes}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltro("email_fallido")}
-            className="rounded-lg border border-red-100 bg-red-50 p-4 text-left shadow-sm transition hover:bg-red-100"
-          >
-            <p className="text-xs font-black uppercase tracking-wide text-red-700">
-              {t("Email pendiente", "Email pending")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-red-900">
-              {resumenOperacion.emailFallido}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltro("sms_fallido")}
-            className="rounded-lg border border-red-100 bg-red-50 p-4 text-left shadow-sm transition hover:bg-red-100"
-          >
-            <p className="text-xs font-black uppercase tracking-wide text-red-700">
-              {t("SMS pendiente", "SMS pending")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-red-900">
-              {resumenOperacion.smsFallido}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltro("dispositivo")}
-            className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 text-left shadow-sm transition hover:bg-indigo-100"
-          >
-            <p className="text-xs font-black uppercase tracking-wide text-indigo-700">
-              {t("Dispositivos", "Devices")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-indigo-900">
-              {resumenOperacion.dispositivos}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltro("manuales")}
-            className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
-          >
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-              {t("Manuales", "Manual")}
-            </p>
-            <p className="mt-2 text-3xl font-black text-slate-950">
-              {resumenOperacion.manuales}
-            </p>
-          </button>
-        </section>
-
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">{t("Nuevo asambleísta", "New assembly member")}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-6">
@@ -750,38 +636,8 @@ export default function OficinaRegionalPage() {
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-4 border-b border-slate-200 p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <h2 className="text-lg font-black text-slate-950">
-                {t("Lista de asambleístas", "Assembly member list")}
-              </h2>
-              <p className="text-sm font-bold text-slate-500">
-                {asambleistasFiltrados.length} / {asambleistas.length}
-              </p>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <input
-                type="search"
-                value={busqueda}
-                onChange={(event) => setBusqueda(event.target.value)}
-                placeholder={t("Buscar por nombre, credencial, email o celular", "Search by name, credential, email, or phone")}
-                className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-              />
-              <select
-                value={filtro}
-                onChange={(event) => setFiltro(event.target.value as typeof filtro)}
-                className="h-11 rounded-lg border border-slate-200 px-3 font-bold text-slate-700 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-              >
-                <option value="todos">{t("Todos", "All")}</option>
-                <option value="pendientes">{t("Pendientes de activar", "Pending activation")}</option>
-                <option value="habilitados">{t("Habilitados", "Approved")}</option>
-                <option value="manuales">{t("Voto manual", "Manual vote")}</option>
-                <option value="email_fallido">{t("Email pendiente/fallido", "Email pending/failed")}</option>
-                <option value="sms_fallido">{t("SMS pendiente/fallido", "SMS pending/failed")}</option>
-                <option value="dispositivo">{t("Validación de dispositivo", "Device validation")}</option>
-              </select>
-            </div>
+          <div className="border-b border-slate-200 p-5">
+            <h2 className="text-lg font-black text-slate-950">{t("Lista de asambleístas", "Assembly member list")}</h2>
           </div>
 
           {asambleistas.length === 0 && (
@@ -789,13 +645,7 @@ export default function OficinaRegionalPage() {
           )}
 
           <div>
-            {asambleistas.length > 0 && asambleistasFiltrados.length === 0 && (
-              <p className="p-5 text-slate-500">
-                {t("No hay resultados con ese filtro.", "No results match that filter.")}
-              </p>
-            )}
-
-            {asambleistasFiltrados.map((a) => (
+            {asambleistas.map((a) => (
               <div
                 key={a.id}
                 className={[
@@ -923,38 +773,20 @@ export default function OficinaRegionalPage() {
                       disabled={
                         cargando ||
                         Boolean(
-                          a.registrado && a.pago_confirmado && a.habilitado
+                          a.registrado &&
+                            a.pago_confirmado &&
+                            a.habilitado &&
+                            (!a.email || a.credencial_email_enviado_en) &&
+                            (!a.telefono || a.credencial_sms_enviado_en)
                         )
                       }
-                      onClick={() => ejecutarEnvioCredencial(a.id, a.nombre, "activar_credencial")}
+                      onClick={() => activarAsambleista(a.id, a.nombre)}
                       className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      {t("Activar asambleísta", "Activate member")}
+                      {a.habilitado
+                        ? t("Reenviar credencial", "Resend credential")
+                        : t("Activar asambleísta", "Activate member")}
                     </button>
-
-                    {a.email && (
-                      <button
-                        disabled={cargando}
-                        onClick={() => ejecutarEnvioCredencial(a.id, a.nombre, "reenviar_email")}
-                        className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                      >
-                        {a.credencial_email_enviado_en
-                          ? t("Reenviar email", "Resend email")
-                          : t("Enviar email", "Send email")}
-                      </button>
-                    )}
-
-                    {a.telefono && (
-                      <button
-                        disabled={cargando}
-                        onClick={() => ejecutarEnvioCredencial(a.id, a.nombre, "reenviar_sms")}
-                        className="h-10 rounded-lg bg-emerald-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                      >
-                        {a.credencial_sms_enviado_en
-                          ? t("Reenviar SMS", "Resend SMS")
-                          : t("Enviar SMS", "Send SMS")}
-                      </button>
-                    )}
 
                     {a.dispositivo_alerta_en ? (
                       <>
