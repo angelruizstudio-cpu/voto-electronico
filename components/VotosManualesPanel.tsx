@@ -290,8 +290,7 @@ export function VotosManualesPanel({
     const tieneVotosManualesGuardados = votosManuales.length > 0
     setVotantesManualesPresentes(Number(data.votantesManualesPresentes) || 0)
     if (notificarResultadoGuardadoAlCargar) {
-      onResultadosActualizados?.(
-        tieneVotosManualesGuardados ? data.resultadosActualizados || null : null
+  onResultadosActualizados?.(data.resultadosActualizados || null
       )
     }
     setHayGuardados(tieneVotosManualesGuardados)
