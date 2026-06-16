@@ -112,23 +112,18 @@ function useAsambleaState() {
     id: string | null
     slug: string
   }) => {
-    let query = supabase
-      .from("asambleas")
-      .select("*")
-      .in("estado", ["preparacion", "abierta", "receso"])
-
-    const tenantId = tenantSesion?.id ?? organizacionIdSesion
     const tenantSlug = tenantSesion?.slug ?? organizacionSlugSesion
+    const params = new URLSearchParams()
 
-    if (tenantId) {
-      query = query.eq("organizacion_id", tenantId)
-    } else if (tenantSlug) {
-      query = query.eq("organizacion_slug", tenantSlug)
+    if (tenantSlug) {
+      params.set("org", tenantSlug)
     }
 
-    const { data, error } = await query.maybeSingle()
+    const res = await fetch(`/api/asamblea/activa?${params.toString()}`).catch(() => null)
+    const resultado = res?.ok ? await res.json().catch(() => null) : null
+    const data = resultado?.asamblea
 
-    if (error || !data) {
+    if (!resultado?.ok || !data) {
       setAsambleaId(null)
       setAnioAsamblea("")
       setLugarAsamblea("")
@@ -144,7 +139,7 @@ function useAsambleaState() {
     setEstadoAsamblea(
       data.estado === "preparacion" || data.estado === "receso" ? data.estado : "abierta"
     )
-  }, [organizacionIdSesion, organizacionSlugSesion])
+  }, [organizacionSlugSesion])
 
   const registrarEventoAsamblea = async (
     tipo: "receso_iniciado" | "trabajos_reanudados",
@@ -417,6 +412,14 @@ function useAsambleaState() {
       supabase.removeChannel(canalAsambleas)
     }
   }, [cargarAsambleaActiva, cargarOrganizacionSesion])
+
+  useEffect(() => {
+    const intervalo = window.setInterval(() => {
+      void cargarAsambleaActiva()
+    }, 3000)
+
+    return () => window.clearInterval(intervalo)
+  }, [cargarAsambleaActiva])
 
   return {
     asambleaId,
