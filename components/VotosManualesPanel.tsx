@@ -251,7 +251,11 @@ export function VotosManualesPanel({
 
     const cerradas = (data.votaciones || []) as VotacionCerrada[]
     setVotaciones(cerradas)
-    setVotacionId((actual) => actual || cerradas[0]?.id || "")
+    setVotacionId((actual) =>
+      actual && cerradas.some((votacion) => votacion.id === actual)
+        ? actual
+        : cerradas[0]?.id || ""
+    )
   }, [asambleaId])
 
   const cargarDetalle = useCallback(async () => {
@@ -284,9 +288,8 @@ export function VotosManualesPanel({
     const votosManuales = (data.votosManuales || []) as VotoManual[]
     const tieneVotosManualesGuardados = votosManuales.length > 0
     setVotantesManualesPresentes(Number(data.votantesManualesPresentes) || 0)
-    if (notificarResultadoGuardadoAlCargar) {
-  onResultadosActualizados?.(data.resultadosActualizados || null
-      )
+    if (notificarResultadoGuardadoAlCargar && tieneVotosManualesGuardados) {
+      onResultadosActualizados?.(data.resultadosActualizados || null)
     }
     setHayGuardados(tieneVotosManualesGuardados)
     setFavor(votosManuales.find((voto) => voto.opcion === "favor")?.cantidad || 0)
