@@ -34,7 +34,7 @@ const navItems = {
   admin: { href: "/admin", label: "Administrador", icon: Shield },
   resumen: { href: "/moderador/resultados", label: "Resumen actual", icon: ListChecks },
   documentos: { href: "/documentos", label: "Documentos", icon: FileText },
-  oficina: { href: "/oficina", label: "Registro", icon: ClipboardCheck },
+  oficina: { href: "/oficina", label: "Oficina", icon: ClipboardCheck },
   puerta: { href: "/puerta", label: "Puerta", icon: DoorOpen },
 }
 
@@ -84,7 +84,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
       : pathname.startsWith("/escrutinio")
         ? "Escrutinio"
         : pathname.startsWith("/oficina")
-          ? "Registro"
+          ? "Oficina"
           : "Moderador"
 
   useEffect(() => {
@@ -213,13 +213,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
                 <p className="truncate text-sm font-black">{usuario?.nombre || "Usuario"}</p>
                 <p className="text-xs text-white/56">
                   Quórum: {quorum} ·{" "}
-                  {asambleaId
-                    ? estadoAsamblea === "preparacion"
-                      ? "Preparación"
-                      : estadoAsamblea === "receso"
-                        ? "Receso"
-                        : "Activa"
-                    : "Inactiva"}
+                  {asambleaId ? (estadoAsamblea === "receso" ? "Receso" : "Activa") : "Inactiva"}
                 </p>
               </div>
               <button
@@ -312,21 +306,13 @@ function AdminShellContent({ children, role }: AdminShellProps) {
                   className={[
                     "rounded-full px-2 py-1 text-xs font-bold",
                     asambleaId
-                      ? estadoAsamblea === "preparacion"
-                        ? "bg-sky-400/14 text-sky-100"
-                        : estadoAsamblea === "receso"
-                          ? "bg-amber-400/14 text-amber-100"
-                          : "bg-emerald-400/14 text-emerald-100"
+                      ? estadoAsamblea === "receso"
+                        ? "bg-amber-400/14 text-amber-100"
+                        : "bg-emerald-400/14 text-emerald-100"
                       : "bg-white/10 text-white/64",
                   ].join(" ")}
                 >
-                  {asambleaId
-                    ? estadoAsamblea === "preparacion"
-                      ? "Preparación"
-                      : estadoAsamblea === "receso"
-                        ? "Receso"
-                        : "Activa"
-                    : "Inactiva"}
+                  {asambleaId ? (estadoAsamblea === "receso" ? "Receso" : "Activa") : "Inactiva"}
                 </span>
               </div>
               <p className="mt-2 font-black">

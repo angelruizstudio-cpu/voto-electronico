@@ -30,21 +30,7 @@ type Asambleista = {
 
 export default function OficinaRegionalPage() {
   const { t } = useI18n()
-  const {
-    asambleaId,
-    anioAsamblea,
-    lugarAsamblea,
-    organizacionAsamblea,
-    estadoAsamblea,
-    nuevoAnio,
-    nuevoLugar,
-    nuevaOrganizacion,
-    setNuevoAnio,
-    setNuevoLugar,
-    setNuevaOrganizacion,
-    crearAsambleaPreparacion,
-    organizacionNombreSesion,
-  } = useAsamblea()
+  const { asambleaId, organizacionNombreSesion } = useAsamblea()
 
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
   const [cargando, setCargando] = useState(false)
@@ -286,7 +272,7 @@ export default function OficinaRegionalPage() {
 
   const importarCsv = async () => {
     if (!asambleaId) {
-      alert(t("Primero debes preparar una asamblea", "You must prepare an assembly first"))
+      alert(t("Primero debes abrir una asamblea", "You must open an assembly first"))
       return
     }
 
@@ -457,7 +443,7 @@ export default function OficinaRegionalPage() {
     }
 
     if (!asambleaId) {
-      alert(t("Primero debes preparar una asamblea", "You must prepare an assembly first"))
+      alert(t("Primero debes abrir una asamblea", "You must open an assembly first"))
       return
     }
 
@@ -550,15 +536,6 @@ export default function OficinaRegionalPage() {
     )
   }
 
-  const prepararAsamblea = async () => {
-    if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) {
-      alert(t("Completa organización, año y lugar", "Complete organization, year, and location"))
-      return
-    }
-
-    await crearAsambleaPreparacion()
-  }
-
   return (
     <main className="min-h-screen bg-[#f4f6f1] p-6">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -605,79 +582,6 @@ export default function OficinaRegionalPage() {
             </div>
           </div>
         </header>
-
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6f5b1d]">
-                {t("Asamblea", "Assembly")}
-              </p>
-              {asambleaId ? (
-                <>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    {organizacionAsamblea || organizacionNombreSesion}
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
-                    {t("Año", "Year")}: {anioAsamblea || "N/A"} · {t("Lugar", "Location")}:{" "}
-                    {lugarAsamblea || "N/A"} Â·{" "}
-                    <span className="font-black text-[#16382f]">
-                      {estadoAsamblea === "preparacion"
-                        ? t("Preparada para registro", "Prepared for registration")
-                        : estadoAsamblea === "receso"
-                          ? t("En receso", "In recess")
-                          : t("Iniciada", "Started")}
-                    </span>
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    {t("Preparar nueva asamblea", "Prepare new assembly")}
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
-                    {t(
-                      "Registro puede crear la asamblea antes de que el moderador inicie los trabajos.",
-                      "Registration can create the assembly before the moderator starts proceedings."
-                    )}
-                  </p>
-                </>
-              )}
-            </div>
-
-            {!asambleaId && (
-              <div className="grid w-full gap-3 lg:max-w-3xl lg:grid-cols-[1.2fr_0.7fr_1fr_auto]">
-                <input
-                  type="text"
-                  placeholder={t("Organización", "Organization")}
-                  value={nuevaOrganizacion}
-                  onChange={(e) => setNuevaOrganizacion(e.target.value)}
-                  className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-                />
-                <input
-                  type="text"
-                  placeholder={t("Año", "Year")}
-                  value={nuevoAnio}
-                  onChange={(e) => setNuevoAnio(e.target.value)}
-                  className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-                />
-                <input
-                  type="text"
-                  placeholder={t("Lugar", "Location")}
-                  value={nuevoLugar}
-                  onChange={(e) => setNuevoLugar(e.target.value)}
-                  className="h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
-                />
-                <button
-                  type="button"
-                  onClick={prepararAsamblea}
-                  className="h-11 rounded-lg bg-[#16382f] px-4 font-bold text-white transition hover:bg-[#0f2b24]"
-                >
-                  {t("Preparar", "Prepare")}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         <section className="grid gap-3 md:grid-cols-5">
           <button
