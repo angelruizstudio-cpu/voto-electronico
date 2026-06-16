@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
 
 export function useCrearVotacion(
   asambleaId: string | null,
@@ -19,7 +20,7 @@ export function useCrearVotacion(
     }
 
     if (!nuevoTitulo.trim()) {
-      alert("Escribe un titulo para la votacion")
+      alert("Escribe un título para la votación")
       return false
     }
 
@@ -28,7 +29,7 @@ export function useCrearVotacion(
       .filter((c) => c.length > 0)
 
     if (nuevoTipoVotacion === "eleccion_lideres" && candidatosLimpios.length < 2) {
-      alert("Debes anadir al menos 2 candidatos")
+      alert("Debes añadir al menos 2 candidatos")
       return false
     }
 
@@ -37,30 +38,79 @@ export function useCrearVotacion(
       nuevoTipoMocion !== "resolucion_principal" &&
       !nuevaMocionPadreId
     ) {
-      alert("Selecciona la mocion que sera enmendada")
+      alert("Selecciona la moción que será enmendada")
       return false
     }
 
-    const respuesta = await fetch("/api/moderador/votaciones", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        asambleaId,
-        titulo: nuevoTitulo.trim(),
-        tipoMayoria: nuevoTipoMayoria,
-        tipoVotacion: nuevoTipoVotacion,
-        tipoMocion: nuevoTipoMocion,
-        mocionPadreId: nuevaMocionPadreId || null,
-        resolucionRaizId: nuevaResolucionRaizId || null,
-        candidatos: candidatosLimpios,
-      }),
-    })
+    const datosVotacion = {
+      titulo: nuevoTitulo.trim(),
+      asamblea_id: asambleaId,
+      estado: nuevoTipoVotacion === "resolucion" ? "cerrada" : "abierta",
+      tipo_mayoria:
+        nuevoTipoVotacion === "resolucion" ? nuevoTipoMayoria : "mayoria_simple",
+      tipo_votacion: nuevoTipoVotacion,
+      publicada: false,
+      ronda_numero: nuevoTipoVotacion === "eleccion_lideres" ? 1 : null,
+      estado_parlamentario:
+        nuevoTipoVotacion === "resolucion" ? "esperando_segundo" : null,
+      tipo_mocion:
+        nuevoTipoVotacion === "resolucion" ? nuevoTipoMocion : null,
+      mocion_padre_id:
+        nuevoTipoVotacion === "resolucion" && nuevaMocionPadreId
+          ? nuevaMocionPadreId
+          : null,
+      resolucion_raiz_id:
+        nuevoTipoVotacion === "resolucion" && nuevoTipoMocion !== "resolucion_principal"
+          ? nuevaResolucionRaizId || nuevaMocionPadreId
+          : null,
+    }
 
-    const resultado = await respuesta.json().catch(() => null)
+    const { data: votacionCreada, error: errorVotacion } = await supabase
+      .from("votaciones")
+      .insert(datosVotacion)
+      .select()
+      .single()
 
-    if (!respuesta.ok || !resultado?.ok) {
-      alert(resultado?.error || "No se pudo crear la votacion")
+    if (errorVotacion || !votacionCreada) {
+      alert(errorVotacion?.message || "No se pudo crear la votación")
       return false
+    }
+
+    if (
+      nuevoTipoVotacion === "resolucion" &&
+      nuevoTipoMocion === "resolucion_principal"
+    ) {
+      const { error: errorRaiz } = await supabase
+        .from("votaciones")
+        .update({ resolucion_raiz_id: votacionCreada.id })
+        .eq("id", votacionCreada.id)
+
+      if (errorRaiz) {
+        alert(errorRaiz.message)
+        return false
+      }
+    }
+
+    if (nuevoTipoVotacion === "eleccion_lideres") {
+      await supabase
+        .from("votaciones")
+        .update({ eleccion_grupo_id: votacionCreada.id })
+        .eq("id", votacionCreada.id)
+
+      const candidatosParaInsertar = candidatosLimpios.map((nombre) => ({
+        votacion_id: votacionCreada.id,
+        nombre,
+        visible_asambleistas: true,
+      }))
+
+      const { error: errorCandidatos } = await supabase
+        .from("candidatos")
+        .insert(candidatosParaInsertar)
+
+      if (errorCandidatos) {
+        alert(errorCandidatos.message)
+        return false
+      }
     }
 
     setNuevoTitulo("")
@@ -74,7 +124,7 @@ export function useCrearVotacion(
     await new Promise((res) => setTimeout(res, 500))
     await cargarVotacionActiva()
 
-    alert(nuevoTipoVotacion === "resolucion" ? "Mocion presentada" : "Votacion creada")
+    alert(nuevoTipoVotacion === "resolucion" ? "Moción presentada" : "Votación creada")
     return true
   }
 
