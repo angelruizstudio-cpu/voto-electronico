@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
-import { AsambleaProvider, useAsamblea } from "@/hooks/useAsamblea"
+import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { mostrarTipoVotacion } from "@/lib/votacionHelpers"
 import { supabase } from "@/lib/supabaseClient"
@@ -56,11 +56,7 @@ function construirNav(roles: RolSesion[], roleFallback: AdminShellProps["role"])
 }
 
 export function AdminShell({ children, role }: AdminShellProps) {
-  return (
-    <AsambleaProvider>
-      <AdminShellContent role={role}>{children}</AdminShellContent>
-    </AsambleaProvider>
-  )
+  return <AdminShellContent role={role}>{children}</AdminShellContent>
 }
 
 function AdminShellContent({ children, role }: AdminShellProps) {
