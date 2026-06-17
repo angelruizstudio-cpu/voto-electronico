@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { CheckCircle2, ClipboardList, Edit3, Send, Scale } from "lucide-react"
 import {
   ResultadoManualActualizado,
@@ -137,6 +137,46 @@ export default function EscrutinioPage() {
   const [certificado, setCertificado] = useState(false)
   const [certificando, setCertificando] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
+
+  const verificarNuevaVotacionCerrada = useCallback(async () => {
+    if (!asambleaId || !resultado) return
+
+    const res = await fetch(`/api/votos-manuales?asambleaId=${encodeURIComponent(asambleaId)}`)
+    const data = await res.json().catch(() => null)
+
+    if (!res.ok || !data?.ok) return
+
+    const votacionCerradaMasReciente = data.votaciones?.[0]
+
+    if (
+      votacionCerradaMasReciente?.id &&
+      votacionCerradaMasReciente.id !== resultado.votacionId
+    ) {
+      setResultado(null)
+      setCertificado(false)
+      setModoEdicion(false)
+    }
+  }, [asambleaId, resultado])
+
+  useEffect(() => {
+    if (!resultado) return
+
+    const intervalo = window.setInterval(() => {
+      void verificarNuevaVotacionCerrada()
+    }, 3000)
+
+    return () => {
+      window.clearInterval(intervalo)
+    }
+  }, [resultado, verificarNuevaVotacionCerrada])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setResultado(null)
+      setCertificado(false)
+      setModoEdicion(false)
+    })
+  }, [asambleaId])
 
   const certificarResultado = async () => {
     if (!resultado) return
