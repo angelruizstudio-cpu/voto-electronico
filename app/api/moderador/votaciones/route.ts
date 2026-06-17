@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     const { error: errorCerrarAnterior } = await supabaseAdmin
       .from("votaciones")
-      .update({ estado: "cerrada" })
+      .update({ estado: "cerrada", cerrada_en: new Date().toISOString() })
       .eq("id", votacionAnteriorId)
 
     if (errorCerrarAnterior) {
@@ -232,6 +232,14 @@ export async function PATCH(req: NextRequest) {
 
   if (Object.keys(cambiosPermitidos).length === 0) {
     return NextResponse.json({ ok: false, error: "SIN_CAMBIOS_VALIDOS" }, { status: 400 })
+  }
+
+  if (cambiosPermitidos.estado === "cerrada") {
+    cambiosPermitidos.cerrada_en = new Date().toISOString()
+  }
+
+  if (cambiosPermitidos.estado === "abierta") {
+    cambiosPermitidos.cerrada_en = null
   }
 
   const { data: votacionActualizada, error: errorActualizar } = await supabaseAdmin

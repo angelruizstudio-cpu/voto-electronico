@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckCircle2, ClipboardList, Edit3, Send, Scale } from "lucide-react"
 import {
   ResultadoManualActualizado,
@@ -9,6 +9,7 @@ import {
 } from "@/components/VotosManualesPanel"
 import { Button } from "@/components/ui/button"
 import { useAsamblea } from "@/hooks/useAsamblea"
+import { useVotacion } from "@/hooks/useVotacion"
 
 function ResultadoParaLectura({ resultado }: { resultado: ResultadoManualActualizado }) {
   if (resultado.tipo === "resolucion") {
@@ -137,6 +138,9 @@ export default function EscrutinioPage() {
   const [certificado, setCertificado] = useState(false)
   const [certificando, setCertificando] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
+  const [votacionPreferidaId, setVotacionPreferidaId] = useState<string | null>(null)
+  const ultimaVotacionAbiertaRef = useRef<string | null>(null)
+  const { votacionId: votacionActivaId } = useVotacion(asambleaId)
 
   const verificarNuevaVotacionCerrada = useCallback(async () => {
     if (!asambleaId || !resultado) return
@@ -175,8 +179,25 @@ export default function EscrutinioPage() {
       setResultado(null)
       setCertificado(false)
       setModoEdicion(false)
+      setVotacionPreferidaId(null)
+      ultimaVotacionAbiertaRef.current = null
     })
   }, [asambleaId])
+
+  useEffect(() => {
+    if (!votacionActivaId) return
+
+    ultimaVotacionAbiertaRef.current = votacionActivaId
+    queueMicrotask(() => {
+      setVotacionPreferidaId(votacionActivaId)
+
+      if (resultado && resultado.votacionId !== votacionActivaId) {
+        setResultado(null)
+        setCertificado(false)
+        setModoEdicion(false)
+      }
+    })
+  }, [resultado, votacionActivaId])
 
   const certificarResultado = async () => {
     if (!resultado) return
@@ -296,6 +317,7 @@ export default function EscrutinioPage() {
           <VotosManualesPanel
             asambleaId={asambleaId}
             notificarResultadoGuardadoAlCargar={!modoEdicion}
+            votacionPreferidaId={votacionPreferidaId}
             onResultadosActualizados={(resultadoActualizado) => {
               setResultado(resultadoActualizado)
               setCertificado(false)

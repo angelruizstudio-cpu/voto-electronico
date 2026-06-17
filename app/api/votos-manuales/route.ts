@@ -264,10 +264,11 @@ export async function GET(req: NextRequest) {
 
     const { data: votaciones, error: errorVotaciones } = await supabaseAdmin
       .from("votaciones")
-      .select("id, titulo, tipo_votacion, estado, ronda_numero")
+      .select("id, titulo, tipo_votacion, estado, ronda_numero, cerrada_en")
       .eq("asamblea_id", asambleaId)
       .eq("estado", "cerrada")
-      .order("creada_en", { ascending: false })
+      .not("cerrada_en", "is", null)
+      .order("cerrada_en", { ascending: false })
 
     if (errorVotaciones) {
       return NextResponse.json({ ok: false, error: errorVotaciones.message }, { status: 500 })

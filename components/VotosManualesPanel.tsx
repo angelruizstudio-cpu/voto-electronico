@@ -78,6 +78,7 @@ type VotosManualesPanelProps = {
   asambleaId: string | null
   onResultadosActualizados?: (resultado: ResultadoManualActualizado | null) => void
   notificarResultadoGuardadoAlCargar?: boolean
+  votacionPreferidaId?: string | null
 }
 
 const numeroSeguro = (valor: string) => {
@@ -213,6 +214,7 @@ export function VotosManualesPanel({
   asambleaId,
   onResultadosActualizados,
   notificarResultadoGuardadoAlCargar = true,
+  votacionPreferidaId = null,
 }: VotosManualesPanelProps) {
   const [votaciones, setVotaciones] = useState<VotacionCerrada[]>([])
   const [votacionId, setVotacionId] = useState("")
@@ -257,11 +259,13 @@ export function VotosManualesPanel({
     const cerradas = (data.votaciones || []) as VotacionCerrada[]
     setVotaciones(cerradas)
     setVotacionId((actual) =>
-      actual && cerradas.some((votacion) => votacion.id === actual)
+      votacionPreferidaId && cerradas.some((votacion) => votacion.id === votacionPreferidaId)
+        ? votacionPreferidaId
+        : actual && cerradas.some((votacion) => votacion.id === actual)
         ? actual
         : cerradas[0]?.id || ""
     )
-  }, [asambleaId])
+  }, [asambleaId, votacionPreferidaId])
 
   const cargarDetalle = useCallback(async () => {
     if (!votacionId) {
@@ -345,6 +349,16 @@ export function VotosManualesPanel({
       void cargarVotaciones()
     })
   }, [cargarVotaciones])
+
+  useEffect(() => {
+    if (!asambleaId) return
+
+    const intervalo = window.setInterval(() => {
+      void cargarVotaciones()
+    }, 3000)
+
+    return () => window.clearInterval(intervalo)
+  }, [asambleaId, cargarVotaciones])
 
   useEffect(() => {
     queueMicrotask(() => {

@@ -223,7 +223,7 @@ function useAsambleaState() {
 
     await supabase
       .from("votaciones")
-      .update({ estado: "cerrada" })
+      .update({ estado: "cerrada", cerrada_en: new Date().toISOString() })
       .eq("asamblea_id", asambleaId)
       .eq("estado", "abierta")
 
