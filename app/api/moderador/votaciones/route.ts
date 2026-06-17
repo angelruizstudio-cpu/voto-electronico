@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     mocionPadreId,
     resolucionRaizId,
     candidatos,
+    rondaNumero,
+    eleccionGrupoId,
+    votacionAnteriorId,
+    cerrarVotacionAnterior,
   } = await req.json()
 
   const tituloLimpio = String(titulo || "").trim()
@@ -66,6 +70,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_INICIADA" }, { status: 400 })
   }
 
+  const rondaNumeroLimpia = Number.isFinite(Number(rondaNumero))
+    ? Math.max(1, Math.floor(Number(rondaNumero)))
+    : 1
+  const esRondaPosterior = tipoVotacionLimpio === "eleccion_lideres" && rondaNumeroLimpia > 1
+
+  if (cerrarVotacionAnterior && votacionAnteriorId) {
+    const { data: votacionAnterior, error: errorAnterior } = await supabaseAdmin
+      .from("votaciones")
+      .select("id, asamblea_id")
+      .eq("id", votacionAnteriorId)
+      .maybeSingle()
+
+    if (errorAnterior) {
+      return NextResponse.json({ ok: false, error: errorAnterior.message }, { status: 500 })
+    }
+
+    if (!votacionAnterior || votacionAnterior.asamblea_id !== asambleaId) {
+      return NextResponse.json({ ok: false, error: "VOTACION_ANTERIOR_NO_AUTORIZADA" }, { status: 403 })
+    }
+
+    const { error: errorCerrarAnterior } = await supabaseAdmin
+      .from("votaciones")
+      .update({ estado: "cerrada" })
+      .eq("id", votacionAnteriorId)
+
+    if (errorCerrarAnterior) {
+      return NextResponse.json({ ok: false, error: errorCerrarAnterior.message }, { status: 500 })
+    }
+  }
+
   const datosVotacion = {
     titulo: tituloLimpio,
     asamblea_id: asambleaId,
@@ -74,7 +108,9 @@ export async function POST(req: NextRequest) {
       tipoVotacionLimpio === "resolucion" ? tipoMayoria || "mayoria_simple" : "mayoria_simple",
     tipo_votacion: tipoVotacionLimpio,
     publicada: false,
-    ronda_numero: tipoVotacionLimpio === "eleccion_lideres" ? 1 : null,
+    ronda_numero: tipoVotacionLimpio === "eleccion_lideres" ? rondaNumeroLimpia : null,
+    eleccion_grupo_id: esRondaPosterior ? eleccionGrupoId || votacionAnteriorId || null : null,
+    votacion_anterior_id: esRondaPosterior ? votacionAnteriorId || null : null,
     estado_parlamentario:
       tipoVotacionLimpio === "resolucion" ? "esperando_segundo" : null,
     tipo_mocion:
@@ -117,7 +153,7 @@ export async function POST(req: NextRequest) {
   if (tipoVotacionLimpio === "eleccion_lideres") {
     const { error: errorGrupo } = await supabaseAdmin
       .from("votaciones")
-      .update({ eleccion_grupo_id: votacionCreada.id })
+      .update({ eleccion_grupo_id: eleccionGrupoId || votacionCreada.eleccion_grupo_id || votacionCreada.id })
       .eq("id", votacionCreada.id)
 
     if (errorGrupo) {

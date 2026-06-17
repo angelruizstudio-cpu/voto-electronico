@@ -454,52 +454,28 @@ export default function Moderador() {
     const tituloBase = (resultadoManual?.titulo || titulo).replace(/\s+-\s+Ronda\s+\d+$/i, "")
     const grupoId = resultadoManual?.eleccionGrupoId || eleccionGrupoId || votacionOrigenId
 
-    const { error: errorCerrarOrigen } = await supabase
-      .from("votaciones")
-      .update({ estado: "cerrada" })
-      .eq("id", votacionOrigenId)
-
-    if (errorCerrarOrigen) {
-      setCreandoSiguienteRonda(false)
-      alert(errorCerrarOrigen.message)
-      return
-    }
-
-    const { data: nuevaVotacion, error: errorVotacion } = await supabase
-      .from("votaciones")
-      .insert({
+    const res = await fetch("/api/moderador/votaciones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        asambleaId,
         titulo: `${tituloBase} - Ronda ${proximaRonda}`,
-        asamblea_id: asambleaId,
-        estado: "abierta",
-        tipo_mayoria: "mayoria_simple",
-        tipo_votacion: "eleccion_lideres",
-        publicada: false,
-        ronda_numero: proximaRonda,
-        eleccion_grupo_id: grupoId,
-        votacion_anterior_id: votacionOrigenId,
-      })
-      .select()
-      .single()
+        tipoMayoria: "mayoria_simple",
+        tipoVotacion: "eleccion_lideres",
+        candidatos: candidatosParaNuevaRonda.map((c) => c.nombre),
+        rondaNumero: proximaRonda,
+        eleccionGrupoId: grupoId,
+        votacionAnteriorId: votacionOrigenId,
+        cerrarVotacionAnterior: true,
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (errorVotacion || !nuevaVotacion) {
+    if (!res.ok || !data?.ok) {
       setCreandoSiguienteRonda(false)
-      alert(errorVotacion?.message || "No se pudo crear la siguiente ronda")
+      alert(data?.error || "No se pudo crear la siguiente ronda")
       return
     }
-
-    const { error: errorCandidatos } = await supabase.from("candidatos").insert(
-      candidatosParaNuevaRonda.map((c) => ({
-        votacion_id: nuevaVotacion.id,
-        nombre: c.nombre,
-      }))
-    )
-
-    if (errorCandidatos) {
-      setCreandoSiguienteRonda(false)
-      alert(errorCandidatos.message)
-      return
-    }
-
     setResultadoManualActualizado(null)
     setCreandoSiguienteRonda(false)
     alert(`Ronda ${proximaRonda} creada`)

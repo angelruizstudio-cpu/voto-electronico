@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 
 type VotacionCerrada = {
@@ -228,6 +228,11 @@ export function VotosManualesPanel({
   const [cargando, setCargando] = useState(false)
   const [votantesManualesPresentes, setVotantesManualesPresentes] = useState(0)
   const sinVotantesManuales = votantesManualesPresentes === 0
+  const onResultadosActualizadosRef = useRef(onResultadosActualizados)
+
+  useEffect(() => {
+    onResultadosActualizadosRef.current = onResultadosActualizados
+  }, [onResultadosActualizados])
 
   const votacionSeleccionada = useMemo(
     () => votaciones.find((votacion) => votacion.id === votacionId) || null,
@@ -270,7 +275,7 @@ export function VotosManualesPanel({
       setBalotasDanadas(0)
       setHayGuardados(false)
       setVotantesManualesPresentes(0)
-      onResultadosActualizados?.(null)
+      onResultadosActualizadosRef.current?.(null)
       return
     }
 
@@ -289,7 +294,7 @@ export function VotosManualesPanel({
     const tieneVotosManualesGuardados = votosManuales.length > 0
     setVotantesManualesPresentes(Number(data.votantesManualesPresentes) || 0)
     if (notificarResultadoGuardadoAlCargar && tieneVotosManualesGuardados) {
-      onResultadosActualizados?.(data.resultadosActualizados || null)
+      onResultadosActualizadosRef.current?.(data.resultadosActualizados || null)
     }
     setHayGuardados(tieneVotosManualesGuardados)
     setFavor(votosManuales.find((voto) => voto.opcion === "favor")?.cantidad || 0)
@@ -311,7 +316,7 @@ export function VotosManualesPanel({
         return acc
       }, {})
     )
-  }, [notificarResultadoGuardadoAlCargar, onResultadosActualizados, votacionId])
+  }, [notificarResultadoGuardadoAlCargar, votacionId])
 
   const totalManual = useMemo(() => {
     if (votacionSeleccionada?.tipo_votacion === "eleccion_lideres") {
