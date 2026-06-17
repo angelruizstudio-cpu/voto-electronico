@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { obtenerTenantSesion } from "@/lib/tenant"
+import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
 type CambiosAsambleista = {
   registrado?: boolean
@@ -389,18 +389,14 @@ export async function GET(req: NextRequest) {
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
 
-  let queryAsamblea = supabaseAdmin
+  const { data: asambleasActivas, error: errorAsamblea } = await supabaseAdmin
     .from("asambleas")
-    .select("id")
+    .select("id, organizacion_id, organizacion_slug")
     .in("estado", ["abierta", "receso"])
 
-  if (tenant.id) {
-    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
-  } else {
-    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
-  }
-
-  const { data: asambleaActiva, error: errorAsamblea } = await queryAsamblea.maybeSingle()
+  const asambleaActiva = (asambleasActivas || []).find((asamblea) =>
+    asambleaPerteneceAlTenant(tenant, asamblea)
+  )
 
   if (errorAsamblea) {
     return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
@@ -459,25 +455,17 @@ export async function POST(req: NextRequest) {
   const tenant = obtenerTenantSesion(req)
   const anio = new Date().getFullYear().toString().slice(-2)
 
-  let queryAsamblea = supabaseAdmin
+  const { data: asambleaPermitida, error: errorAsambleaPermitida } = await supabaseAdmin
     .from("asambleas")
-    .select("id")
+    .select("id, organizacion_id, organizacion_slug")
     .eq("id", asambleaId)
-
-  if (tenant.id) {
-    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
-  } else {
-    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
-  }
-
-  const { data: asambleaPermitida, error: errorAsambleaPermitida } =
-    await queryAsamblea.maybeSingle()
+    .maybeSingle()
 
   if (errorAsambleaPermitida) {
     return NextResponse.json({ ok: false, error: errorAsambleaPermitida.message }, { status: 500 })
   }
 
-  if (!asambleaPermitida) {
+  if (!asambleaPermitida || !asambleaPerteneceAlTenant(tenant, asambleaPermitida)) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
   }
 
@@ -598,20 +586,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
   }
 
-  let queryAsamblea = supabaseAdmin
+  const { data: asambleaPermitida } = await supabaseAdmin
     .from("asambleas")
-    .select("id")
+    .select("id, organizacion_id, organizacion_slug")
     .eq("id", asambleistaPermitido.asamblea_id)
+    .maybeSingle()
 
-  if (tenant.id) {
-    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
-  } else {
-    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
-  }
-
-  const { data: asambleaPermitida } = await queryAsamblea.maybeSingle()
-
-  if (!asambleaPermitida) {
+  if (!asambleaPermitida || !asambleaPerteneceAlTenant(tenant, asambleaPermitida)) {
     return NextResponse.json({ ok: false, error: "ASAMBLEISTA_NO_AUTORIZADO" }, { status: 403 })
   }
 
