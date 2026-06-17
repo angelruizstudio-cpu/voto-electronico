@@ -19,6 +19,22 @@ export function obtenerTenantSesion(req: NextRequest): TenantSesion {
 export function obtenerOrganizacionId(req: NextRequest) {
   return obtenerTenantSesion(req).id
 }
+export function asambleaPerteneceAlTenant(
+  tenant: TenantSesion,
+  asamblea?: { organizacion_id?: string | null; organizacion_slug?: string | null } | null
+) {
+  if (!asamblea) return false
+
+  const organizacionId = asamblea.organizacion_id || null
+  const organizacionSlug = String(asamblea.organizacion_slug || "").trim()
+
+  if (tenant.id && organizacionId && tenant.id === organizacionId) {
+    return true
+  }
+
+  return Boolean(tenant.slug && organizacionSlug && tenant.slug === organizacionSlug)
+}
+
 
 export function limpiarSlugOrganizacion(valor: unknown) {
   return String(valor || "")

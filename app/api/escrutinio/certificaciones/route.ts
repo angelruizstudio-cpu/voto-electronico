@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { obtenerTenantSesion } from "@/lib/tenant"
+import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
 function validarSesion(req: NextRequest) {
   return req.cookies.get("moderador_session")?.value === "true"
@@ -28,11 +28,8 @@ async function obtenerAsambleaPermitida(
 
   if (error || !asamblea) return null
 
-  if (tenant.id) {
-    return asamblea.organizacion_id === tenant.id ? asamblea : null
-  }
+  return asambleaPerteneceAlTenant(tenant, asamblea) ? asamblea : null
 
-  return asamblea.organizacion_slug === tenant.slug ? asamblea : null
 }
 
 async function obtenerVotacionPermitida(

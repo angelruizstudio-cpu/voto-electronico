@@ -6,7 +6,7 @@ import {
   calcularVotosValidosCandidatos,
   obtenerGanadorMayoriaSimple,
 } from "@/lib/votacionHelpers"
-import { obtenerTenantSesion } from "@/lib/tenant"
+import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
 type VotoManualEntrada = {
   opcion?: "favor" | "contra" | "abstencion" | "nula" | "danada"
@@ -67,11 +67,8 @@ async function validarVotacionDelTenant(
     return false
   }
 
-  if (tenant.id) {
-    return asamblea.organizacion_id === tenant.id
-  }
+  return asambleaPerteneceAlTenant(tenant, asamblea)
 
-  return asamblea.organizacion_slug === tenant.slug
 }
 
 function normalizarCantidad(valor: unknown) {

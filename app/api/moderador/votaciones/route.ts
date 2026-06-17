@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { obtenerTenantSesion } from "@/lib/tenant"
+import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
 function validarSesion(req: NextRequest) {
   return req.cookies.get("moderador_session")?.value === "true"
@@ -48,24 +48,17 @@ export async function POST(req: NextRequest) {
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
 
-  let queryAsamblea = supabaseAdmin
+  const { data: asamblea, error: errorAsamblea } = await supabaseAdmin
     .from("asambleas")
-    .select("id, estado")
+    .select("id, estado, organizacion_id, organizacion_slug")
     .eq("id", asambleaId)
-
-  if (tenant.id) {
-    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
-  } else {
-    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
-  }
-
-  const { data: asamblea, error: errorAsamblea } = await queryAsamblea.maybeSingle()
+    .maybeSingle()
 
   if (errorAsamblea) {
     return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
   }
 
-  if (!asamblea) {
+  if (!asamblea || !asambleaPerteneceAlTenant(tenant, asamblea)) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
   }
 
@@ -175,24 +168,17 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "VOTACION_NO_EXISTE" }, { status: 404 })
   }
 
-  let queryAsamblea = supabaseAdmin
+  const { data: asamblea, error: errorAsamblea } = await supabaseAdmin
     .from("asambleas")
-    .select("id")
+    .select("id, organizacion_id, organizacion_slug")
     .eq("id", votacion.asamblea_id)
-
-  if (tenant.id) {
-    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
-  } else {
-    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
-  }
-
-  const { data: asamblea, error: errorAsamblea } = await queryAsamblea.maybeSingle()
+    .maybeSingle()
 
   if (errorAsamblea) {
     return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
   }
 
-  if (!asamblea) {
+  if (!asamblea || !asambleaPerteneceAlTenant(tenant, asamblea)) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
   }
 

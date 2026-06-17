@@ -59,6 +59,8 @@ export default function AsambleistaPage() {
   const { t } = useI18n()
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea, organizacionSlugSesion } =
     useAsamblea()
+  const [asambleaIdAcceso, setAsambleaIdAcceso] = useState("")
+  const asambleaActivaId = asambleaIdAcceso || asambleaId
 
   const {
     estado,
@@ -72,7 +74,7 @@ export default function AsambleistaPage() {
     yaVoto,
     setYaVoto,
     cargarVotacionActiva,
-  } = useVotacion(asambleaId, { ocultarCandidatosPrimeraRonda: true })
+  } = useVotacion(asambleaActivaId, { ocultarCandidatosPrimeraRonda: true })
 
   // token ahora almacena el token_hash (retornado por /api/checkin)
   const [token, setToken] = useState("")
@@ -86,9 +88,11 @@ export default function AsambleistaPage() {
     localStorage.removeItem("token_votacion")
     localStorage.removeItem("asambleista_id")
     localStorage.removeItem("asambleista_nombre")
+    localStorage.removeItem("asamblea_id")
     setToken("")
     setAsambleistaId("")
     setAsambleistaNombre("")
+    setAsambleaIdAcceso("")
     setYaVoto(false)
   }, [setYaVoto])
 
@@ -97,6 +101,7 @@ export default function AsambleistaPage() {
       setToken(localStorage.getItem("token_votacion") || "")
       setAsambleistaId(localStorage.getItem("asambleista_id") || "")
       setAsambleistaNombre(localStorage.getItem("asambleista_nombre") || "")
+      setAsambleaIdAcceso(localStorage.getItem("asamblea_id") || "")
     })
   }, [])
 
@@ -171,9 +176,11 @@ export default function AsambleistaPage() {
     localStorage.setItem("token_votacion", resultado.token)
     localStorage.setItem("asambleista_id", resultado.asambleista?.id || "")
     localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
+    localStorage.setItem("asamblea_id", resultado.asamblea?.id || "")
     setToken(resultado.token)
     setAsambleistaId(resultado.asambleista?.id || "")
     setAsambleistaNombre(resultado.asambleista?.nombre || "")
+    setAsambleaIdAcceso(resultado.asamblea?.id || "")
     alert(t("Acceso concedido", "Access granted"))
     await cargarVotacionActiva()
   }
@@ -313,7 +320,7 @@ export default function AsambleistaPage() {
                   Voto electrónico
                 </p>
                 <h1 className="mt-1 truncate text-lg font-black">
-                {asambleaId
+                {asambleaActivaId
                   ? organizacionAsamblea || `Asamblea ${anioAsamblea}`
                   : "Sin asamblea activa"}
               </h1>

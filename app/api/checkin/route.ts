@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     let queryAsamblea = supabaseAdmin
       .from("asambleas")
-      .select("id")
+      .select("id, organizacion, anio, lugar, estado")
       .in("estado", ["abierta", "receso"])
 
     if (organizacionId) {
@@ -172,6 +172,13 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       token: tokenGuardado.token_hash,
+      asamblea: {
+        id: asamblea.id,
+        organizacion: asamblea.organizacion,
+        anio: asamblea.anio,
+        lugar: asamblea.lugar,
+        estado: asamblea.estado,
+      },
       asambleista: {
         id: asambleista.id,
         nombre: asambleista.nombre,
