@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { generarReporteCierreAsamblea } from "@/lib/reporteAsamblea"
+import { generarReporteCierreAsamblea, type FirmasCierreAsamblea } from "@/lib/reporteAsamblea"
 
 type AsambleaContextValue = ReturnType<typeof useAsambleaState>
 
@@ -209,7 +209,7 @@ function useAsambleaState() {
     await cargarAsambleaActiva()
   }
 
-  const cerrarAsamblea = async () => {
+  const cerrarAsamblea = async (firmas: FirmasCierreAsamblea = {}) => {
     if (!asambleaId) {
       alert("No hay asamblea activa")
       return false
@@ -247,7 +247,7 @@ function useAsambleaState() {
     }
 
     try {
-      await generarReporteCierreAsamblea(asambleaId)
+      await generarReporteCierreAsamblea(asambleaId, firmas)
     } catch (reporteError) {
       cerrarAsambleaLocal()
       alert(

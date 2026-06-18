@@ -10,6 +10,7 @@ import {
   ResultadoOficialActualizado,
   type ResultadoManualActualizado,
 } from "@/components/VotosManualesPanel"
+import { SignaturePad } from "@/components/SignaturePad"
 import { supabase } from "@/lib/supabaseClient"
 import {
   calcularNecesarios,
@@ -90,6 +91,10 @@ export default function Moderador() {
   } | null>(null)
   const [cargandoCertificacion, setCargandoCertificacion] = useState(false)
   const [modalCertificacionAbierto, setModalCertificacionAbierto] = useState(false)
+  const [modalFirmasAbierto, setModalFirmasAbierto] = useState(false)
+  const [firmaPresidente, setFirmaPresidente] = useState<string | null>(null)
+  const [firmaEscrutinio, setFirmaEscrutinio] = useState<string | null>(null)
+  const [cerrandoConFirmas, setCerrandoConFirmas] = useState(false)
   const formularioVotacionRef = useRef<HTMLDivElement | null>(null)
   const ultimaCertificacionMostradaRef = useRef<string | null>(null)
 
@@ -550,9 +555,21 @@ export default function Moderador() {
   }
 
   const cerrarAsambleaYActualizar = async () => {
-    const cerrada = await cerrarAsamblea()
+    setFirmaPresidente(null)
+    setFirmaEscrutinio(null)
+    setModalFirmasAbierto(true)
+  }
+
+  const confirmarCierreConFirmas = async () => {
+    setCerrandoConFirmas(true)
+    const cerrada = await cerrarAsamblea({
+      presidente: firmaPresidente,
+      presidenteEscrutinio: firmaEscrutinio,
+    })
+    setCerrandoConFirmas(false)
 
     if (cerrada) {
+      setModalFirmasAbierto(false)
       setMociones([])
       await cargarVotacionActiva()
     }
@@ -560,6 +577,53 @@ export default function Moderador() {
 
   return (
     <main className="min-h-screen bg-[#f4f6f1] p-6">
+      {modalFirmasAbierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6f5b1d]">
+              Cierre de asamblea
+            </p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">
+              Firmas para el reporte final
+            </h2>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              Estas firmas son temporeras. Se insertan en el PDF y no se guardan en la base de datos.
+            </p>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <SignaturePad
+                label="Presidente del Comité de Escrutinio"
+                onChange={setFirmaEscrutinio}
+              />
+              <SignaturePad label="Presidente" onChange={setFirmaPresidente} />
+            </div>
+
+            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+              Al confirmar, se cerrarán los trabajos, se hará checkout de los presentes y se generará el PDF.
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={cerrandoConFirmas}
+                onClick={() => setModalFirmasAbierto(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={cerrandoConFirmas || !firmaPresidente || !firmaEscrutinio}
+                onClick={confirmarCierreConFirmas}
+                className="bg-[#16382f] hover:bg-[#0f2b24]"
+              >
+                {cerrandoConFirmas ? "Cerrando..." : "Cerrar asamblea y generar PDF"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalCertificacionAbierto && certificacionEscrutinio && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
           <div className="w-full max-w-2xl rounded-xl border border-emerald-200 bg-white p-6 shadow-2xl">

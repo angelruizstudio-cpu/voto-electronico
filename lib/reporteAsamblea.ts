@@ -56,6 +56,11 @@ type PdfConAutoTable = jsPDF & {
   }
 }
 
+export type FirmasCierreAsamblea = {
+  presidente?: string | null
+  presidenteEscrutinio?: string | null
+}
+
 const mostrarResultado = (v: VotacionReporte) => {
   if (v.resultado === "electo_por_sorteo") {
     return `Electo por sorteo físico${v.ganadorNombre ? `: ${v.ganadorNombre}` : ""}`
@@ -275,7 +280,10 @@ const agregarActaElecciones = (
   return yActual
 }
 
-export async function generarReporteCierreAsamblea(asambleaId: string) {
+export async function generarReporteCierreAsamblea(
+  asambleaId: string,
+  firmas: FirmasCierreAsamblea = {}
+) {
   const { data: asamblea, error: errorAsamblea } = await supabase
     .from("asambleas")
     .select("*")
@@ -473,13 +481,27 @@ export async function generarReporteCierreAsamblea(asambleaId: string) {
 
   const firmasY = agregarActaElecciones(doc, votaciones, siguienteY)
 
-  doc.text("Firmas oficiales", 14, firmasY + 20)
+  if (firmasY > 225) {
+    doc.addPage()
+  }
 
-  doc.line(14, firmasY + 35, 90, firmasY + 35)
-  doc.text("Presidente Comité de Escrutinio", 14, firmasY + 42)
+  const inicioFirmas = firmasY > 225 ? 20 : firmasY + 20
 
-  doc.line(110, firmasY + 35, 190, firmasY + 35)
-  doc.text("Presidente", 110, firmasY + 42)
+  doc.text("Firmas oficiales", 14, inicioFirmas)
+
+  if (firmas.presidenteEscrutinio) {
+    doc.addImage(firmas.presidenteEscrutinio, "PNG", 20, inicioFirmas + 4, 58, 22)
+  }
+
+  doc.line(14, inicioFirmas + 35, 90, inicioFirmas + 35)
+  doc.text("Presidente Comité de Escrutinio", 14, inicioFirmas + 42)
+
+  if (firmas.presidente) {
+    doc.addImage(firmas.presidente, "PNG", 116, inicioFirmas + 4, 58, 22)
+  }
+
+  doc.line(110, inicioFirmas + 35, 190, inicioFirmas + 35)
+  doc.text("Presidente", 110, inicioFirmas + 42)
 
   doc.save(
     `Reporte_Cierre_Asamblea_${asambleaReporte.anio}_${nombreArchivoSeguro(
