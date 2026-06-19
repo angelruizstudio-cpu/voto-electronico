@@ -129,7 +129,7 @@ export default function OficinaRegionalPage() {
       SENT_TEMPORAL_504: "Sent tuvo un error temporal 504; intenta reenviar más tarde",
     }
 
-    if (data.credencialEmail) {
+    if (data.credencialEmail && (data.credencialEmail.enviado || data.credencialEmail.error)) {
       const errorEmail =
         data.credencialEmail.error && erroresEmail[data.credencialEmail.error]
           ? erroresEmail[data.credencialEmail.error]
@@ -142,7 +142,7 @@ export default function OficinaRegionalPage() {
       )
     }
 
-    if (data.credencialSms) {
+    if (data.credencialSms && (data.credencialSms.enviado || data.credencialSms.error)) {
       const errorSms =
         data.credencialSms.error && erroresSms[data.credencialSms.error]
           ? erroresSms[data.credencialSms.error]
@@ -158,13 +158,18 @@ export default function OficinaRegionalPage() {
     return avisosEnvio
   }
 
-  const activarCredencial = async (id: string, nombre: string) => {
+  const activarCredencial = async (id: string, nombre: string, estaHabilitado = false) => {
     if (
       !window.confirm(
-        t(
-          `¿Activar y enviar la credencial de ${nombre}?`,
-          `Activate and send ${nombre}'s credential?`
-        )
+        estaHabilitado
+          ? t(
+              `¿Reenviar la credencial de ${nombre}?`,
+              `Resend ${nombre}'s credential?`
+            )
+          : t(
+              `¿Activar y enviar la credencial de ${nombre}?`,
+              `Activate and send ${nombre}'s credential?`
+            )
       )
     ) {
       return
@@ -190,7 +195,15 @@ export default function OficinaRegionalPage() {
     }
 
     await cargarAsambleistas()
-    alert([t("Credencial activada", "Credential activated"), ...describirEnvioCredencial(data)].join("\n"))
+    alert(
+      [
+        t(
+          "Registro, pago y habilitación completados",
+          "Registration, payment, and approval completed"
+        ),
+        ...describirEnvioCredencial(data),
+      ].join("\n")
+    )
   }
 
   const parsearLineaCsv = (linea: string) => {
@@ -479,7 +492,7 @@ export default function OficinaRegionalPage() {
 
     alert(
       [
-        `Asambleísta creado: ${data.asambleista.credencial}`,
+        `Asambleísta creado y activado: ${data.asambleista.credencial}`,
         ...avisosEnvio,
       ].join("\n")
     )
@@ -591,7 +604,7 @@ export default function OficinaRegionalPage() {
             disabled={cargando}
             className="mt-4 rounded-lg bg-[#16382f] px-4 py-2.5 font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
           >
-            {t("Crear asambleísta", "Create assembly member")}
+            {t("Crear y activar asambleísta", "Create and activate assembly member")}
           </button>
         </div>
 
@@ -770,57 +783,13 @@ export default function OficinaRegionalPage() {
                     </select>
 
                     <button
-                      disabled={cargando || a.registrado}
-                      onClick={() =>
-                        actualizarAsambleista(a.id, { registrado: true })
-                      }
-                      className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Registrar", "Register")}
-                    </button>
-
-                    <button
-                      disabled={cargando || a.pago_confirmado}
-                      onClick={() =>
-                        actualizarAsambleista(a.id, {
-                          pago_confirmado: true,
-                        })
-                      }
-                      className="h-10 rounded-lg bg-emerald-600 px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Confirmar pago", "Confirm payment")}
-                    </button>
-
-                    <button
-                      disabled={
-                        cargando ||
-                        a.habilitado ||
-                        !a.registrado ||
-                        !a.pago_confirmado
-                      }
-                      onClick={() =>
-                        actualizarAsambleista(a.id, {
-                          habilitado: true,
-                        })
-                      }
-                      className="h-10 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
-                    >
-                      {t("Habilitar", "Approve")}
-                    </button>
-
-                    <button
-                      disabled={
-                        cargando ||
-                        (!a.email && !a.telefono) ||
-                        Boolean(
-                          (!a.email || a.credencial_email_enviado_en) &&
-                            (!a.telefono || a.credencial_sms_enviado_en)
-                        )
-                      }
-                      onClick={() => activarCredencial(a.id, a.nombre)}
+                      disabled={cargando}
+                      onClick={() => activarCredencial(a.id, a.nombre, a.habilitado)}
                       className="h-10 rounded-lg bg-[#8a6f1f] px-3 text-sm font-bold text-white disabled:opacity-40"
                     >
-                      {t("Activar credencial", "Activate credential")}
+                      {a.habilitado
+                        ? t("Reenviar credencial", "Resend credential")
+                        : t("Activar credencial", "Activate credential")}
                     </button>
 
                     {a.dispositivo_alerta_en ? (

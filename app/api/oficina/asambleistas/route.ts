@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { randomInt } from "crypto"
 import { createClient } from "@supabase/supabase-js"
 import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
@@ -45,12 +46,57 @@ function crearSupabaseAdmin() {
   )
 }
 
-function generarIniciales(nombre: string) {
-  const partes = nombre.trim().split(/\s+/)
-  const inicialNombre = partes[0]?.charAt(0).toUpperCase() || "X"
-  const inicialApellido = partes[1]?.charAt(0).toUpperCase() || "X"
+const CARACTERES_CREDENCIAL = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
-  return `${inicialNombre}${inicialApellido}`
+function generarSegmentoCredencial(largo: number) {
+  return Array.from({ length: largo })
+    .map(() => CARACTERES_CREDENCIAL[randomInt(0, CARACTERES_CREDENCIAL.length)])
+    .join("")
+}
+
+function generarCredencialCandidata(codigoTenant: string) {
+  const prefijo = String(codigoTenant || "KTG")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 5) || "KTG"
+
+  return `${prefijo}-${generarSegmentoCredencial(3)}-${generarSegmentoCredencial(3)}`
+}
+
+async function generarCredencialUnica(
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
+  asambleaId: string,
+  codigoTenant: string
+) {
+  for (let intento = 0; intento < 12; intento += 1) {
+    const credencial = generarCredencialCandidata(codigoTenant)
+    const { data, error } = await supabaseAdmin
+      .from("asambleistas")
+      .select("id")
+      .eq("asamblea_id", asambleaId)
+      .eq("credencial", credencial)
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    if (!data) {
+      return credencial
+    }
+  }
+
+  throw new Error("NO_SE_PUDO_GENERAR_CREDENCIAL_UNICA")
+}
+
+function obtenerUrlAsambleista(tenant: ReturnType<typeof obtenerTenantSesion>) {
+  const baseUrl = (process.env.APP_BASE_URL || "https://voto.kingdomtechgroup.org").replace(
+    /\/+$/,
+    ""
+  )
+  const org = encodeURIComponent(tenant.codigoAcceso || tenant.slug)
+
+  return `${baseUrl}/votar?org=${org}`
 }
 
 function limpiarEmail(email: unknown) {
@@ -133,11 +179,13 @@ async function enviarCredencialPorEmail({
   nombre,
   credencial,
   metodoVoto,
+  enlaceAsambleista,
 }: {
   email: string
   nombre: string
   credencial: string
   metodoVoto: "electronico" | "manual"
+  enlaceAsambleista: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!email) {
     return { enviado: false }
@@ -147,6 +195,7 @@ async function enviarCredencialPorEmail({
   const from = process.env.RESEND_FROM_EMAIL || "Asamblea <onboarding@resend.dev>"
   const nombreHtml = escaparHtml(nombre)
   const credencialHtml = escaparHtml(credencial)
+  const enlaceAsambleistaHtml = escaparHtml(enlaceAsambleista)
   const esManual = metodoVoto === "manual"
   const qrPayload = `VOTOAPP:${credencial}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=18&data=${encodeURIComponent(qrPayload)}`
@@ -160,14 +209,18 @@ async function enviarCredencialPorEmail({
     to: [email],
     subject: esManual ? "Credencial de identificación de asamblea" : "Credencial de asamblea",
     text: esManual
-      ? `Saludos ${nombre},\n\nSu credencial de identificación para check-in/check-out en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta. Su voto será emitido por balota manual según el proceso de la asamblea.\n`
-      : `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
+      ? `Saludos ${nombre},\n\nSu credencial de identificación para check-in/check-out en la asamblea es: ${credencial}\n\nEnlace de asambleísta: ${enlaceAsambleista}\n\nPresente esta credencial o el codigo QR en la puerta. Su voto será emitido por balota manual según el proceso de la asamblea.\n`
+      : `Saludos ${nombre},\n\nSu credencial para hacer check-in en la asamblea es: ${credencial}\n\nEnlace de asambleísta: ${enlaceAsambleista}\n\nPresente esta credencial o el codigo QR en la puerta para agilizar su check-in/check-out. El token de votacion se genera aparte durante el check-in.\n`,
     html: `
       <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
         <h1 style="font-size: 22px;">${esManual ? "Credencial de identificación de asamblea" : "Credencial de asamblea"}</h1>
         <p>Saludos ${nombreHtml},</p>
         <p>Su credencial ${esManual ? "de identificación para check-in/check-out" : "para hacer check-in en la asamblea"} es:</p>
         <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.08em;">${credencialHtml}</p>
+        <p>
+          Enlace de asambleísta:<br />
+          <a href="${enlaceAsambleistaHtml}" style="color: #0f5132; font-weight: 700;">${enlaceAsambleistaHtml}</a>
+        </p>
         <div style="margin: 18px 0; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #ffffff;">
           <img src="${qrUrl}" width="220" height="220" alt="Codigo QR de credencial ${credencialHtml}" style="display: block;" />
         </div>
@@ -438,6 +491,7 @@ export async function POST(req: NextRequest) {
   const emailLimpio = limpiarEmail(email)
   const telefonoLimpio = limpiarTelefono(telefono)
   const metodoVotoLimpio = metodoVoto === "manual" ? "manual" : "electronico"
+  const activarAhora = enviarCredenciales !== false
 
   if (!asambleaId || !nombreLimpio) {
     return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
@@ -453,7 +507,7 @@ export async function POST(req: NextRequest) {
 
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
-  const anio = new Date().getFullYear().toString().slice(-2)
+  const enlaceAsambleista = obtenerUrlAsambleista(tenant)
 
   const { data: asambleaPermitida, error: errorAsambleaPermitida } = await supabaseAdmin
     .from("asambleas")
@@ -469,17 +523,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
   }
 
-  const { count, error: errorCount } = await supabaseAdmin
-    .from("asambleistas")
-    .select("*", { count: "exact", head: true })
-    .eq("asamblea_id", asambleaId)
+  let credencial = ""
 
-  if (errorCount) {
-    return NextResponse.json({ ok: false, error: errorCount.message }, { status: 500 })
+  try {
+    credencial = await generarCredencialUnica(
+      supabaseAdmin,
+      asambleaId,
+      tenant.codigoAcceso || tenant.slug
+    )
+  } catch (errorCredencial) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          errorCredencial instanceof Error
+            ? errorCredencial.message
+            : "ERROR_GENERAR_CREDENCIAL",
+      },
+      { status: 500 }
+    )
   }
-
-  const secuencia = String((count || 0) + 1).padStart(2, "0")
-  const credencial = `${generarIniciales(nombreLimpio)}${anio}-${secuencia}`
 
   const { data, error } = await supabaseAdmin
     .from("asambleistas")
@@ -492,9 +555,10 @@ export async function POST(req: NextRequest) {
       metodo_voto: metodoVotoLimpio,
       iglesia: String(iglesia || "").trim(),
       distrito: String(distrito || "").trim(),
-      registrado: false,
-      pago_confirmado: false,
-      habilitado: false,
+      registrado: activarAhora,
+      pago_confirmado: activarAhora,
+      habilitado: activarAhora,
+      habilitado_en: activarAhora ? new Date().toISOString() : null,
       presente: false,
     })
     .select("*")
@@ -515,6 +579,7 @@ export async function POST(req: NextRequest) {
           nombre: nombreLimpio,
           credencial,
           metodoVoto: metodoVotoLimpio,
+          enlaceAsambleista,
         })
   const resultadoSms =
     enviarCredenciales === false
@@ -648,12 +713,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
     }
 
+    const enlaceAsambleista = obtenerUrlAsambleista(tenant)
     const resultadoEmail = await enviarCredencialPorEmail({
       email: asambleistaActual.email || "",
       nombre: asambleistaActual.nombre,
       credencial: asambleistaActual.credencial,
       metodoVoto:
         asambleistaActual.metodo_voto === "manual" ? "manual" : "electronico",
+      enlaceAsambleista,
     })
     const resultadoSms = await enviarCredencialPorSms({
       telefono: asambleistaActual.telefono || "",
@@ -664,6 +731,10 @@ export async function PATCH(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from("asambleistas")
       .update({
+        registrado: true,
+        pago_confirmado: true,
+        habilitado: true,
+        habilitado_en: new Date().toISOString(),
         credencial_email_enviado_en: resultadoEmail.enviado
           ? new Date().toISOString()
           : null,
