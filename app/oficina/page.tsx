@@ -50,7 +50,7 @@ export default function OficinaRegionalPage() {
       return
     }
 
-    const res = await fetch("/api/oficina/asambleistas")
+    const res = await fetch(`/api/oficina/asambleistas?asambleaId=${encodeURIComponent(asambleaId)}`)
     const data = await res.json()
 
     if (!res.ok || !data.ok) {

@@ -441,15 +441,24 @@ export async function GET(req: NextRequest) {
 
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
+  const asambleaIdParam = req.nextUrl.searchParams.get("asambleaId")
 
-  const { data: asambleasActivas, error: errorAsamblea } = await supabaseAdmin
+  let queryAsamblea = supabaseAdmin
     .from("asambleas")
-    .select("id, organizacion_id, organizacion_slug")
+    .select("id, organizacion_id, organizacion_slug, estado")
     .in("estado", ["abierta", "receso"])
 
-  const asambleaActiva = (asambleasActivas || []).find((asamblea) =>
-    asambleaPerteneceAlTenant(tenant, asamblea)
-  )
+  if (asambleaIdParam) {
+    queryAsamblea = queryAsamblea.eq("id", asambleaIdParam)
+  } else if (tenant.id) {
+    queryAsamblea = queryAsamblea.eq("organizacion_id", tenant.id)
+  } else {
+    queryAsamblea = queryAsamblea.eq("organizacion_slug", tenant.slug)
+  }
+
+  const { data: asambleaActiva, error: errorAsamblea } = await queryAsamblea
+    .limit(1)
+    .maybeSingle()
 
   if (errorAsamblea) {
     return NextResponse.json({ ok: false, error: errorAsamblea.message }, { status: 500 })
@@ -457,6 +466,10 @@ export async function GET(req: NextRequest) {
 
   if (!asambleaActiva) {
     return NextResponse.json({ ok: true, asambleistas: [] })
+  }
+
+  if (!asambleaPerteneceAlTenant(tenant, asambleaActiva)) {
+    return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
   }
 
   const { data, error } = await supabaseAdmin
