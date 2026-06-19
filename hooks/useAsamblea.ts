@@ -174,46 +174,31 @@ function useAsambleaState() {
   const abrirAsamblea = async () => {
     if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
-    let buscarActiva = supabase
-      .from("asambleas")
-      .select("id, organizacion, anio, lugar, estado")
-      .in("estado", ["abierta", "receso"])
-
-    if (organizacionIdSesion) {
-      buscarActiva = buscarActiva.eq("organizacion_id", organizacionIdSesion)
-    } else if (organizacionSlugSesion) {
-      buscarActiva = buscarActiva.eq("organizacion_slug", organizacionSlugSesion)
-    }
-
-    const { data: asambleaExistente, error: errorBuscarActiva } = await buscarActiva
-      .limit(1)
-      .maybeSingle()
-
-    if (errorBuscarActiva) {
-      alert(errorBuscarActiva.message)
-      return
-    }
-
-    if (asambleaExistente) {
-      alert(
-        `Ya existe una asamblea activa para esta organización: ${asambleaExistente.organizacion} ${asambleaExistente.anio} - ${asambleaExistente.lugar}. Debes cerrarla antes de crear otra.`
-      )
-      return
-    }
-
-    const { error } = await supabase.from("asambleas").insert([
-      {
-        organizacion_id: organizacionIdSesion,
-        organizacion_slug: organizacionSlugSesion,
-        organizacion: nuevaOrganizacion.trim(),
-        anio: Number(nuevoAnio),
-        lugar: nuevoLugar.trim(),
-        estado: "abierta",
+    const res = await fetch("/api/asambleas", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ])
+      body: JSON.stringify({
+        organizacion: nuevaOrganizacion.trim(),
+        anio: nuevoAnio.trim(),
+        lugar: nuevoLugar.trim(),
+      }),
+    })
+    const data = await res.json().catch(() => null)
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok || !data?.ok) {
+      if (data?.error === "ASAMBLEA_ACTIVA_EXISTE") {
+        const asambleaExistente = data.asamblea
+        alert(
+          asambleaExistente
+            ? `Ya existe una asamblea activa para esta organización: ${asambleaExistente.organizacion} ${asambleaExistente.anio} - ${asambleaExistente.lugar}. Debes cerrarla antes de crear otra.`
+            : "Ya existe una asamblea activa para esta organización. Debes cerrarla antes de crear otra."
+        )
+        return
+      }
+
+      alert(data?.error || "No se pudo crear la asamblea")
       return
     }
 
