@@ -45,6 +45,11 @@ export default function OficinaRegionalPage() {
   const [csvProcesando, setCsvProcesando] = useState(false)
 
   const cargarAsambleistas = useCallback(async () => {
+    if (!asambleaId) {
+      setAsambleistas([])
+      return
+    }
+
     const res = await fetch("/api/oficina/asambleistas")
     const data = await res.json()
 
@@ -54,7 +59,7 @@ export default function OficinaRegionalPage() {
     }
 
     setAsambleistas(data.asambleistas || [])
-  }, [t])
+  }, [asambleaId, t])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -545,6 +550,15 @@ export default function OficinaRegionalPage() {
           </div>
         </header>
 
+        {!asambleaId && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800 shadow-sm">
+            {t(
+              "No hay una asamblea activa. Crea o inicia una asamblea antes de registrar participantes.",
+              "There is no active assembly. Create or start an assembly before registering participants."
+            )}
+          </div>
+        )}
+
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">{t("Nuevo asambleísta", "New assembly member")}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-6">
@@ -601,7 +615,7 @@ export default function OficinaRegionalPage() {
 
           <button
             onClick={crearAsambleista}
-            disabled={cargando}
+            disabled={cargando || !asambleaId}
             className="mt-4 rounded-lg bg-[#16382f] px-4 py-2.5 font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
           >
             {t("Crear y activar asambleísta", "Create and activate assembly member")}
@@ -637,7 +651,7 @@ export default function OficinaRegionalPage() {
               <button
                 type="button"
                 onClick={importarCsv}
-                disabled={csvProcesando || cargando || !csvArchivo}
+                disabled={csvProcesando || cargando || !csvArchivo || !asambleaId}
                 className="mt-3 w-full rounded-lg bg-[#16382f] px-4 py-2.5 font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
               >
                 {csvProcesando
