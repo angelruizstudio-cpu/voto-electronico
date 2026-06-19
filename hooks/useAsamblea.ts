@@ -174,18 +174,32 @@ function useAsambleaState() {
   const abrirAsamblea = async () => {
     if (!nuevaOrganizacion.trim() || !nuevoAnio.trim() || !nuevoLugar.trim()) return
 
-    let cerrarActivas = supabase
+    let buscarActiva = supabase
       .from("asambleas")
-      .update({ estado: "cerrada" })
+      .select("id, organizacion, anio, lugar, estado")
       .in("estado", ["abierta", "receso"])
 
     if (organizacionIdSesion) {
-      cerrarActivas = cerrarActivas.eq("organizacion_id", organizacionIdSesion)
+      buscarActiva = buscarActiva.eq("organizacion_id", organizacionIdSesion)
     } else if (organizacionSlugSesion) {
-      cerrarActivas = cerrarActivas.eq("organizacion_slug", organizacionSlugSesion)
+      buscarActiva = buscarActiva.eq("organizacion_slug", organizacionSlugSesion)
     }
 
-    await cerrarActivas
+    const { data: asambleaExistente, error: errorBuscarActiva } = await buscarActiva
+      .limit(1)
+      .maybeSingle()
+
+    if (errorBuscarActiva) {
+      alert(errorBuscarActiva.message)
+      return
+    }
+
+    if (asambleaExistente) {
+      alert(
+        `Ya existe una asamblea activa para esta organización: ${asambleaExistente.organizacion} ${asambleaExistente.anio} - ${asambleaExistente.lugar}. Debes cerrarla antes de crear otra.`
+      )
+      return
+    }
 
     const { error } = await supabase.from("asambleas").insert([
       {

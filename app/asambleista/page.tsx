@@ -55,6 +55,19 @@ const MENSAJES_NOMINACION: Record<string, string> = {
     "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
 }
 
+function obtenerOrganizacionDesdeNavegador(fallback: string) {
+  if (typeof window === "undefined") return fallback
+
+  const orgUrl = new URLSearchParams(window.location.search).get("org")?.trim()
+
+  if (orgUrl) {
+    localStorage.setItem("organizacion_slug", orgUrl)
+    return orgUrl
+  }
+
+  return localStorage.getItem("organizacion_slug") || fallback
+}
+
 export default function AsambleistaPage() {
   const { t } = useI18n()
   const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea, organizacionSlugSesion } =
@@ -148,7 +161,7 @@ export default function AsambleistaPage() {
     const resultado = await hacerCheckin(
       credencial.trim().toUpperCase(),
       getDeviceId(),
-      organizacionSlugSesion
+      obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
     )
     setCargando(false)
 
