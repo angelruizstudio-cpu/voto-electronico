@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { createHash } from "crypto"
 import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
 
 
+function hashTokenAcceso(token: string) {
+  return createHash("sha256").update(token).digest("hex")
+}
 
 export async function POST(req: Request) {
   try {
@@ -10,13 +14,14 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const { credencial, deviceId, orgSlug } = await req.json()
+    const { credencial, deviceId, orgSlug, accessToken } = await req.json()
 
-    if (!credencial || !deviceId) {
+    if ((!credencial && !accessToken) || !deviceId) {
       return NextResponse.json({ ok: false, error: "FALTA_CREDENCIAL" }, { status: 400 })
     }
 
     const credencialNormalizada = String(credencial).trim().toUpperCase()
+    const accessTokenLimpio = String(accessToken || "").trim()
     const deviceIdNormalizado = String(deviceId).trim()
     const userAgent = req.headers.get("user-agent") || "unknown"
     const forwardedFor = req.headers.get("x-forwarded-for")
@@ -38,29 +43,84 @@ export async function POST(req: Request) {
       organizacionId = organizacion?.id || null
     }
 
-    let queryAsamblea = supabaseAdmin
-      .from("asambleas")
-      .select("id, organizacion, anio, lugar, estado")
-      .in("estado", ["abierta", "receso"])
+    let asamblea: any = null
+    let asambleista: any = null
 
-    if (organizacionId) {
-      queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
-    } else if (orgSlugLimpio) {
-      queryAsamblea = queryAsamblea.eq("organizacion_slug", orgSlugLimpio)
+    if (accessTokenLimpio) {
+      const { data: enlaceAcceso, error: errorEnlace } = await supabaseAdmin
+        .from("asambleista_access_links")
+        .select("id, asamblea_id, asambleista_id, activo, expira_en")
+        .eq("token_hash", hashTokenAcceso(accessTokenLimpio))
+        .eq("activo", true)
+        .maybeSingle()
+
+      if (errorEnlace) {
+        return NextResponse.json({ ok: false, error: errorEnlace.message }, { status: 500 })
+      }
+
+      if (!enlaceAcceso) {
+        return NextResponse.json({ ok: false, error: "TOKEN_ACCESO_INVALIDO" }, { status: 404 })
+      }
+
+      if (enlaceAcceso.expira_en && new Date(enlaceAcceso.expira_en).getTime() < Date.now()) {
+        return NextResponse.json({ ok: false, error: "TOKEN_ACCESO_EXPIRADO" }, { status: 403 })
+      }
+
+      const { data: asambleaPorToken } = await supabaseAdmin
+        .from("asambleas")
+        .select("id, organizacion, anio, lugar, estado, organizacion_id, organizacion_slug")
+        .eq("id", enlaceAcceso.asamblea_id)
+        .maybeSingle()
+
+      if (!asambleaPorToken || !["abierta", "receso"].includes(asambleaPorToken.estado)) {
+        return NextResponse.json({ ok: false, error: "NO_HAY_ASAMBLEA" }, { status: 400 })
+      }
+
+      if (
+        (organizacionId && asambleaPorToken.organizacion_id !== organizacionId) ||
+        (!organizacionId && orgSlugLimpio && asambleaPorToken.organizacion_slug !== orgSlugLimpio)
+      ) {
+        return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
+      }
+
+      const { data: asambleistaPorToken } = await supabaseAdmin
+        .from("asambleistas")
+        .select("id, nombre, credencial, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
+        .eq("id", enlaceAcceso.asambleista_id)
+        .eq("asamblea_id", asambleaPorToken.id)
+        .maybeSingle()
+
+      asamblea = asambleaPorToken
+      asambleista = asambleistaPorToken
+    } else {
+      let queryAsamblea = supabaseAdmin
+        .from("asambleas")
+        .select("id, organizacion, anio, lugar, estado")
+        .in("estado", ["abierta", "receso"])
+
+      if (organizacionId) {
+        queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
+      } else if (orgSlugLimpio) {
+        queryAsamblea = queryAsamblea.eq("organizacion_slug", orgSlugLimpio)
+      }
+
+      const { data: asambleaPorCredencial } = await queryAsamblea.maybeSingle()
+
+      if (!asambleaPorCredencial) {
+        return NextResponse.json({ ok: false, error: "NO_HAY_ASAMBLEA" }, { status: 400 })
+      }
+
+      const { data: asambleistaPorCredencial } = await supabaseAdmin
+        .from("asambleistas")
+        .select("id, nombre, credencial, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
+        .eq("asamblea_id", asambleaPorCredencial.id)
+        .eq("credencial", credencialNormalizada)
+        .maybeSingle()
+
+      asamblea = asambleaPorCredencial
+      asambleista = asambleistaPorCredencial
     }
 
-    const { data: asamblea } = await queryAsamblea.maybeSingle()
-
-    if (!asamblea) {
-      return NextResponse.json({ ok: false, error: "NO_HAY_ASAMBLEA" }, { status: 400 })
-    }
-
-    const { data: asambleista } = await supabaseAdmin
-      .from("asambleistas")
-      .select("id, nombre, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
-      .eq("asamblea_id", asamblea.id)
-      .eq("credencial", credencialNormalizada)
-      .single()
     if (!asambleista) {
       return NextResponse.json(
         { ok: false, error: "NO_EXISTE" },
@@ -95,6 +155,8 @@ export async function POST(req: Request) {
       )
     }
 
+    const credencialAuditada = asambleista.credencial || credencialNormalizada
+
     if (!asambleista.dispositivo_autorizado_id) {
       await supabaseAdmin
         .from("asambleistas")
@@ -111,7 +173,7 @@ export async function POST(req: Request) {
       await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
         asamblea_id: asamblea.id,
         asambleista_id: asambleista.id,
-        credencial: credencialNormalizada,
+        credencial: credencialAuditada,
         dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
         dispositivo_intento_id: deviceIdNormalizado,
         ip,
@@ -141,6 +203,13 @@ export async function POST(req: Request) {
         checkin_en: new Date().toISOString(),
       })
       .eq("id", asambleista.id)
+
+    if (accessTokenLimpio) {
+      await supabaseAdmin
+        .from("asambleista_access_links")
+        .update({ usado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() })
+        .eq("token_hash", hashTokenAcceso(accessTokenLimpio))
+    }
 
     const token = crypto.randomUUID().replace(/-/g, "")
 

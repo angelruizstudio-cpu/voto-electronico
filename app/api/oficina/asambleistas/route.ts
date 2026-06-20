@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { randomInt } from "crypto"
+import { createHash, randomInt, randomUUID } from "crypto"
 import { createClient } from "@supabase/supabase-js"
 import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
 
@@ -97,6 +97,56 @@ function obtenerUrlAsambleista(tenant: ReturnType<typeof obtenerTenantSesion>) {
   const org = encodeURIComponent(tenant.codigoAcceso || tenant.slug)
 
   return `${baseUrl}/votar?org=${org}`
+}
+
+function crearTokenAccesoAsambleista() {
+  return `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`
+}
+
+function hashTokenAcceso(token: string) {
+  return createHash("sha256").update(token).digest("hex")
+}
+
+async function obtenerUrlAsambleistaAutomatica({
+  supabaseAdmin,
+  tenant,
+  asambleaId,
+  asambleistaId,
+}: {
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>
+  tenant: ReturnType<typeof obtenerTenantSesion>
+  asambleaId: string
+  asambleistaId: string
+}) {
+  const urlManual = obtenerUrlAsambleista(tenant)
+  const token = crearTokenAccesoAsambleista()
+  const tokenHash = hashTokenAcceso(token)
+
+  const { error } = await supabaseAdmin.from("asambleista_access_links").upsert(
+    {
+      asamblea_id: asambleaId,
+      asambleista_id: asambleistaId,
+      token_hash: tokenHash,
+      activo: true,
+      expira_en: null,
+      actualizado_en: new Date().toISOString(),
+    },
+    {
+      onConflict: "asamblea_id,asambleista_id",
+    }
+  )
+
+  if (error) {
+    console.error("[Oficina] No se pudo generar enlace automatico de asambleista:", {
+      asambleaId,
+      asambleistaId,
+      error: error.message,
+    })
+
+    return urlManual
+  }
+
+  return `${urlManual}&access=${encodeURIComponent(token)}`
 }
 
 function limpiarEmail(email: unknown) {
@@ -520,7 +570,6 @@ export async function POST(req: NextRequest) {
 
   const supabaseAdmin = crearSupabaseAdmin()
   const tenant = obtenerTenantSesion(req)
-  const enlaceAsambleista = obtenerUrlAsambleista(tenant)
 
   const { data: asambleaPermitida, error: errorAsambleaPermitida } = await supabaseAdmin
     .from("asambleas")
@@ -583,6 +632,13 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+
+  const enlaceAsambleista = await obtenerUrlAsambleistaAutomatica({
+    supabaseAdmin,
+    tenant,
+    asambleaId,
+    asambleistaId: data.id,
+  })
 
   const resultadoEmail =
     enviarCredenciales === false
@@ -718,7 +774,7 @@ export async function PATCH(req: NextRequest) {
   if (accion === "activar_credencial") {
     const { data: asambleistaActual, error: errorActual } = await supabaseAdmin
       .from("asambleistas")
-      .select("id, nombre, credencial, email, telefono, metodo_voto")
+      .select("id, asamblea_id, nombre, credencial, email, telefono, metodo_voto")
       .eq("id", id)
       .single()
 
@@ -726,7 +782,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "NO_EXISTE" }, { status: 404 })
     }
 
-    const enlaceAsambleista = obtenerUrlAsambleista(tenant)
+    const enlaceAsambleista = await obtenerUrlAsambleistaAutomatica({
+      supabaseAdmin,
+      tenant,
+      asambleaId: asambleistaActual.asamblea_id,
+      asambleistaId: asambleistaActual.id,
+    })
     const resultadoEmail = await enviarCredencialPorEmail({
       email: asambleistaActual.email || "",
       nombre: asambleistaActual.nombre,

@@ -1,12 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
 import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
-import { hacerCheckin } from "@/lib/checkinApi"
+import { hacerCheckin, hacerCheckinAutomatico } from "@/lib/checkinApi"
 import { enviarVoto } from "@/lib/voteApi"
 import { getDeviceId } from "@/lib/deviceId"
 import { useI18n } from "@/lib/i18n"
@@ -96,6 +96,22 @@ export default function AsambleistaPage() {
   const [credencial, setCredencial] = useState("")
   const [nominacion, setNominacion] = useState("")
   const [cargando, setCargando] = useState(false)
+  const autoCheckinIntentado = useRef(false)
+
+  const guardarAcceso = useCallback((resultado: {
+    token?: string
+    asamblea?: { id?: string }
+    asambleista?: { id?: string; nombre?: string }
+  }) => {
+    localStorage.setItem("token_votacion", resultado.token || "")
+    localStorage.setItem("asambleista_id", resultado.asambleista?.id || "")
+    localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
+    localStorage.setItem("asamblea_id", resultado.asamblea?.id || "")
+    setToken(resultado.token || "")
+    setAsambleistaId(resultado.asambleista?.id || "")
+    setAsambleistaNombre(resultado.asambleista?.nombre || "")
+    setAsambleaIdAcceso(resultado.asamblea?.id || "")
+  }, [])
 
   const bloquearSesionPorRevalidacion = useCallback(() => {
     localStorage.removeItem("token_votacion")
@@ -117,6 +133,49 @@ export default function AsambleistaPage() {
       setAsambleaIdAcceso(localStorage.getItem("asamblea_id") || "")
     })
   }, [])
+
+  useEffect(() => {
+    if (autoCheckinIntentado.current || token) return
+
+    const accessToken = new URLSearchParams(window.location.search).get("access")?.trim()
+    if (!accessToken) return
+
+    autoCheckinIntentado.current = true
+    setCargando(true)
+
+    hacerCheckinAutomatico(
+      accessToken,
+      getDeviceId(),
+      obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
+    )
+      .then(async (resultado) => {
+        if (!resultado.ok) {
+          const mensajes: Record<string, string> = {
+            TOKEN_ACCESO_INVALIDO: "El enlace de acceso no es valido. Usa tu credencial o pasa por registro.",
+            TOKEN_ACCESO_EXPIRADO: "El enlace de acceso expiro. Pasa por registro para reenviar la credencial.",
+            NO_HAY_ASAMBLEA: "No hay una asamblea activa en este momento",
+            NO_EXISTE: "Credencial no encontrada",
+            NO_HABILITADO:
+              "No estas habilitado para hacer check-in. Pasa primero por la mesa de registro.",
+            VOTO_MANUAL:
+              "Tu participacion esta registrada para voto manual. Pasa por la mesa para recibir tu balota.",
+            DISPOSITIVO_REVALIDACION_REQUERIDA:
+              "Esta credencial requiere validacion nuevamente. Pase por la mesa de registro.",
+            ASAMBLEA_NO_AUTORIZADA:
+              "Este enlace no pertenece a la organizacion seleccionada.",
+            ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
+            ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
+          }
+          alert(t(mensajes[resultado.error] || "No se pudo validar el enlace", "Could not validate link"))
+          return
+        }
+
+        guardarAcceso(resultado)
+        alert(t("Acceso concedido", "Access granted"))
+        await cargarVotacionActiva()
+      })
+      .finally(() => setCargando(false))
+  }, [cargarVotacionActiva, guardarAcceso, organizacionSlugSesion, t, token])
 
   useEffect(() => {
     if (!token || !asambleistaId) return
@@ -186,14 +245,7 @@ export default function AsambleistaPage() {
     }
 
     // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
-    localStorage.setItem("token_votacion", resultado.token)
-    localStorage.setItem("asambleista_id", resultado.asambleista?.id || "")
-    localStorage.setItem("asambleista_nombre", resultado.asambleista?.nombre || "")
-    localStorage.setItem("asamblea_id", resultado.asamblea?.id || "")
-    setToken(resultado.token)
-    setAsambleistaId(resultado.asambleista?.id || "")
-    setAsambleistaNombre(resultado.asambleista?.nombre || "")
-    setAsambleaIdAcceso(resultado.asamblea?.id || "")
+    guardarAcceso(resultado)
     alert(t("Acceso concedido", "Access granted"))
     await cargarVotacionActiva()
   }
