@@ -37,24 +37,13 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("habilitado, presente, dispositivo_autorizado_id, dispositivo_alerta_en")
+      .select("habilitado, presente")
       .eq("id", tokenRow.asambleista_id)
       .eq("asamblea_id", tokenRow.asamblea_id)
       .maybeSingle()
 
     if (!asambleista?.habilitado) {
       return NextResponse.json({ ok: false, error: "NO_HABILITADO" }, { status: 403 })
-    }
-
-    if (asambleista.dispositivo_alerta_en) {
-      return NextResponse.json({ ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" }, { status: 403 })
-    }
-
-    if (
-      asambleista.dispositivo_autorizado_id &&
-      asambleista.dispositivo_autorizado_id !== String(deviceId).trim()
-    ) {
-      return NextResponse.json({ ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" }, { status: 403 })
     }
 
     if (!asambleista.presente) {
