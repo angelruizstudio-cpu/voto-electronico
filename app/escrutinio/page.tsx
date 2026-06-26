@@ -140,7 +140,12 @@ export default function EscrutinioPage() {
   const [modoEdicion, setModoEdicion] = useState(false)
   const [votacionPreferidaId, setVotacionPreferidaId] = useState<string | null>(null)
   const ultimaVotacionAbiertaRef = useRef<string | null>(null)
+  const modoEdicionRef = useRef(false)
   const { votacionId: votacionActivaId } = useVotacion(asambleaId)
+
+  useEffect(() => {
+    modoEdicionRef.current = modoEdicion
+  }, [modoEdicion])
 
   const verificarNuevaVotacionCerrada = useCallback(async () => {
     if (!asambleaId || !resultado) return
@@ -149,6 +154,7 @@ export default function EscrutinioPage() {
     const data = await res.json().catch(() => null)
 
     if (!res.ok || !data?.ok) return
+    if (modoEdicionRef.current) return
 
     const votacionCerradaMasReciente = data.votaciones?.[0]
 
@@ -189,6 +195,8 @@ export default function EscrutinioPage() {
 
     ultimaVotacionAbiertaRef.current = votacionActivaId
     queueMicrotask(() => {
+      if (modoEdicionRef.current) return
+
       setVotacionPreferidaId(votacionActivaId)
 
       if (resultado && resultado.votacionId !== votacionActivaId) {
