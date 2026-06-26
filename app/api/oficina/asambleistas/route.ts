@@ -393,10 +393,12 @@ async function enviarCredencialPorSms({
   telefono,
   nombre,
   credencial,
+  enlaceAsambleista,
 }: {
   telefono: string
   nombre: string
   credencial: string
+  enlaceAsambleista: string
 }): Promise<ResultadoEnvioCredencial> {
   if (!telefono) {
     return { enviado: false }
@@ -415,6 +417,8 @@ async function enviarCredencialPorSms({
         credencial,
         code: credencial,
         var_2: credencial,
+        enlace: enlaceAsambleista,
+        var_3: enlaceAsambleista,
       },
     },
     sandbox,
@@ -657,6 +661,7 @@ export async function POST(req: NextRequest) {
           telefono: telefonoLimpio,
           nombre: nombreLimpio,
           credencial,
+          enlaceAsambleista,
         })
 
   let asambleista = data
@@ -800,6 +805,7 @@ export async function PATCH(req: NextRequest) {
       telefono: asambleistaActual.telefono || "",
       nombre: asambleistaActual.nombre,
       credencial: asambleistaActual.credencial,
+      enlaceAsambleista,
     })
 
     const { data, error } = await supabaseAdmin
