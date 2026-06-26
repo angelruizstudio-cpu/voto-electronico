@@ -230,8 +230,6 @@ export default function EscrutinioPage() {
     setModoEdicion(false)
   }
 
-  console.log("[escrutinio] render", { tieneResultado: !!resultado, modoEdicion, asambleaId })
-
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -289,11 +287,6 @@ export default function EscrutinioPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                console.log("[escrutinio] clic editar votos manuales", {
-                  resultado,
-                  modoEdicion,
-                  votacionPreferidaId,
-                })
                 setVotacionPreferidaId(resultado.votacionId)
                 setResultado(null)
                 setCertificado(false)
