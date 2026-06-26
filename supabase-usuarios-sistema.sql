@@ -16,7 +16,7 @@ alter table public.usuarios_sistema
 alter table public.usuarios_sistema
   add constraint usuarios_sistema_roles_validos
   check (
-    roles <@ array['admin', 'moderador', 'oficina', 'puerta']::text[]
+    roles <@ array['admin', 'moderador', 'escrutinio', 'oficina', 'puerta']::text[]
   );
 
 create index if not exists idx_usuarios_sistema_username

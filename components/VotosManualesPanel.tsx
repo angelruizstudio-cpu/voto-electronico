@@ -381,13 +381,6 @@ export function VotosManualesPanel({
       return
     }
 
-    if (totalManual > votantesManualesPresentes) {
-      alert(
-        `Los votos manuales (${totalManual}) no pueden exceder los asambleístas manuales presentes (${votantesManualesPresentes}).`
-      )
-      return
-    }
-
     if (
       hayGuardados &&
       !window.confirm("Ya existen votos manuales guardados para esta votación. ¿Deseas reemplazarlos?")
@@ -455,7 +448,14 @@ export function VotosManualesPanel({
             Solo para votaciones cerradas. Estos totales se suman al resultado oficial.
           </p>
         </div>
-        <Button type="button" onClick={cargarVotaciones} disabled={cargando}>
+        <Button
+          type="button"
+          onClick={() => {
+            void cargarVotaciones()
+            void cargarDetalle()
+          }}
+          disabled={cargando}
+        >
           Recargar votaciones
         </Button>
       </div>
@@ -667,7 +667,7 @@ export function VotosManualesPanel({
           <Button
             type="button"
             onClick={guardar}
-            disabled={cargando || !votacionId || totalManual > votantesManualesPresentes}
+            disabled={cargando || !votacionId}
             className="bg-[#16382f] hover:bg-[#0f2b24]"
           >
             {sinVotantesManuales ? "Preparar resultado para certificar" : "Guardar votos manuales"}

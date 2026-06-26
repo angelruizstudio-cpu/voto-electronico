@@ -109,6 +109,14 @@ export default function OficinaRegionalPage() {
       return
     }
 
+    if (data.asambleista) {
+      setAsambleistas((actuales) =>
+        actuales.map((asambleista) =>
+          asambleista.id === id ? { ...asambleista, ...data.asambleista } : asambleista
+        )
+      )
+    }
+
     await cargarAsambleistas()
   }
 

@@ -279,6 +279,7 @@ export default function EscrutinioPage() {
               type="button"
               variant="outline"
               onClick={() => {
+                setVotacionPreferidaId(resultado.votacionId)
                 setResultado(null)
                 setCertificado(false)
                 setModoEdicion(true)

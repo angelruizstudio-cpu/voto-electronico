@@ -35,11 +35,8 @@ export const obtenerCandidatosParaSiguienteRonda = <T extends CandidatoConteo>(
     return candidatos.slice().sort((a, b) => b.votos - a.votos)
   }
 
-  const limiteBase = rondaNumero <= 1 ? 3 : 2
-  const limite =
-    rondaNumero <= 1 && candidatosConVotos.length <= 3
-      ? candidatosConVotos.length
-      : Math.min(limiteBase, candidatosConVotos.length)
+  const limiteBase = rondaNumero <= 1 && candidatosConVotos.length > 3 ? 3 : 2
+  const limite = Math.min(limiteBase, candidatosConVotos.length)
   const votosFrontera = candidatosConVotos[limite - 1]?.votos ?? 0
 
   return candidatosConVotos.filter((candidato) => candidato.votos >= votosFrontera)
