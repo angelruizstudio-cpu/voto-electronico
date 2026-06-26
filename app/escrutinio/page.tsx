@@ -272,7 +272,7 @@ export default function EscrutinioPage() {
             </div>
           </div>
         </section>
-      ) : resultado ? (
+      ) : resultado && !modoEdicion ? (
         <section className="space-y-4">
           {certificado && (
             <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
@@ -345,3 +345,4 @@ export default function EscrutinioPage() {
     </main>
   )
 }
+
