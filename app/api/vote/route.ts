@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
-      .select("asamblea_id, asambleista_id, asambleistas(dispositivo_autorizado_id, dispositivo_alerta_en)")
+      .select("asamblea_id, asambleista_id")
       .eq("token_hash", token)
       .eq("activo", true)
       .eq("bloqueado", false)
@@ -64,27 +64,6 @@ export async function POST(req: Request) {
       )
     }
 
-    const asambleistaToken = Array.isArray(tokenRow?.asambleistas)
-      ? tokenRow?.asambleistas[0]
-      : tokenRow?.asambleistas
-
-    if (asambleistaToken?.dispositivo_alerta_en) {
-      return NextResponse.json(
-        { ok: false, code: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
-        { status: 403 }
-      )
-    }
-
-    if (
-      asambleistaToken?.dispositivo_autorizado_id &&
-      asambleistaToken.dispositivo_autorizado_id !== deviceId
-    ) {
-      return NextResponse.json(
-        { ok: false, code: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
-        { status: 403 }
-      )
-    }
-   
     const { data, error } = await supabaseAdmin.rpc("registrar_voto", {
       p_token: token,
       p_votacion_id: votacionId,

@@ -148,13 +148,6 @@ export async function POST(req: Request) {
       )
     }
 
-    if (asambleista.dispositivo_alerta_en) {
-      return NextResponse.json(
-        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
-        { status: 403 }
-      )
-    }
-
     const credencialAuditada = asambleista.credencial || credencialNormalizada
 
     if (!asambleista.dispositivo_autorizado_id) {
@@ -163,12 +156,10 @@ export async function POST(req: Request) {
         .update({
           dispositivo_autorizado_id: deviceIdNormalizado,
           dispositivo_autorizado_en: new Date().toISOString(),
-          dispositivo_alerta_en: null,
-          dispositivo_alerta_detalle: null,
         })
         .eq("id", asambleista.id)
     } else if (asambleista.dispositivo_autorizado_id !== deviceIdNormalizado) {
-      const detalle = `Intento desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
+      const detalle = `Check-in desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
 
       await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
         asamblea_id: asamblea.id,
@@ -178,22 +169,9 @@ export async function POST(req: Request) {
         dispositivo_intento_id: deviceIdNormalizado,
         ip,
         user_agent: userAgent,
-        accion: "bloqueado",
+        accion: "permitido",
         detalle,
       })
-
-      await supabaseAdmin
-        .from("asambleistas")
-        .update({
-          dispositivo_alerta_en: new Date().toISOString(),
-          dispositivo_alerta_detalle: detalle,
-        })
-        .eq("id", asambleista.id)
-
-      return NextResponse.json(
-        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
-        { status: 403 }
-      )
     }
 
     await supabaseAdmin
