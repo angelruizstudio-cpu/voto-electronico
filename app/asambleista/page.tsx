@@ -13,6 +13,8 @@ import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabaseClient"
 import {
   Check,
+  LoaderCircle,
+  WifiOff,
   X,
   ShieldCheck,
 } from "lucide-react"
@@ -96,6 +98,8 @@ export default function AsambleistaPage() {
   const [credencial, setCredencial] = useState("")
   const [nominacion, setNominacion] = useState("")
   const [cargando, setCargando] = useState(false)
+  const [enLinea, setEnLinea] = useState(true)
+  const [aviso, setAviso] = useState("")
   const autoCheckinIntentado = useRef(false)
 
   const guardarAcceso = useCallback((resultado: {
@@ -135,6 +139,23 @@ export default function AsambleistaPage() {
   }, [])
 
   useEffect(() => {
+    const conectar = () => {
+      setEnLinea(true)
+      void cargarVotacionActiva()
+    }
+    const desconectar = () => setEnLinea(false)
+
+    setEnLinea(navigator.onLine)
+    window.addEventListener("online", conectar)
+    window.addEventListener("offline", desconectar)
+
+    return () => {
+      window.removeEventListener("online", conectar)
+      window.removeEventListener("offline", desconectar)
+    }
+  }, [cargarVotacionActiva])
+
+  useEffect(() => {
     if (autoCheckinIntentado.current || token) return
 
     const accessToken = new URLSearchParams(window.location.search).get("access")?.trim()
@@ -166,12 +187,12 @@ export default function AsambleistaPage() {
             ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
             ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
           }
-          alert(t(mensajes[resultado.error] || "No se pudo validar el enlace", "Could not validate link"))
+          setAviso(t(mensajes[resultado.error] || "No se pudo validar el enlace", "Could not validate link"))
           return
         }
 
         guardarAcceso(resultado)
-        alert(t("Acceso concedido", "Access granted"))
+        setAviso(t("Acceso concedido", "Access granted"))
         await cargarVotacionActiva()
       })
       .finally(() => setCargando(false))
@@ -194,7 +215,7 @@ export default function AsambleistaPage() {
           if (!payload.new?.dispositivo_alerta_en) return
 
           bloquearSesionPorRevalidacion()
-          alert(
+          setAviso(
             t(
               "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
               "This credential requires validation again. Please go to the registration desk."
@@ -212,7 +233,7 @@ export default function AsambleistaPage() {
   // Bug #3 corregido: usa /api/checkin que retorna token_hash
   const handleCheckIn = async () => {
     if (!credencial) {
-      alert(t("Ingresa una credencial válida", "Enter a valid credential"))
+      setAviso(t("Ingresa una credencial válida", "Enter a valid credential"))
       return
     }
 
@@ -240,20 +261,20 @@ export default function AsambleistaPage() {
         ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
         ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
       }
-      alert(t(mensajes[resultado.error] || "Credencial inválida", "Invalid credential"))
+      setAviso(t(mensajes[resultado.error] || "Credencial inválida", "Invalid credential"))
       return
     }
 
     // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
     guardarAcceso(resultado)
-    alert(t("Acceso concedido", "Access granted"))
+    setAviso(t("Acceso concedido", "Access granted"))
     await cargarVotacionActiva()
   }
 
   // Bug #3 corregido: usa /api/vote que llama a la RPC con token_hash
   const votarResolucion = async (opcion: "favor" | "contra") => {
     if (!token || !votacionId) {
-      alert(t("Debes hacer check-in antes de votar", "You must check in before voting"))
+      setAviso(t("Debes hacer check-in antes de votar", "You must check in before voting"))
       return
     }
 
@@ -267,7 +288,7 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!resultado.ok) {
-      alert(
+      setAviso(
         t(
           MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
           MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
@@ -280,17 +301,17 @@ export default function AsambleistaPage() {
 
     setYaVoto(true)
     await cargarVotacionActiva()
-    alert(t("Voto registrado", "Vote registered"))
+    setAviso(t("Voto registrado", "Vote registered"))
   }
 
   const nominarCandidato = async () => {
     if (!token || !votacionId) {
-      alert(t("Debes hacer check-in antes de nominar", "You must check in before nominating"))
+      setAviso(t("Debes hacer check-in antes de nominar", "You must check in before nominating"))
       return
     }
 
     if (!nominacion.trim()) {
-      alert(t("Escribe el nombre de la persona nominada", "Enter the nominee name"))
+      setAviso(t("Escribe el nombre de la persona nominada", "Enter the nominee name"))
       return
     }
 
@@ -313,7 +334,7 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(
+      setAviso(
         t(
           MENSAJES_NOMINACION[data.error] || "No se pudo registrar la nominación",
           MENSAJES_NOMINACION[data.error] || "Could not register nomination"
@@ -327,7 +348,7 @@ export default function AsambleistaPage() {
     setNominacion("")
     setYaVoto(true)
     await cargarVotacionActiva()
-    alert(
+    setAviso(
       data.duplicado
         ? t("Voto de primera ronda registrado", "First-round vote registered")
         : t("Nominacion y voto registrados", "Nomination and vote registered")
@@ -336,7 +357,7 @@ export default function AsambleistaPage() {
 
   const votarCandidato = async (candidatoId: string) => {
     if (!token || !votacionId) {
-      alert(t("Debes hacer check-in antes de votar", "You must check in before voting"))
+      setAviso(t("Debes hacer check-in antes de votar", "You must check in before voting"))
       return
     }
 
@@ -350,7 +371,7 @@ export default function AsambleistaPage() {
     setCargando(false)
 
     if (!resultado.ok) {
-      alert(
+      setAviso(
         t(
           MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
           MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
@@ -363,11 +384,38 @@ export default function AsambleistaPage() {
 
     setYaVoto(true)
     await cargarVotacionActiva()
-    alert(t("Voto registrado", "Vote registered"))
+    setAviso(t("Voto registrado", "Vote registered"))
   }
 
   return (
     <main className="flex min-h-screen justify-center bg-[#f4f6f1] px-4 py-5 pb-28">
+      {aviso && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed left-4 right-4 top-4 z-[60] mx-auto flex max-w-sm items-start gap-3 rounded-xl bg-[#102f28] p-4 text-sm font-bold text-white shadow-xl"
+        >
+          <span className="flex-1">{aviso}</span>
+          <button type="button" onClick={() => setAviso("")} aria-label={t("Cerrar aviso", "Close notice")}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
+      {!enLinea && (
+        <div className="fixed bottom-24 left-4 right-4 z-[60] mx-auto flex max-w-sm items-center justify-center gap-2 rounded-xl bg-amber-100 p-3 text-sm font-bold text-amber-900 shadow-lg">
+          <WifiOff className="h-5 w-5" />
+          {t("Sin conexión. Reconectando…", "Offline. Reconnecting…")}
+        </div>
+      )}
+
+      {cargando && (
+        <div className="fixed bottom-24 left-4 right-4 z-[59] mx-auto flex max-w-xs items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+          {t("Procesando…", "Processing…")}
+        </div>
+      )}
+
       <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <section className="bg-[#16382f] px-5 pb-16 pt-6 text-white">
           <div className="flex items-start justify-between gap-4">
@@ -429,14 +477,18 @@ export default function AsambleistaPage() {
               <div className="mt-4 flex gap-2">
                 <input
                   type="text"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  enterKeyHint="go"
                   placeholder={t("Ej: A001", "Ex: A001")}
                   value={credencial}
                   onChange={(e) => setCredencial(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void handleCheckIn()}
                   className="h-12 w-full rounded-lg border border-slate-200 px-4 text-lg font-bold uppercase outline-none focus:border-[#c8a957] focus:ring-2 focus:ring-[#c8a957]/20"
                 />
                 <Button
                   onClick={handleCheckIn}
-                  disabled={cargando}
+                  disabled={cargando || !enLinea}
                   className="h-12 rounded-lg bg-[#16382f] px-5 font-bold hover:bg-[#0f2b24]"
                 >
                   {cargando ? "..." : t("Entrar", "Enter")}
@@ -529,7 +581,7 @@ export default function AsambleistaPage() {
               <div className="mt-5 space-y-3">
                 <Button
                   onClick={() => votarResolucion("favor")}
-                  disabled={!token || estado !== "abierta" || yaVoto || cargando}
+                  disabled={!token || estado !== "abierta" || yaVoto || cargando || !enLinea}
                   className="h-24 w-full rounded-xl bg-emerald-600 text-left text-white hover:bg-emerald-700"
                 >
                   <div className="flex w-full items-center gap-4">
@@ -547,7 +599,7 @@ export default function AsambleistaPage() {
 
                 <Button
                   onClick={() => votarResolucion("contra")}
-                  disabled={!token || estado !== "abierta" || yaVoto || cargando}
+                  disabled={!token || estado !== "abierta" || yaVoto || cargando || !enLinea}
                   className="h-24 w-full rounded-xl bg-red-600 text-left text-white hover:bg-red-700"
                 >
                   <div className="flex w-full items-center gap-4">
@@ -582,7 +634,7 @@ export default function AsambleistaPage() {
                       />
                       <Button
                         onClick={nominarCandidato}
-                        disabled={!token || cargando}
+                        disabled={!token || cargando || !enLinea}
                         className="h-11 rounded-lg bg-[#16382f] font-bold hover:bg-[#0f2b24]"
                       >
                         {t("Registrar", "Submit")}
@@ -601,12 +653,12 @@ export default function AsambleistaPage() {
                 )}
 
                 {(rondaNumero > 1 || conteoCandidatos.length > 0) && (
-                  <div className={conteoCandidatos.length > 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+                  <div className={conteoCandidatos.length > 2 ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
                     {conteoCandidatos.map((c, index) => (
                       <Button
                         key={c.id}
                         onClick={() => votarCandidato(c.id)}
-                        disabled={!token || estado !== "abierta" || yaVoto || cargando}
+                        disabled={!token || estado !== "abierta" || yaVoto || cargando || !enLinea}
                         className={["min-h-16 w-full justify-center whitespace-normal rounded-xl border-2 px-3 py-3 text-center text-base font-black leading-tight text-slate-800", claseRanking(index)].join(" ")}
                       >
                         {c.nombre}

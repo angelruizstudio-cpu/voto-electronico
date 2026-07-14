@@ -27,7 +27,7 @@ export default function AsambleistaLayout({
     <div className="min-h-screen bg-[#f4f6f1]">
       {children}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md border-t border-slate-200 bg-white/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur">
         <div className="grid grid-cols-5 text-center">
           <Link
             href="/asambleista"
