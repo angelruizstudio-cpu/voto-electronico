@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "ACCESO_DENEGADO" }, { status: 401 })
     }
 
-    if (!usuario.roles?.includes(rolSolicitado)) {
+    if (!usuario.roles?.includes("admin") && !usuario.roles?.includes(rolSolicitado)) {
       return NextResponse.json({ ok: false, error: "ROL_NO_AUTORIZADO" }, { status: 403 })
     }
 

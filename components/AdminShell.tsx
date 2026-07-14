@@ -62,17 +62,21 @@ export function AdminShell({ children, role }: AdminShellProps) {
 function AdminShellContent({ children, role }: AdminShellProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [usuario, setUsuario] = useState<{
-    nombre: string
-    rol: string
-    roles: RolSesion[]
-  } | null>(null)
   const [quorum, setQuorum] = useState(0)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const { asambleaId, anioAsamblea, lugarAsamblea, organizacionAsamblea, estadoAsamblea } =
-    useAsamblea()
+  const {
+    asambleaId,
+    anioAsamblea,
+    lugarAsamblea,
+    organizacionAsamblea,
+    estadoAsamblea,
+    usuarioSesion: usuario,
+  } = useAsamblea()
   const { estado, titulo, tipoVotacion, votosEmitidos } = useVotacion(asambleaId)
-  const nav = construirNav(usuario?.roles || [], role)
+  const nav = construirNav(
+    (usuario?.roles || []).filter((rol): rol is RolSesion => rol in navKeysByRole),
+    role
+  )
   const moduloActual = pathname.startsWith("/puerta")
     ? "Puerta"
     : pathname.startsWith("/admin")
@@ -82,21 +86,6 @@ function AdminShellContent({ children, role }: AdminShellProps) {
         : pathname.startsWith("/oficina")
           ? "Oficina"
           : "Moderador"
-
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const res = await fetch("/api/auth/me")
-      if (!res.ok) return
-      const data = await res.json()
-      if (data.ok) {
-        setUsuario({
-          nombre: data.nombre,
-          rol: data.rol,
-          roles: Array.isArray(data.roles) ? data.roles : [data.rol],
-        })
-      }
-    })
-  }, [])
 
   useEffect(() => {
     if (!asambleaId) {

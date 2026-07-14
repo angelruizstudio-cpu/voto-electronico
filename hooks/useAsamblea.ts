@@ -26,6 +26,11 @@ function useAsambleaState() {
   const [organizacionIdSesion, setOrganizacionIdSesion] = useState<string | null>(null)
   const [organizacionSlugSesion, setOrganizacionSlugSesion] = useState("kingdom-tech-group")
   const [organizacionNombreSesion, setOrganizacionNombreSesion] = useState("Kingdom Tech Group")
+  const [usuarioSesion, setUsuarioSesion] = useState<{
+    nombre: string
+    rol: string
+    roles: string[]
+  } | null>(null)
 
   const cargarOrganizacionSesion = useCallback(async () => {
     const slugUrl =
@@ -47,6 +52,14 @@ function useAsambleaState() {
     if (!res?.ok) return
 
     const data = await res.json().catch(() => null)
+
+    if (data?.ok) {
+      setUsuarioSesion({
+        nombre: data.nombre,
+        rol: data.rol,
+        roles: Array.isArray(data.roles) ? data.roles : [data.rol],
+      })
+    }
 
     if (data?.organizacion) {
       const tenant = {
@@ -390,6 +403,7 @@ function useAsambleaState() {
     nuevaOrganizacion,
     organizacionIdSesion,
     organizacionSlugSesion,
+    usuarioSesion,
     setNuevoAnio,
     setNuevoLugar,
     setNuevaOrganizacion,
@@ -410,7 +424,7 @@ export function AsambleaProvider({ children }: { children: ReactNode }) {
 
 export function useAsamblea() {
   const context = useContext(AsambleaContext)
-  const fallback = useAsambleaState()
 
-  return context || fallback
+  if (!context) throw new Error("useAsamblea requiere AsambleaProvider")
+  return context
 }
