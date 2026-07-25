@@ -7,9 +7,11 @@ import { obtenerOrganizacionId } from "@/lib/tenant"
 const ROLES_CLIENTE = ROLES_SISTEMA.filter((rol) => rol !== "owner")
 
 function esAdmin(req: NextRequest) {
+  const rol = req.cookies.get("auth_role")?.value
+
   return (
     req.cookies.get("auth_session")?.value === "true" &&
-    req.cookies.get("auth_role")?.value === "admin"
+    (rol === "admin" || rol === "owner")
   )
 }
 

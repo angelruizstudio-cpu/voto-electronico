@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, KeyRound, LogOut, Plus, ShieldCheck, UserPlus } from "lucide-react"
+import {
+  Building2,
+  KeyRound,
+  LogIn,
+  LogOut,
+  Plus,
+  ShieldCheck,
+  UserPlus,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { etiquetaRol } from "@/lib/auth"
@@ -210,6 +218,25 @@ export default function SistemaPage() {
     await cargarUsuarios()
   }
 
+  const administrarTenant = async (organizacion: Organizacion) => {
+    setCargando(true)
+    const res = await fetch("/api/sistema/acceso-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizacionId: organizacion.id }),
+    })
+    const data = await res.json()
+    setCargando(false)
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "No se pudo abrir el acceso administrativo")
+      return
+    }
+
+    router.push("/admin")
+    router.refresh()
+  }
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
     router.push("/ktgsga-admin")
@@ -312,6 +339,15 @@ export default function SistemaPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => administrarTenant(organizacion)}
+                          disabled={cargando}
+                          className="bg-[#16382f] hover:bg-[#0f2b24]"
+                        >
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Administrar tenant
+                        </Button>
                         <Button type="button" onClick={() => crearAdmin(organizacion)} disabled={cargando}>
                           <UserPlus className="mr-2 h-4 w-4" />
                           Crear admin
