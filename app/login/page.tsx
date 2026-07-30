@@ -165,7 +165,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push(rolSeleccionado.href)
+    window.location.assign(rolSeleccionado.href)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

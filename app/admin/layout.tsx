@@ -5,5 +5,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <AdminShell role="moderador">{children}</AdminShell>
+  return <AdminShell role="admin">{children}</AdminShell>
 }

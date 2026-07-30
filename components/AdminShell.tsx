@@ -23,7 +23,7 @@ import { supabase } from "@/lib/supabaseClient"
 
 type AdminShellProps = {
   children: React.ReactNode
-  role: "oficina" | "moderador" | "escrutinio"
+  role: "admin" | "oficina" | "moderador" | "escrutinio"
 }
 
 type RolSesion = "admin" | "moderador" | "escrutinio" | "oficina" | "puerta"
