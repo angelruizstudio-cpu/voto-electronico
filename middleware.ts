@@ -43,6 +43,10 @@ export function middleware(req: NextRequest) {
     (pathname.startsWith("/escrutinio") && tieneRol(["escrutinio"])) ||
     (pathname.startsWith("/oficina") && tieneRol(["oficina"])) ||
     (pathname.startsWith("/puerta") && tieneRol(["puerta"])) ||
+    (pathname.startsWith("/historial") &&
+      tieneRol(["moderador", "escrutinio", "oficina"])) ||
+    (pathname.startsWith("/documentos") &&
+      tieneRol(["moderador", "escrutinio", "oficina"])) ||
     pathname === "/"
 
   if (!permitido) {
@@ -69,5 +73,9 @@ export const config = {
     "/oficina/:path*",
     "/puerta",
     "/puerta/:path*",
+    "/historial",
+    "/historial/:path*",
+    "/documentos",
+    "/documentos/:path*",
   ],
 }

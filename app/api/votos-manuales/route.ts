@@ -82,17 +82,40 @@ function normalizarNombre(valor: unknown) {
 
 async function contarVotantesManualesPresentes(
   supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
-  asambleaId: string
+  asambleaId: string,
+  votacionId: string
 ) {
-  const { count, error } = await supabaseAdmin
+  const { data: manuales, error } = await supabaseAdmin
     .from("asambleistas")
-    .select("*", { count: "exact", head: true })
+    .select("id")
     .eq("asamblea_id", asambleaId)
     .eq("metodo_voto", "manual")
     .eq("presente", true)
     .eq("habilitado", true)
 
-  return { count: count || 0, error }
+  if (error || !manuales?.length) {
+    return { count: 0, error }
+  }
+
+  const idsManuales = manuales.map((asambleista) => asambleista.id)
+  const { data: votosElectronicos, error: errorVotos } = await supabaseAdmin
+    .from("votos")
+    .select("asambleista_id")
+    .eq("votacion_id", votacionId)
+    .in("asambleista_id", idsManuales)
+
+  if (errorVotos) {
+    return { count: 0, error: errorVotos }
+  }
+
+  const yaVotaron = new Set(
+    (votosElectronicos || []).map((voto) => String(voto.asambleista_id))
+  )
+
+  return {
+    count: idsManuales.filter((id) => !yaVotaron.has(String(id))).length,
+    error: null,
+  }
 }
 
 async function calcularResultadosActualizados(
@@ -316,7 +339,11 @@ export async function GET(req: NextRequest) {
   }
 
   const { count: votantesManualesPresentes, error: errorConteo } =
-    await contarVotantesManualesPresentes(supabaseAdmin, votacion.asamblea_id)
+    await contarVotantesManualesPresentes(
+      supabaseAdmin,
+      votacion.asamblea_id,
+      votacion.id
+    )
 
   if (errorConteo) {
     return NextResponse.json({ ok: false, error: errorConteo.message }, { status: 500 })
@@ -473,7 +500,11 @@ export async function POST(req: NextRequest) {
 
   const totalManual = filas.reduce((total, voto) => total + voto.cantidad, 0)
   const { count: votantesManualesPresentes, error: errorConteo } =
-    await contarVotantesManualesPresentes(supabaseAdmin, votacion.asamblea_id)
+    await contarVotantesManualesPresentes(
+      supabaseAdmin,
+      votacion.asamblea_id,
+      votacion.id
+    )
 
   if (errorConteo) {
     return NextResponse.json({ ok: false, error: errorConteo.message }, { status: 500 })
@@ -483,7 +514,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Los votos manuales (${totalManual}) no pueden exceder los asambleistas manuales presentes (${votantesManualesPresentes}).`,
+        error: `Los votos manuales (${totalManual}) no pueden exceder los asambleistas manuales elegibles que no votaron electronicamente (${votantesManualesPresentes}).`,
       },
       { status: 400 }
     )

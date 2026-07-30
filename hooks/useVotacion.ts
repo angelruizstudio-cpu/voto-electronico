@@ -4,7 +4,11 @@ import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
 export function useVotacion(
   asambleaId: string | null,
-  opciones: { ocultarCandidatosPrimeraRonda?: boolean } = {}
+  opciones: {
+    ocultarCandidatosPrimeraRonda?: boolean
+    modoAsambleista?: boolean
+    incluirResultadosPublicados?: boolean
+  } = {}
 ) {
   const [estado, setEstado] = useState("cerrada")
   const [votacionId, setVotacionId] = useState<string | null>(null)
@@ -58,16 +62,32 @@ export function useVotacion(
       return
     }
 
-    const { data, error } = await supabase
-      .from("votaciones")
-      .select("*")
-      .eq("asamblea_id", asambleaId)
-      .eq("estado", "abierta")
-      .order("creada_en", { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const tokenLocal =
+      opciones.modoAsambleista && typeof window !== "undefined"
+        ? localStorage.getItem("token_votacion")
+        : null
 
-    if (error || !data) {
+    if (opciones.modoAsambleista && !tokenLocal) {
+      limpiarVotacion()
+      return
+    }
+
+    const params = new URLSearchParams({ asambleaId })
+
+    if (opciones.modoAsambleista) params.set("modo", "asambleista")
+    if (opciones.incluirResultadosPublicados) params.set("resultados", "1")
+
+    const res = await fetch(`/api/votacion-activa?${params.toString()}`, {
+      cache: "no-store",
+      headers: tokenLocal ? { "x-voting-token": tokenLocal } : undefined,
+    }).catch(() => null)
+
+    if (!res?.ok) return
+
+    const respuesta = await res.json().catch(() => null)
+    const data = respuesta?.votacion
+
+    if (!data) {
       limpiarVotacion()
       return
     }
@@ -83,83 +103,19 @@ export function useVotacion(
     setPublicada(data.publicada || false)
     setRondaNumero(data.ronda_numero || 1)
     setEleccionGrupoId(data.eleccion_grupo_id || data.id)
-
-    const { data: votosData } = await supabase
-      .from("votos")
-      .select("*")
-      .eq("votacion_id", data.id)
-
-    const votos = votosData || []
-
-    setVotosEmitidos(votos.length)
-
-    const tokenLocal =
-      typeof window !== "undefined"
-        ? localStorage.getItem("token_votacion")
-        : null
-
-    if (tokenLocal) {
-      const { data: tokenRow } = await supabase
-        .from("tokens_acceso")
-        .select("id")
-        .eq("token_hash", tokenLocal)
-        .maybeSingle()
-
-      if (tokenRow) {
-        const yaVotoUsuario = votos.some((voto) => voto.token_id === tokenRow.id)
-        setYaVoto(yaVotoUsuario)
-      } else {
-        setYaVoto(false)
-      }
-    } else {
-      setYaVoto(false)
-    }
-
-    const votosFavor = votos.filter((voto) => voto.opcion === "favor").length
-    const votosContra = votos.filter((voto) => voto.opcion === "contra").length
-    const abstenciones = votos.filter((voto) => voto.opcion === "abstencion").length
-
-    setVotosAFavor(votosFavor)
-    setVotosEnContra(votosContra)
-    setVotosAbstencion(abstenciones)
-
-    if (data.tipo_votacion === "eleccion_lideres") {
-      const { data: candidatosData } = await supabase
-        .from("candidatos")
-        .select("*")
-        .eq("votacion_id", data.id)
-        .order("nombre", { ascending: true })
-
-      const totalVotos = votos.length
-      const candidatosVisibles =
-        opciones.ocultarCandidatosPrimeraRonda && (data.ronda_numero || 1) === 1
-          ? (candidatosData || []).filter((candidato) => candidato.visible_asambleistas !== false)
-          : candidatosData || []
-
-      const candidatosConConteo = candidatosVisibles.map((candidato) => {
-        const votosDelCandidato = votos.filter(
-          (voto) => String(voto.candidato_id) === String(candidato.id)
-        ).length
-
-        const porcentaje =
-          totalVotos > 0
-            ? Number(((votosDelCandidato / totalVotos) * 100).toFixed(2))
-            : 0
-
-        return {
-          votos: votosDelCandidato,
-          porcentaje,
-          ...candidato,
-        }
-      })
-
-      setCandidatos(candidatosVisibles)
-      setConteoCandidatos(candidatosConConteo)
-    } else {
-      setCandidatos([])
-      setConteoCandidatos([])
-    }
-  }, [asambleaId, limpiarVotacion, opciones.ocultarCandidatosPrimeraRonda])
+    setCandidatos(respuesta.candidatos || [])
+    setConteoCandidatos(respuesta.conteoCandidatos || [])
+    setVotosEmitidos(respuesta.votosEmitidos || 0)
+    setVotosAFavor(respuesta.votosAFavor || 0)
+    setVotosEnContra(respuesta.votosEnContra || 0)
+    setVotosAbstencion(respuesta.votosAbstencion || 0)
+    setYaVoto(Boolean(respuesta.yaVoto))
+  }, [
+    asambleaId,
+    limpiarVotacion,
+    opciones.incluirResultadosPublicados,
+    opciones.modoAsambleista,
+  ])
 
   useEffect(() => {
     cargarVotacionActivaRef.current = cargarVotacionActiva
@@ -196,22 +152,7 @@ export function useVotacion(
   useEffect(() => {
     if (!votacionId) return
 
-    const canalVotos = supabase
-      .channel(`realtime-votos-${votacionId}-${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-
-          table: "votos",
-          filter: `votacion_id=eq.${votacionId}`,
-        },
-        () => {
-          cargarVotacionActivaRef.current()
-        }
-      )
-      .subscribe()
+    if (opciones.modoAsambleista) return
 
     const canalCandidatos = supabase
       .channel(`realtime-candidatos-${votacionId}-${crypto.randomUUID()}`)
@@ -228,20 +169,19 @@ export function useVotacion(
       .subscribe()
 
     return () => {
-      supabase.removeChannel(canalVotos)
       supabase.removeChannel(canalCandidatos)
     }
-  }, [votacionId])
+  }, [opciones.modoAsambleista, votacionId])
 
   useEffect(() => {
     if (!asambleaId) return
 
     const refresco = window.setInterval(() => {
       cargarVotacionActivaRef.current()
-    }, 3000)
+    }, opciones.modoAsambleista ? 5000 : 3000)
 
     return () => window.clearInterval(refresco)
-  }, [asambleaId])
+  }, [asambleaId, opciones.modoAsambleista])
 
   return {
     estado,

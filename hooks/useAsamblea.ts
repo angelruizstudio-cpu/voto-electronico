@@ -379,6 +379,9 @@ function useAsambleaState() {
           event: "*",
           schema: "public",
           table: "asambleas",
+          filter: organizacionIdSesion
+            ? `organizacion_id=eq.${organizacionIdSesion}`
+            : `organizacion_slug=eq.${organizacionSlugSesion}`,
         },
         () => {
           void cargarAsambleaActiva()
@@ -389,7 +392,12 @@ function useAsambleaState() {
     return () => {
       supabase.removeChannel(canalAsambleas)
     }
-  }, [cargarAsambleaActiva, cargarOrganizacionSesion])
+  }, [
+    cargarAsambleaActiva,
+    cargarOrganizacionSesion,
+    organizacionIdSesion,
+    organizacionSlugSesion,
+  ])
 
   return {
     asambleaId,

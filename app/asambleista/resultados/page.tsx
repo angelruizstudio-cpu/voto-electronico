@@ -17,7 +17,10 @@ export default function ResultadosPage() {
     votosAFavor,
     votosEnContra,
     conteoCandidatos,
-  } = useVotacion(asambleaId)
+  } = useVotacion(asambleaId, {
+    modoAsambleista: true,
+    incluirResultadosPublicados: true,
+  })
 
   // Bug #10 corregido: página muestra datos reales cuando están publicados
   if (!publicada) {

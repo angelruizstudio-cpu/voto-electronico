@@ -29,6 +29,14 @@ export const metadata: Metadata = {
     title: "Voto Asamblea",
     statusBarStyle: "black-translucent",
   },
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 };
 
 export default function RootLayout({

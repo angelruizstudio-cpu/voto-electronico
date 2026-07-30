@@ -655,7 +655,7 @@ export function VotosManualesPanel({
           >
             {sinVotantesManuales
               ? "Resultado electrónico listo para revisión del Comité de Escrutinio."
-              : `Votos manuales registrados: ${totalManual} / ${votantesManualesPresentes} asambleístas manuales presentes.`}
+              : `Votos manuales registrados: ${totalManual} / ${votantesManualesPresentes} asambleístas manuales elegibles que no votaron electrónicamente.`}
           </p>
 
           {hayGuardados && (

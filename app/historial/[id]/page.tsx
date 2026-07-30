@@ -1,11 +1,9 @@
 "use client"
 
 import { use, useCallback, useEffect, useMemo, useState } from "react"
-import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { BarChart3, Download, RefreshCw, Trophy, Vote } from "lucide-react"
 import {
-  calcularNecesarios,
   calcularVotosValidosCandidatos,
   mostrarEstadoParlamentario,
   mostrarTipoMayoria,
@@ -141,131 +139,22 @@ export default function DetalleAsamblea({
     setCargando(true)
 
     try {
-      const res = await fetch("/api/auth/me").catch(() => null)
-      const sesion = res?.ok ? await res.json().catch(() => null) : null
-      const organizacionId = sesion?.organizacion?.id || null
-      const organizacionSlug =
-        sesion?.organizacion?.slug ||
-        (typeof window !== "undefined" ? localStorage.getItem("organizacion_slug") : null)
+      const res = await fetch(`/api/historial/${id}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      })
+      const data = await res.json().catch(() => null)
 
-      let queryAsamblea = supabase
-        .from("asambleas")
-        .select("*")
-        .eq("id", id)
-
-      if (organizacionId) {
-        queryAsamblea = queryAsamblea.eq("organizacion_id", organizacionId)
-      } else if (organizacionSlug) {
-        queryAsamblea = queryAsamblea.eq("organizacion_slug", organizacionSlug)
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "No se pudo cargar el historial")
       }
 
-      const { data: asambleaData } = await queryAsamblea.maybeSingle()
-
-      setAsamblea(asambleaData)
-
-      if (!asambleaData) {
-        setVotaciones([])
-        return
-      }
-
-      const { data: votacionesData } = await supabase
-        .from("votaciones")
-        .select("*")
-        .eq("asamblea_id", id)
-        .order("titulo", { ascending: true })
-
-      const detalles = await Promise.all(
-        (votacionesData || []).map(async (votacion) => {
-        const { data: votos } = await supabase
-          .from("votos")
-          .select("*")
-          .eq("votacion_id", votacion.id)
-
-        const { data: votosManuales } = await supabase
-          .from("votos_manuales")
-          .select("*")
-          .eq("votacion_id", votacion.id)
-
-        const manuales = (votosManuales || []).reduce(
-          (total, voto) => total + Number(voto.cantidad || 0),
-          0
-        )
-        const emitidos = (votos?.length || 0) + manuales
-        const favor =
-          (votos?.filter((v) => v.opcion === "favor").length || 0) +
-          Number(votosManuales?.find((v) => v.opcion === "favor")?.cantidad || 0)
-        const contra =
-          (votos?.filter((v) => v.opcion === "contra").length || 0) +
-          Number(votosManuales?.find((v) => v.opcion === "contra")?.cantidad || 0)
-        const abstencion =
-          (votos?.filter((v) => v.opcion === "abstencion").length || 0) +
-          Number(votosManuales?.find((v) => v.opcion === "abstencion")?.cantidad || 0)
-
-        let ganadorNombre = ""
-        let candidatosConteo: { nombre: string; votos: number }[] = []
-
-        if (votacion.tipo_votacion === "eleccion_lideres") {
-          const { data: candidatos } = await supabase
-            .from("candidatos")
-            .select("*")
-            .eq("votacion_id", votacion.id)
-            .order("nombre", { ascending: true })
-
-          candidatosConteo =
-            candidatos?.map((candidato) => ({
-              nombre: candidato.nombre,
-              votos:
-                (votos?.filter((v) => v.candidato_id === candidato.id).length || 0) +
-                (votosManuales || [])
-                  .filter((v) => v.candidato_id === candidato.id)
-                  .reduce((total, voto) => total + Number(voto.cantidad || 0), 0),
-            })) || []
-
-          if (votacion.ganador_id) {
-            const { data: ganador } = await supabase
-              .from("candidatos")
-              .select("*")
-              .eq("id", votacion.ganador_id)
-              .maybeSingle()
-
-            ganadorNombre = ganador?.nombre || ""
-          }
-        }
-
-        const necesarios = calcularNecesarios(
-          votacion.tipo_votacion === "eleccion_lideres"
-            ? calcularVotosValidosCandidatos(candidatosConteo)
-            : favor + contra,
-          votacion.tipo_mayoria
-        )
-
-        return {
-          id: votacion.id,
-          titulo: votacion.titulo,
-          tipo_votacion: votacion.tipo_votacion || "resolucion",
-          tipo_mayoria: votacion.tipo_mayoria,
-          tipo_mocion: votacion.tipo_mocion || "resolucion_principal",
-          estado_parlamentario: votacion.estado_parlamentario || null,
-          estado: votacion.estado,
-          resultado: votacion.resultado,
-          ganadorNombre,
-          ronda_numero: votacion.ronda_numero || undefined,
-          eleccion_grupo_id: votacion.eleccion_grupo_id || null,
-          mocion_padre_id: votacion.mocion_padre_id || null,
-          resolucion_raiz_id: votacion.resolucion_raiz_id || null,
-          emitidos,
-          favor,
-          contra,
-          abstencion,
-          necesarios,
-          aprobado: favor >= necesarios && favor + contra > 0,
-          candidatos: candidatosConteo,
-        }
-        })
-      )
-
-      setVotaciones(detalles)
+      setAsamblea(data.asamblea)
+      setVotaciones(data.votaciones || [])
       setActualizadoEn(new Date())
+    } catch {
+      setAsamblea(null)
+      setVotaciones([])
     } finally {
       setCargando(false)
     }

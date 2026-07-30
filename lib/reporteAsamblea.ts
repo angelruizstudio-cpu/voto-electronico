@@ -1,9 +1,6 @@
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
-import { supabase } from "@/lib/supabaseClient"
 import {
-  calcularNecesarios,
-  calcularVotosValidosCandidatos,
   mostrarEstadoParlamentario,
   mostrarTipoMayoria,
   mostrarTipoMocion,
@@ -284,132 +281,23 @@ export async function generarReporteCierreAsamblea(
   asambleaId: string,
   firmas: FirmasCierreAsamblea = {}
 ) {
-  const { data: asamblea, error: errorAsamblea } = await supabase
-    .from("asambleas")
-    .select("*")
-    .eq("id", asambleaId)
-    .maybeSingle()
-
-  if (errorAsamblea || !asamblea) {
-    throw new Error(errorAsamblea?.message || "No se encontró la asamblea")
+  if (typeof window === "undefined") {
+    throw new Error("El reporte debe generarse desde una sesión activa del navegador")
   }
 
-  const { data: votacionesData, error: errorVotaciones } = await supabase
-    .from("votaciones")
-    .select("*")
-    .eq("asamblea_id", asambleaId)
-    .order("creada_en", { ascending: true })
+  const res = await fetch(new URL(`/api/historial/${asambleaId}`, window.location.origin), {
+    cache: "no-store",
+    credentials: "same-origin",
+  })
+  const data = await res.json().catch(() => null)
 
-  if (errorVotaciones) {
-    throw new Error(errorVotaciones.message)
+  if (!res.ok || !data?.ok) {
+    throw new Error(data?.error || "No se encontró la asamblea")
   }
 
-  const votaciones = await Promise.all(
-    (votacionesData || []).map(async (votacion) => {
-      const { data: votos } = await supabase
-        .from("votos")
-        .select("*")
-        .eq("votacion_id", votacion.id)
-
-      const { data: votosManuales } = await supabase
-        .from("votos_manuales")
-        .select("*")
-        .eq("votacion_id", votacion.id)
-
-      const manuales = (votosManuales || []).reduce(
-        (total, voto) => total + Number(voto.cantidad || 0),
-        0
-      )
-      const emitidosElectronicos = votos?.length || 0
-      const emitidos = emitidosElectronicos + manuales
-      const favorElectronico = votos?.filter((v) => v.opcion === "favor").length || 0
-      const contraElectronico = votos?.filter((v) => v.opcion === "contra").length || 0
-      const abstencionElectronica = votos?.filter((v) => v.opcion === "abstencion").length || 0
-      const favorManual =
-        votosManuales?.find((v) => v.opcion === "favor")?.cantidad || 0
-      const contraManual =
-        votosManuales?.find((v) => v.opcion === "contra")?.cantidad || 0
-      const abstencionManual =
-        votosManuales?.find((v) => v.opcion === "abstencion")?.cantidad || 0
-      const favor = favorElectronico + favorManual
-      const contra = contraElectronico + contraManual
-      const abstencion = abstencionElectronica + abstencionManual
-
-      let ganadorNombre = ""
-      let candidatosConteo: { nombre: string; votos: number }[] = []
-
-      if (votacion.tipo_votacion === "eleccion_lideres") {
-        const { data: candidatos } = await supabase
-          .from("candidatos")
-          .select("*")
-          .eq("votacion_id", votacion.id)
-          .order("nombre", { ascending: true })
-
-        candidatosConteo =
-          candidatos?.map((candidato) => ({
-            nombre: candidato.nombre,
-            votos:
-              (votos?.filter((v) => v.candidato_id === candidato.id).length || 0) +
-              (votosManuales || [])
-                .filter((v) => v.candidato_id === candidato.id)
-                .reduce((total, voto) => total + Number(voto.cantidad || 0), 0),
-          })) || []
-
-        if (votacion.ganador_id) {
-          const { data: ganador } = await supabase
-            .from("candidatos")
-            .select("*")
-            .eq("id", votacion.ganador_id)
-            .maybeSingle()
-
-          ganadorNombre = ganador?.nombre || ""
-        }
-      }
-
-      const necesarios = calcularNecesarios(
-        votacion.tipo_votacion === "eleccion_lideres"
-          ? calcularVotosValidosCandidatos(candidatosConteo)
-          : favor + contra,
-        votacion.tipo_mayoria
-      )
-
-      return {
-        id: votacion.id,
-        titulo: votacion.titulo,
-        tipo_votacion: votacion.tipo_votacion || "resolucion",
-        tipo_mayoria: votacion.tipo_mayoria,
-        tipo_mocion: votacion.tipo_mocion || "resolucion_principal",
-        estado_parlamentario: votacion.estado_parlamentario || null,
-        estado: votacion.estado,
-        resultado: votacion.resultado,
-        ganador_id: votacion.ganador_id,
-        ronda_numero: votacion.ronda_numero || undefined,
-        eleccion_grupo_id: votacion.eleccion_grupo_id || null,
-        emitidos,
-        manuales,
-        favor,
-        contra,
-        abstencion,
-        necesarios,
-        aprobado: favor >= necesarios && favor + contra > 0,
-        ganadorNombre,
-        candidatos: candidatosConteo,
-      }
-    })
-  )
-
-  const { data: eventosData, error: errorEventos } = await supabase
-    .from("asamblea_eventos")
-    .select("*")
-    .eq("asamblea_id", asambleaId)
-    .in("tipo", ["receso_iniciado", "trabajos_reanudados"])
-    .order("creado_en", { ascending: true })
-
-  if (errorEventos) {
-    throw new Error(errorEventos.message)
-  }
-
-  const eventos = (eventosData || []) as AsambleaEvento[]
+  const asamblea = data.asamblea as Asamblea
+  const votaciones = (data.votaciones || []) as VotacionReporte[]
+  const eventos = (data.eventos || []) as AsambleaEvento[]
 
   const doc = new jsPDF()
   const asambleaReporte = asamblea as Asamblea

@@ -64,6 +64,27 @@ export async function POST(req: Request) {
       )
     }
 
+    const { data: asambleista } = await supabaseAdmin
+      .from("asambleistas")
+      .select("metodo_voto")
+      .eq("id", tokenRow.asambleista_id)
+      .eq("asamblea_id", votacion.asamblea_id)
+      .maybeSingle()
+
+    if (!asambleista) {
+      return NextResponse.json(
+        { ok: false, code: "ASAMBLEISTA_INVALIDO" },
+        { status: 401 }
+      )
+    }
+
+    if (asambleista.metodo_voto === "manual") {
+      return NextResponse.json(
+        { ok: false, code: "VOTO_MANUAL" },
+        { status: 403 }
+      )
+    }
+
     const { data, error } = await supabaseAdmin.rpc("registrar_voto", {
       p_token: token,
       p_votacion_id: votacionId,

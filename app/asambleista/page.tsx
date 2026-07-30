@@ -34,6 +34,8 @@ const MENSAJES_VOTO: Record<string, string> = {
   ASAMBLEISTA_INVALIDO: "No se pudo validar tu registro de asambleísta",
   NO_HABILITADO: "No estás habilitado para votar. Pasa por la mesa de registro.",
   NO_PRESENTE: "No puedes votar porque ya no figuras presente en la asamblea.",
+  VOTO_MANUAL:
+    "Tu participación fue cambiada a voto manual. Pasa por la mesa para recibir tu balota.",
   DISPOSITIVO_NO_AUTORIZADO:
     "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
   DISPOSITIVO_REVALIDACION_REQUERIDA:
@@ -50,6 +52,8 @@ const MENSAJES_NOMINACION: Record<string, string> = {
   TOKEN_INVALIDO: "Tu sesión no es válida, vuelve a hacer check-in",
   NO_HABILITADO: "No estás habilitado para nominar. Pasa por la mesa de registro.",
   NO_PRESENTE: "No puedes nominar porque no figuras presente en la asamblea.",
+  VOTO_MANUAL:
+    "Tu participación fue cambiada a voto manual. Pasa por la mesa para recibir tu balota.",
   VOTACION_INVALIDA: "No hay una elección de líderes abierta para nominar",
   NOMINACION_CERRADA: "Las nominaciones para esta ronda ya fueron cerradas",
   ASAMBLEA_RECESO: "La asamblea está en receso. Espera a que se reanuden los trabajos.",
@@ -89,7 +93,10 @@ export default function AsambleistaPage() {
     yaVoto,
     setYaVoto,
     cargarVotacionActiva,
-  } = useVotacion(asambleaActivaId, { ocultarCandidatosPrimeraRonda: true })
+  } = useVotacion(asambleaActivaId, {
+    ocultarCandidatosPrimeraRonda: true,
+    modoAsambleista: true,
+  })
 
   // token ahora almacena el token_hash (retornado por /api/checkin)
   const [token, setToken] = useState("")
