@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("metodo_voto")
+      .select("habilitado, presente, metodo_voto")
       .eq("id", tokenRow.asambleista_id)
       .eq("asamblea_id", votacion.asamblea_id)
       .maybeSingle()
@@ -75,6 +75,20 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, code: "ASAMBLEISTA_INVALIDO" },
         { status: 401 }
+      )
+    }
+
+    if (!asambleista.habilitado) {
+      return NextResponse.json(
+        { ok: false, code: "NO_HABILITADO" },
+        { status: 403 }
+      )
+    }
+
+    if (!asambleista.presente) {
+      return NextResponse.json(
+        { ok: false, code: "NO_PRESENTE" },
+        { status: 403 }
       )
     }
 

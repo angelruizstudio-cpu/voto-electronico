@@ -42,7 +42,11 @@ export default function PuertaPage() {
   const [seleccionado, setSeleccionado] = useState<Asambleista | null>(null)
   const [cargando, setCargando] = useState(false)
   const [escaneando, setEscaneando] = useState(false)
+  const [modoEscaneo, setModoEscaneo] = useState<"entrada" | "salida">("entrada")
   const [mensajeEscaneo, setMensajeEscaneo] = useState("")
+  const asambleistasRef = useRef<Asambleista[]>([])
+  const procesandoEscaneoRef = useRef(false)
+  const ultimoEscaneoRef = useRef({ credencial: "", instante: 0 })
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -79,31 +83,98 @@ export default function PuertaPage() {
     return () => detenerEscaner()
   }, [cargarAsambleistas, detenerEscaner])
 
+  useEffect(() => {
+    asambleistasRef.current = asambleistas
+  }, [asambleistas])
+
   const buscarPorCredencial = useCallback(
     (valor: string) => {
       const credencial = normalizarCredencial(valor)
-      return asambleistas.find((a) => a.credencial.toUpperCase() === credencial) || null
+      return asambleistasRef.current.find((a) => a.credencial.toUpperCase() === credencial) || null
     },
-    [asambleistas]
+    []
   )
 
-  const seleccionarPorCredencial = useCallback(
-    (valor: string) => {
-      const credencial = normalizarCredencial(valor)
-      const encontrado = buscarPorCredencial(credencial)
-      setBusqueda(credencial)
+  const actualizarPresencia = useCallback(async (asambleista: Asambleista, presente: boolean) => {
+    setCargando(true)
 
-      if (!encontrado) {
-        setSeleccionado(null)
-        setMensajeEscaneo(t(`No se encontró la credencial ${credencial}`, `Credential ${credencial} was not found`))
+    try {
+      const res = await fetch("/api/oficina/asambleistas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: asambleista.id, cambios: { presente } }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || t("No se pudo actualizar la presencia", "Could not update attendance"))
         return
       }
 
-      setSeleccionado(encontrado)
-      setMensajeEscaneo(t(`${encontrado.nombre} listo para validar`, `${encontrado.nombre} ready to validate`))
-    },
-    [buscarPorCredencial, t]
-  )
+      setSeleccionado(data.asambleista)
+      setMensajeEscaneo(
+        presente
+          ? t(`${data.asambleista.nombre} marcado presente`, `${data.asambleista.nombre} marked present`)
+          : t(`${data.asambleista.nombre} marcado fuera`, `${data.asambleista.nombre} marked out`)
+      )
+      await cargarAsambleistas()
+    } catch {
+      setMensajeEscaneo(t("No se pudo actualizar la presencia", "Could not update attendance"))
+    } finally {
+      setCargando(false)
+    }
+  }, [cargarAsambleistas, t])
+
+  const procesarCredencialEscaneada = useCallback(async (valor: string) => {
+    const credencial = normalizarCredencial(valor)
+    const instante = Date.now()
+
+    if (
+      procesandoEscaneoRef.current ||
+      (ultimoEscaneoRef.current.credencial === credencial &&
+        instante - ultimoEscaneoRef.current.instante < 5000)
+    ) {
+      return
+    }
+
+    ultimoEscaneoRef.current = { credencial, instante }
+    const encontrado = buscarPorCredencial(credencial)
+    setBusqueda(credencial)
+
+    if (!encontrado) {
+      setSeleccionado(null)
+      setMensajeEscaneo(t(`No se encontró la credencial ${credencial}`, `Credential ${credencial} was not found`))
+      return
+    }
+
+    setSeleccionado(encontrado)
+
+    if (modoEscaneo === "entrada" && !encontrado.habilitado) {
+      setMensajeEscaneo(t(
+        `${encontrado.nombre} no está habilitado para entrar`,
+        `${encontrado.nombre} is not approved for check-in`
+      ))
+      return
+    }
+
+    const presente = modoEscaneo === "entrada"
+
+    if (encontrado.presente === presente) {
+      setMensajeEscaneo(
+        presente
+          ? t(`${encontrado.nombre} ya está presente`, `${encontrado.nombre} is already present`)
+          : t(`${encontrado.nombre} ya está fuera`, `${encontrado.nombre} is already out`)
+      )
+      return
+    }
+
+    procesandoEscaneoRef.current = true
+    try {
+      await actualizarPresencia(encontrado, presente)
+    } finally {
+      procesandoEscaneoRef.current = false
+    }
+  }, [actualizarPresencia, buscarPorCredencial, modoEscaneo, t])
 
   const iniciarEscaner = async () => {
     setMensajeEscaneo("")
@@ -148,9 +219,7 @@ export default function PuertaPage() {
               const resultado = jsQR(imagen.data, imagen.width, imagen.height)
 
               if (resultado?.data) {
-                detenerEscaner()
-                seleccionarPorCredencial(resultado.data)
-                return
+                void procesarCredencialEscaneada(resultado.data)
               }
             }
           }
@@ -180,32 +249,6 @@ export default function PuertaPage() {
         .includes(texto)
     )
   }, [asambleistas, busqueda])
-
-  const actualizarPresencia = async (asambleista: Asambleista, presente: boolean) => {
-    setCargando(true)
-
-    const res = await fetch("/api/oficina/asambleistas", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: asambleista.id, cambios: { presente } }),
-    })
-    const data = await res.json()
-
-    setCargando(false)
-
-    if (!res.ok || !data.ok) {
-      alert(data.error || t("No se pudo actualizar la presencia", "Could not update attendance"))
-      return
-    }
-
-    setSeleccionado(data.asambleista)
-    setMensajeEscaneo(
-      presente
-        ? t(`${data.asambleista.nombre} marcado presente`, `${data.asambleista.nombre} marked present`)
-        : t(`${data.asambleista.nombre} marcado fuera`, `${data.asambleista.nombre} marked out`)
-    )
-    await cargarAsambleistas()
-  }
 
   const resetearDispositivo = async (asambleista: Asambleista) => {
     if (
@@ -339,6 +382,45 @@ export default function PuertaPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 grid grid-cols-2 rounded-xl bg-slate-100 p-1" aria-label={t("Modo de escaneo", "Scan mode")}>
+            <button
+              type="button"
+              aria-pressed={modoEscaneo === "entrada"}
+              disabled={escaneando}
+              onClick={() => {
+                setModoEscaneo("entrada")
+                ultimoEscaneoRef.current = { credencial: "", instante: 0 }
+                setMensajeEscaneo("")
+              }}
+              className={`flex h-11 items-center justify-center gap-2 rounded-lg font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                modoEscaneo === "entrada"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-white"
+              }`}
+            >
+              <CheckCircle2 className="h-5 w-5" />
+              {t("Entrada", "Check-in")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={modoEscaneo === "salida"}
+              disabled={escaneando}
+              onClick={() => {
+                setModoEscaneo("salida")
+                ultimoEscaneoRef.current = { credencial: "", instante: 0 }
+                setMensajeEscaneo("")
+              }}
+              className={`flex h-11 items-center justify-center gap-2 rounded-lg font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                modoEscaneo === "salida"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-white"
+              }`}
+            >
+              <LogOut className="h-5 w-5" />
+              {t("Salida", "Check-out")}
+            </button>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <Search className="h-5 w-5 text-slate-500" />

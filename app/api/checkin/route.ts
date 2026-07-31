@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 
       const { data: asambleistaPorToken } = await supabaseAdmin
         .from("asambleistas")
-        .select("id, nombre, credencial, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
+        .select("id, nombre, credencial, habilitado, presente, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
         .eq("id", enlaceAcceso.asambleista_id)
         .eq("asamblea_id", asambleaPorToken.id)
         .maybeSingle()
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 
       const { data: asambleistaPorCredencial } = await supabaseAdmin
         .from("asambleistas")
-        .select("id, nombre, credencial, habilitado, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
+        .select("id, nombre, credencial, habilitado, presente, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
         .eq("asamblea_id", asambleaPorCredencial.id)
         .eq("credencial", credencialNormalizada)
         .maybeSingle()
@@ -148,6 +148,16 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!asambleista.presente) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "PENDIENTE_CHECKIN_PRESENCIAL",
+        },
+        { status: 403 }
+      )
+    }
+
     const credencialAuditada = asambleista.credencial || credencialNormalizada
 
     if (!asambleista.dispositivo_autorizado_id) {
@@ -173,14 +183,6 @@ export async function POST(req: Request) {
         detalle,
       })
     }
-
-    await supabaseAdmin
-      .from("asambleistas")
-      .update({
-        presente: true,
-        checkin_en: new Date().toISOString(),
-      })
-      .eq("id", asambleista.id)
 
     if (accessTokenLimpio) {
       await supabaseAdmin

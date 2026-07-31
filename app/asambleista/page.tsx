@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
@@ -107,8 +107,6 @@ export default function AsambleistaPage() {
   const [cargando, setCargando] = useState(false)
   const [enLinea, setEnLinea] = useState(true)
   const [aviso, setAviso] = useState("")
-  const autoCheckinIntentado = useRef(false)
-
   const guardarAcceso = useCallback((resultado: {
     token?: string
     asamblea?: { id?: string }
@@ -163,46 +161,66 @@ export default function AsambleistaPage() {
   }, [cargarVotacionActiva])
 
   useEffect(() => {
-    if (autoCheckinIntentado.current || token) return
+    if (token) return
 
     const accessToken = new URLSearchParams(window.location.search).get("access")?.trim()
     if (!accessToken) return
 
-    autoCheckinIntentado.current = true
-    setCargando(true)
+    let cancelado = false
+    let reintento: ReturnType<typeof setTimeout> | null = null
 
-    hacerCheckinAutomatico(
-      accessToken,
-      getDeviceId(),
-      obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
-    )
-      .then(async (resultado) => {
-        if (!resultado.ok) {
-          const mensajes: Record<string, string> = {
-            TOKEN_ACCESO_INVALIDO: "El enlace de acceso no es valido. Usa tu credencial o pasa por registro.",
-            TOKEN_ACCESO_EXPIRADO: "El enlace de acceso expiro. Pasa por registro para reenviar la credencial.",
-            NO_HAY_ASAMBLEA: "No hay una asamblea activa en este momento",
-            NO_EXISTE: "Credencial no encontrada",
-            NO_HABILITADO:
-              "No estas habilitado para hacer check-in. Pasa primero por la mesa de registro.",
-            VOTO_MANUAL:
-              "Tu participacion esta registrada para voto manual. Pasa por la mesa para recibir tu balota.",
-            DISPOSITIVO_REVALIDACION_REQUERIDA:
-              "Esta credencial requiere validacion nuevamente. Pase por la mesa de registro.",
-            ASAMBLEA_NO_AUTORIZADA:
-              "Este enlace no pertenece a la organizacion seleccionada.",
-            ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
-            ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
-          }
-          setAviso(t(mensajes[resultado.error] || "No se pudo validar el enlace", "Could not validate link"))
+    const intentarAcceso = async () => {
+      const resultado = await hacerCheckinAutomatico(
+        accessToken,
+        getDeviceId(),
+        obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
+      )
+
+      if (cancelado) return
+
+      if (!resultado.ok) {
+        if (resultado.error === "PENDIENTE_CHECKIN_PRESENCIAL") {
+          setAviso(
+            t(
+              "Identidad confirmada. Pendiente de check-in presencial en Puerta.",
+              "Identity confirmed. Waiting for in-person check-in at the door."
+            )
+          )
+          reintento = setTimeout(() => void intentarAcceso(), 5000)
           return
         }
 
-        guardarAcceso(resultado)
-        setAviso(t("Acceso concedido", "Access granted"))
-        await cargarVotacionActiva()
-      })
-      .finally(() => setCargando(false))
+        const mensajes: Record<string, string> = {
+          TOKEN_ACCESO_INVALIDO: "El enlace de acceso no es valido. Usa tu credencial o pasa por registro.",
+          TOKEN_ACCESO_EXPIRADO: "El enlace de acceso expiro. Pasa por registro para reenviar la credencial.",
+          NO_HAY_ASAMBLEA: "No hay una asamblea activa en este momento",
+          NO_EXISTE: "Credencial no encontrada",
+          NO_HABILITADO:
+            "No estas habilitado para hacer check-in. Pasa primero por la mesa de registro.",
+          VOTO_MANUAL:
+            "Tu participacion esta registrada para voto manual. Pasa por la mesa para recibir tu balota.",
+          DISPOSITIVO_REVALIDACION_REQUERIDA:
+            "Esta credencial requiere validacion nuevamente. Pase por la mesa de registro.",
+          ASAMBLEA_NO_AUTORIZADA:
+            "Este enlace no pertenece a la organizacion seleccionada.",
+          ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
+          ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
+        }
+        setAviso(t(mensajes[resultado.error] || "No se pudo validar el enlace", "Could not validate link"))
+        return
+      }
+
+      guardarAcceso(resultado)
+      setAviso(t("Check-in confirmado. Acceso concedido.", "Check-in confirmed. Access granted."))
+      await cargarVotacionActiva()
+    }
+
+    void intentarAcceso()
+
+    return () => {
+      cancelado = true
+      if (reintento) clearTimeout(reintento)
+    }
   }, [cargarVotacionActiva, guardarAcceso, organizacionSlugSesion, t, token])
 
   useEffect(() => {
@@ -219,6 +237,12 @@ export default function AsambleistaPage() {
           filter: `id=eq.${asambleistaId}`,
         },
         (payload) => {
+          if (payload.new?.presente === false) {
+            bloquearSesionPorRevalidacion()
+            setAviso(t("Tu check-out fue registrado.", "Your check-out was recorded."))
+            return
+          }
+
           if (!payload.new?.dispositivo_alerta_en) return
 
           bloquearSesionPorRevalidacion()
@@ -261,6 +285,8 @@ export default function AsambleistaPage() {
           "No estás habilitado para hacer check-in. Pasa primero por la mesa de registro.",
         VOTO_MANUAL:
           "Tu participación está registrada para voto manual. Pasa por la mesa para recibir tu balota.",
+        PENDIENTE_CHECKIN_PRESENCIAL:
+          "Identidad confirmada. Debes completar el check-in presencial en Puerta.",
         DISPOSITIVO_NO_AUTORIZADO:
           "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
         DISPOSITIVO_REVALIDACION_REQUERIDA:
