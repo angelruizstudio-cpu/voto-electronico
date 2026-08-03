@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createHash, randomInt, randomUUID } from "crypto"
+import { createHash, randomUUID } from "crypto"
 import { createClient } from "@supabase/supabase-js"
 import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
+import {
+  generarCredencialCandidata,
+  limpiarEmail,
+  limpiarTelefono,
+  prepararPreRegistroMasivo,
+  type PreRegistroValidado,
+} from "@/lib/preRegistroMasivo"
 
 type CambiosAsambleista = {
   registrado?: boolean
@@ -44,23 +51,6 @@ function crearSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-}
-
-const CARACTERES_CREDENCIAL = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-
-function generarSegmentoCredencial(largo: number) {
-  return Array.from({ length: largo })
-    .map(() => CARACTERES_CREDENCIAL[randomInt(0, CARACTERES_CREDENCIAL.length)])
-    .join("")
-}
-
-function generarCredencialCandidata(codigoTenant: string) {
-  const prefijo = String(codigoTenant || "KTG")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 5) || "KTG"
-
-  return `${prefijo}-${generarSegmentoCredencial(3)}-${generarSegmentoCredencial(3)}`
 }
 
 async function generarCredencialUnica(
@@ -147,40 +137,6 @@ async function obtenerUrlAsambleistaAutomatica({
   }
 
   return `${urlManual}&access=${encodeURIComponent(token)}`
-}
-
-function limpiarEmail(email: unknown) {
-  const emailLimpio = String(email || "").trim().toLowerCase()
-
-  if (!emailLimpio) {
-    return ""
-  }
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio) ? emailLimpio : ""
-}
-
-function limpiarTelefono(telefono: unknown) {
-  const telefonoLimpio = String(telefono || "").trim()
-
-  if (!telefonoLimpio) {
-    return ""
-  }
-
-  if (/^\+[1-9]\d{7,14}$/.test(telefonoLimpio)) {
-    return telefonoLimpio
-  }
-
-  const digitos = telefonoLimpio.replace(/\D/g, "")
-
-  if (digitos.length === 10) {
-    return `+1${digitos}`
-  }
-
-  if (digitos.length === 11 && digitos.startsWith("1")) {
-    return `+${digitos}`
-  }
-
-  return ""
 }
 
 function escaparHtml(valor: string) {
@@ -544,6 +500,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
+  const body = await req.json()
   const {
     asambleaId,
     nombre,
@@ -553,7 +510,87 @@ export async function POST(req: NextRequest) {
     telefono,
     metodoVoto,
     enviarCredenciales = true,
-  } = await req.json()
+    filas,
+  } = body
+
+  if (Array.isArray(filas)) {
+    if (!asambleaId || filas.length === 0 || filas.length > 1000) {
+      return NextResponse.json({ ok: false, error: "LOTE_INVALIDO" }, { status: 400 })
+    }
+
+    const supabaseAdmin = crearSupabaseAdmin()
+    const tenant = obtenerTenantSesion(req)
+    const { data: asambleaPermitida, error: errorAsambleaPermitida } = await supabaseAdmin
+      .from("asambleas")
+      .select("id, organizacion_id, organizacion_slug")
+      .eq("id", asambleaId)
+      .maybeSingle()
+
+    if (errorAsambleaPermitida) {
+      return NextResponse.json({ ok: false, error: errorAsambleaPermitida.message }, { status: 500 })
+    }
+
+    if (!asambleaPermitida || !asambleaPerteneceAlTenant(tenant, asambleaPermitida)) {
+      return NextResponse.json({ ok: false, error: "ASAMBLEA_NO_AUTORIZADA" }, { status: 403 })
+    }
+
+    const { data: existentes, error: errorExistentes } = await supabaseAdmin
+      .from("asambleistas")
+      .select("credencial")
+      .eq("asamblea_id", asambleaId)
+
+    if (errorExistentes) {
+      return NextResponse.json({ ok: false, error: errorExistentes.message }, { status: 500 })
+    }
+
+    const { registros, errores } = prepararPreRegistroMasivo({
+      filas,
+      codigoTenant: tenant.codigoAcceso || tenant.slug,
+      credencialesOcupadas: new Set((existentes || []).map((item) => item.credencial)),
+    })
+    const prepararInsert = (registro: PreRegistroValidado) => ({
+      asamblea_id: asambleaId,
+      nombre: registro.nombre,
+      credencial: registro.credencial,
+      email: registro.email,
+      telefono: registro.telefono,
+      metodo_voto: registro.metodo_voto,
+      iglesia: registro.iglesia,
+      distrito: registro.distrito,
+      registrado: false,
+      pago_confirmado: false,
+      habilitado: false,
+      habilitado_en: null,
+      presente: false,
+    })
+    let creados = 0
+
+    for (let inicio = 0; inicio < registros.length; inicio += 200) {
+      const lote = registros.slice(inicio, inicio + 200)
+      const filasInsertar = lote.map(prepararInsert)
+      const { error } = await supabaseAdmin.from("asambleistas").insert(filasInsertar)
+
+      if (!error) {
+        creados += lote.length
+        continue
+      }
+
+      for (const registro of lote) {
+        const { error: errorFila } = await supabaseAdmin
+          .from("asambleistas")
+          .insert(prepararInsert(registro))
+
+        if (errorFila) {
+          errores.push(`Fila ${registro.fila}: ${errorFila.message}`)
+        } else {
+          creados += 1
+        }
+      }
+    }
+
+    return NextResponse.json({ ok: true, creados, errores })
+  }
+
   const nombreLimpio = String(nombre || "").trim()
   const emailLimpio = limpiarEmail(email)
   const telefonoLimpio = limpiarTelefono(telefono)

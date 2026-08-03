@@ -327,44 +327,34 @@ export default function OficinaRegionalPage() {
       return
     }
 
-    let creados = 0
-    const errores: string[] = []
-
-    for (const [indice, linea] of lineas.slice(1).entries()) {
+    const filas = lineas.slice(1).map((linea, indice) => {
       const valores = parsearLineaCsv(linea)
       const fila = Object.fromEntries(
         encabezados.map((campo, posicion) => [campo, valores[posicion] || ""])
       )
 
-      if (!String(fila.nombre || "").trim()) {
-        errores.push(`Fila ${indice + 2}: falta nombre`)
-        continue
+      return {
+        fila: indice + 2,
+        nombre: fila.nombre,
+        email: fila.email,
+        telefono: fila.telefono,
+        metodoVoto: fila.metodo_voto === "manual" ? "manual" : "electronico",
+        iglesia: fila.iglesia,
+        distrito: fila.distrito,
       }
+    })
+    const res = await fetch("/api/oficina/asambleistas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ asambleaId, filas }),
+    })
+    const data = await res.json().catch(() => null)
+    const errores: string[] = Array.isArray(data?.errores) ? data.errores : []
 
-      const res = await fetch("/api/oficina/asambleistas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          asambleaId,
-          nombre: fila.nombre,
-          email: fila.email,
-          telefono: fila.telefono,
-          metodoVoto: fila.metodo_voto === "manual" ? "manual" : "electronico",
-          iglesia: fila.iglesia,
-          distrito: fila.distrito,
-          enviarCredenciales: false,
-        }),
-      })
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok || !data?.ok) {
-        errores.push(`Fila ${indice + 2}: ${data?.error || "no se pudo crear"}`)
-        continue
-      }
-
-      creados += 1
+    if (!res.ok || !data?.ok) {
+      setCsvProcesando(false)
+      alert(data?.error || t("No se pudo subir el pre-registro", "Could not upload pre-registration"))
+      return
     }
 
     setCsvProcesando(false)
@@ -373,7 +363,7 @@ export default function OficinaRegionalPage() {
 
     alert(
       [
-        `Pre-registros creados: ${creados}`,
+        `Pre-registros creados: ${data.creados || 0}`,
         errores.length ? `Errores:\n${errores.slice(0, 8).join("\n")}` : "",
       ]
         .filter(Boolean)

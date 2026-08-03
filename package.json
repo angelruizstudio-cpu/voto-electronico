@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:credential-print": "tsx scripts/check-credential-print.ts",
+    "check:csv-import": "tsx scripts/check-csv-import.ts",
     "sent:diagnose": "npx tsx scripts/sent-diagnostics.ts"
   },
   "dependencies": {
