@@ -1,10 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Printer } from "lucide-react"
+import QRCode from "qrcode"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { supabase } from "@/lib/supabaseClient"
 import { useAsamblea } from "@/hooks/useAsamblea"
 import { useI18n } from "@/lib/i18n"
+import { crearHtmlCredenciales } from "@/lib/credencialesImpresion"
 
 type Asambleista = {
   id: string
@@ -30,7 +33,12 @@ type Asambleista = {
 
 export default function OficinaRegionalPage() {
   const { t } = useI18n()
-  const { asambleaId, organizacionNombreSesion } = useAsamblea()
+  const {
+    asambleaId,
+    anioAsamblea,
+    lugarAsamblea,
+    organizacionNombreSesion,
+  } = useAsamblea()
 
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
   const [cargando, setCargando] = useState(false)
@@ -43,6 +51,50 @@ export default function OficinaRegionalPage() {
   const [nuevoDistrito, setNuevoDistrito] = useState("")
   const [csvArchivo, setCsvArchivo] = useState<File | null>(null)
   const [csvProcesando, setCsvProcesando] = useState(false)
+
+  const imprimirCredenciales = async (credenciales: Asambleista[]) => {
+    if (credenciales.length === 0) return
+
+    const ventana = window.open("", "_blank")
+    if (!ventana) {
+      alert(t("Permite ventanas emergentes para imprimir", "Allow pop-ups to print"))
+      return
+    }
+
+    ventana.opener = null
+
+    try {
+      const credencialesConQr = await Promise.all(credenciales.map(async (persona) => ({
+        ...persona,
+        qrDataUrl: await QRCode.toDataURL(`VOTOAPP:${persona.credencial}`, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 260,
+        }),
+      })))
+      const html = crearHtmlCredenciales({
+        organizacion: organizacionNombreSesion,
+        evento: [t("Asamblea", "Assembly"), anioAsamblea, lugarAsamblea]
+          .filter(Boolean)
+          .join(" · "),
+        credenciales: credencialesConQr,
+        etiquetas: {
+          nombre: t("Nombre", "Name"),
+          iglesia: t("Iglesia", "Church"),
+          distrito: t("Distrito", "District"),
+          credencial: t("Credencial", "Credential"),
+          imprimir: t("Imprimir credenciales", "Print credentials"),
+        },
+      })
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }))
+
+      ventana.location.replace(url)
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      ventana.close()
+      alert(t("No se pudieron preparar las credenciales", "Could not prepare credentials"))
+    }
+  }
 
   const cargarAsambleistas = useCallback(async () => {
     if (!asambleaId) {
@@ -671,8 +723,17 @@ export default function OficinaRegionalPage() {
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-5">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-black text-slate-950">{t("Lista de asambleístas", "Assembly member list")}</h2>
+            <button
+              type="button"
+              onClick={() => imprimirCredenciales(asambleistas)}
+              disabled={asambleistas.length === 0}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#16382f] px-4 text-sm font-bold text-white transition hover:bg-[#0f2b24] disabled:opacity-40"
+            >
+              <Printer className="h-4 w-4" />
+              {t("Imprimir todas", "Print all")}
+            </button>
           </div>
 
           {asambleistas.length === 0 && (
@@ -812,6 +873,15 @@ export default function OficinaRegionalPage() {
                       {a.habilitado
                         ? t("Reenviar credencial", "Resend credential")
                         : t("Activar credencial", "Activate credential")}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => imprimirCredenciales([a])}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                    >
+                      <Printer className="h-4 w-4" />
+                      {t("Imprimir credencial", "Print credential")}
                     </button>
 
                     {a.dispositivo_alerta_en ? (
