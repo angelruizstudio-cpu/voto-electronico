@@ -16,6 +16,31 @@ function crearSupabaseAdmin() {
   )
 }
 
+export async function GET(req: NextRequest) {
+  if (!validarSesion(req)) {
+    return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
+  }
+
+  const tenant = obtenerTenantSesion(req)
+  const supabaseAdmin = crearSupabaseAdmin()
+  let query = supabaseAdmin
+    .from("asambleas")
+    .select("*")
+    .in("estado", ["abierta", "receso"])
+
+  query = tenant.id
+    ? query.eq("organizacion_id", tenant.id)
+    : query.eq("organizacion_slug", tenant.slug)
+
+  const { data, error } = await query.limit(1).maybeSingle()
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, asamblea: data || null })
+}
+
 export async function POST(req: NextRequest) {
   if (!validarSesion(req)) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })

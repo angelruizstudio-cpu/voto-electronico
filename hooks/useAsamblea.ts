@@ -121,27 +121,16 @@ function useAsambleaState() {
     return fallback
   }, [])
 
-  const cargarAsambleaActiva = useCallback(async (tenantSesion?: {
-    id: string | null
-    slug: string
-  }) => {
-    let query = supabase
-      .from("asambleas")
-      .select("*")
-      .in("estado", ["abierta", "receso"])
+  const cargarAsambleaActiva = useCallback(async () => {
+    const res = await fetch("/api/asambleas", { cache: "no-store" }).catch(() => null)
 
-    const tenantId = tenantSesion?.id ?? organizacionIdSesion
-    const tenantSlug = tenantSesion?.slug ?? organizacionSlugSesion
+    // Conserva la última asamblea conocida si hay un fallo temporal de red o sesión.
+    if (!res?.ok) return
 
-    if (tenantId) {
-      query = query.eq("organizacion_id", tenantId)
-    } else if (tenantSlug) {
-      query = query.eq("organizacion_slug", tenantSlug)
-    }
+    const resultado = await res.json().catch(() => null)
+    const data = resultado?.asamblea
 
-    const { data, error } = await query.maybeSingle()
-
-    if (error || !data) {
+    if (!data) {
       setAsambleaId(null)
       setAnioAsamblea("")
       setLugarAsamblea("")
@@ -155,7 +144,7 @@ function useAsambleaState() {
     setLugarAsamblea(data.lugar)
     setOrganizacionAsamblea(data.organizacion || "")
     setEstadoAsamblea(data.estado === "receso" ? "receso" : "abierta")
-  }, [organizacionIdSesion, organizacionSlugSesion])
+  }, [])
 
   const registrarEventoAsamblea = async (
     tipo: "receso_iniciado" | "trabajos_reanudados",
@@ -366,8 +355,8 @@ function useAsambleaState() {
   useEffect(() => {
     queueMicrotask(() => {
       void (async () => {
-        const tenant = await cargarOrganizacionSesion()
-        await cargarAsambleaActiva(tenant || undefined)
+        await cargarOrganizacionSesion()
+        await cargarAsambleaActiva()
       })()
     })
 

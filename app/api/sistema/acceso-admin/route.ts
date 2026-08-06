@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const response = NextResponse.json({ ok: true })
   const opciones = {
     path: "/",
-    maxAge: 7200,
+    maxAge: 43200,
     httpOnly: true,
     sameSite: "strict" as const,
   }
