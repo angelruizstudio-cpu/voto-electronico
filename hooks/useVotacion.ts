@@ -2,6 +2,32 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
+export function crearRecargaSerial() {
+  let enCurso: Promise<void> | null = null
+  let pendiente = false
+  let ultimaTarea: () => Promise<void> = async () => {}
+
+  return (tarea: () => Promise<void>) => {
+    ultimaTarea = tarea
+
+    if (enCurso) {
+      pendiente = true
+      return enCurso
+    }
+
+    enCurso = (async () => {
+      do {
+        pendiente = false
+        await ultimaTarea()
+      } while (pendiente)
+    })().finally(() => {
+      enCurso = null
+    })
+
+    return enCurso
+  }
+}
+
 export function useVotacion(
   asambleaId: string | null,
   opciones: {
@@ -33,7 +59,8 @@ export function useVotacion(
 
   const [resultadosCerrados, setResultadosCerrados] = useState<ResultadoCerrado[]>([])
 
-  const cargarVotacionActivaRef = useRef<() => void>(() => {})
+  const cargarUnaVezRef = useRef<() => Promise<void>>(async () => {})
+  const [recargarSerial] = useState(() => crearRecargaSerial())
 
   const limpiarVotacion = useCallback(() => {
     setEstado("cerrada")
@@ -56,7 +83,7 @@ export function useVotacion(
     setYaVoto(false)
   }, [])
 
-  const cargarVotacionActiva = useCallback(async () => {
+  const cargarVotacionActivaUnaVez = useCallback(async () => {
     if (!asambleaId) {
       limpiarVotacion()
       return
@@ -75,6 +102,7 @@ export function useVotacion(
     const params = new URLSearchParams({ asambleaId })
 
     if (opciones.modoAsambleista) params.set("modo", "asambleista")
+    if (opciones.modoAsambleista && votacionId) params.set("actual", votacionId)
     if (opciones.incluirResultadosPublicados) params.set("resultados", "1")
 
     const res = await fetch(`/api/votacion-activa?${params.toString()}`, {
@@ -85,6 +113,9 @@ export function useVotacion(
     if (!res?.ok) return
 
     const respuesta = await res.json().catch(() => null)
+
+    if (respuesta?.sinCambios) return
+
     const data = respuesta?.votacion
 
     if (!data) {
@@ -115,20 +146,41 @@ export function useVotacion(
     limpiarVotacion,
     opciones.incluirResultadosPublicados,
     opciones.modoAsambleista,
+    votacionId,
   ])
 
+  const cargarVotacionActiva = useCallback(async () => {
+    await recargarSerial(cargarUnaVezRef.current)
+  }, [recargarSerial])
+
   useEffect(() => {
-    cargarVotacionActivaRef.current = cargarVotacionActiva
-  }, [cargarVotacionActiva])
+    cargarUnaVezRef.current = cargarVotacionActivaUnaVez
+  }, [cargarVotacionActivaUnaVez])
 
   useEffect(() => {
     queueMicrotask(() => {
       void cargarVotacionActiva()
     })
-  }, [cargarVotacionActiva])
+  }, [
+    asambleaId,
+    cargarVotacionActiva,
+    opciones.incluirResultadosPublicados,
+    opciones.modoAsambleista,
+  ])
 
   useEffect(() => {
     if (!asambleaId) return
+
+    let refrescoProgramado: number | null = null
+    const programarRefresco = () => {
+      if (refrescoProgramado !== null) return
+
+      const espera = opciones.modoAsambleista ? Math.floor(Math.random() * 4000) : 0
+      refrescoProgramado = window.setTimeout(() => {
+        refrescoProgramado = null
+        void cargarVotacionActiva()
+      }, espera)
+    }
 
     const canalVotaciones = supabase
       .channel(`realtime-votaciones-${asambleaId}-${crypto.randomUUID()}`)
@@ -140,14 +192,15 @@ export function useVotacion(
           table: "votaciones",
           filter: `asamblea_id=eq.${asambleaId}`,
         },
-        () => cargarVotacionActivaRef.current()
+        programarRefresco
       )
       .subscribe()
 
     return () => {
+      if (refrescoProgramado !== null) window.clearTimeout(refrescoProgramado)
       supabase.removeChannel(canalVotaciones)
     }
-  }, [asambleaId])
+  }, [asambleaId, cargarVotacionActiva, opciones.modoAsambleista])
 
   useEffect(() => {
     if (!votacionId) return
@@ -164,24 +217,39 @@ export function useVotacion(
           table: "candidatos",
           filter: `votacion_id=eq.${votacionId}`,
         },
-        () => cargarVotacionActivaRef.current()
+        () => void cargarVotacionActiva()
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(canalCandidatos)
     }
-  }, [opciones.modoAsambleista, votacionId])
+  }, [cargarVotacionActiva, opciones.modoAsambleista, votacionId])
 
   useEffect(() => {
     if (!asambleaId) return
 
-    const refresco = window.setInterval(() => {
-      cargarVotacionActivaRef.current()
-    }, opciones.modoAsambleista ? 5000 : 3000)
+    let cancelado = false
+    let refresco: number | null = null
 
-    return () => window.clearInterval(refresco)
-  }, [asambleaId, opciones.modoAsambleista])
+    const programarRefresco = () => {
+      const espera = opciones.modoAsambleista
+        ? 8000 + Math.floor(Math.random() * 4000)
+        : 3000
+
+      refresco = window.setTimeout(async () => {
+        if (document.visibilityState === "visible") await cargarVotacionActiva()
+        if (!cancelado) programarRefresco()
+      }, espera)
+    }
+
+    programarRefresco()
+
+    return () => {
+      cancelado = true
+      if (refresco !== null) window.clearTimeout(refresco)
+    }
+  }, [asambleaId, cargarVotacionActiva, opciones.modoAsambleista])
 
   return {
     estado,

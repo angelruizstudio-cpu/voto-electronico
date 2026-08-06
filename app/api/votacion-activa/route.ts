@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const asambleaId = req.nextUrl.searchParams.get("asambleaId")
   const modoAsambleista = req.nextUrl.searchParams.get("modo") === "asambleista"
   const incluirResultados = req.nextUrl.searchParams.get("resultados") === "1"
+  const votacionActualId = req.nextUrl.searchParams.get("actual")
 
   if (!asambleaId) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_REQUERIDA" }, { status: 400 })
@@ -78,6 +79,13 @@ export async function GET(req: NextRequest) {
 
   if (!votacion) {
     return NextResponse.json({ ok: true, votacion: null }, { headers: { "Cache-Control": "no-store" } })
+  }
+
+  if (modoAsambleista && !incluirResultados && votacionActualId === votacion.id) {
+    return NextResponse.json(
+      { ok: true, sinCambios: true },
+      { headers: { "Cache-Control": "no-store" } }
+    )
   }
 
   const debeIncluirConteos = !modoAsambleista || (incluirResultados && votacion.publicada)

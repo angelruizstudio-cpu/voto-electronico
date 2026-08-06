@@ -12,6 +12,11 @@ import {
 } from "@/lib/preRegistroMasivo"
 
 type CambiosAsambleista = {
+  nombre?: string
+  email?: string | null
+  telefono?: string | null
+  iglesia?: string
+  distrito?: string
   registrado?: boolean
   pago_confirmado?: boolean
   habilitado?: boolean
@@ -747,7 +752,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: asambleistaPermitido, error: errorAsambleistaPermitido } = await supabaseAdmin
     .from("asambleistas")
-    .select("id, asamblea_id")
+    .select("id, asamblea_id, email, telefono")
     .eq("id", id)
     .maybeSingle()
 
@@ -980,6 +985,50 @@ export async function PATCH(req: NextRequest) {
 
   const cambiosPermitidos: CambiosAsambleista = {}
 
+  if ("nombre" in cambios) {
+    const nombre = String(cambios.nombre || "").trim()
+
+    if (!nombre || nombre.length > 160) {
+      return NextResponse.json({ ok: false, error: "NOMBRE_INVALIDO" }, { status: 400 })
+    }
+
+    cambiosPermitidos.nombre = nombre
+  }
+
+  if ("email" in cambios) {
+    const emailOriginal = String(cambios.email || "").trim()
+    const email = limpiarEmail(emailOriginal)
+
+    if (emailOriginal && !email) {
+      return NextResponse.json({ ok: false, error: "EMAIL_INVALIDO" }, { status: 400 })
+    }
+
+    cambiosPermitidos.email = email || null
+  }
+
+  if ("telefono" in cambios) {
+    const telefonoOriginal = String(cambios.telefono || "").trim()
+    const telefono = limpiarTelefono(telefonoOriginal)
+
+    if (telefonoOriginal && !telefono) {
+      return NextResponse.json({ ok: false, error: "TELEFONO_INVALIDO" }, { status: 400 })
+    }
+
+    cambiosPermitidos.telefono = telefono || null
+  }
+
+  for (const campo of ["iglesia", "distrito"] as const) {
+    if (campo in cambios) {
+      const valor = String(cambios[campo] || "").trim()
+
+      if (valor.length > 160) {
+        return NextResponse.json({ ok: false, error: `${campo.toUpperCase()}_INVALIDO` }, { status: 400 })
+      }
+
+      cambiosPermitidos[campo] = valor
+    }
+  }
+
   for (const campo of ["registrado", "pago_confirmado", "habilitado", "presente"] as const) {
     if (typeof cambios[campo] === "boolean") {
       cambiosPermitidos[campo] = cambios[campo]
@@ -1013,7 +1062,20 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  const cambiosParaGuardar: Record<string, boolean | string> = { ...cambiosPermitidos }
+  const cambiosParaGuardar: Record<string, boolean | string | null> = { ...cambiosPermitidos }
+
+  if ("email" in cambiosPermitidos && cambiosPermitidos.email !== asambleistaPermitido.email) {
+    cambiosParaGuardar.credencial_email_enviado_en = null
+    cambiosParaGuardar.credencial_email_error = null
+  }
+
+  if (
+    "telefono" in cambiosPermitidos &&
+    cambiosPermitidos.telefono !== asambleistaPermitido.telefono
+  ) {
+    cambiosParaGuardar.credencial_sms_enviado_en = null
+    cambiosParaGuardar.credencial_sms_error = null
+  }
 
   if (cambiosPermitidos.habilitado === true) {
     cambiosParaGuardar.habilitado_en = new Date().toISOString()

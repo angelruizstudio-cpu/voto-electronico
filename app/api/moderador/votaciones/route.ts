@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
   const datosVotacion = {
     titulo: tituloLimpio,
     asamblea_id: asambleaId,
-    estado: tipoVotacionLimpio === "resolucion" ? "cerrada" : "abierta",
+    estado: "cerrada",
     tipo_mayoria:
       tipoVotacionLimpio === "resolucion" ? tipoMayoria || "mayoria_simple" : "mayoria_simple",
     tipo_votacion: tipoVotacionLimpio,
@@ -136,6 +136,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  let votacionFinal = votacionCreada
+
   if (
     tipoVotacionLimpio === "resolucion" &&
     (tipoMocion || "resolucion_principal") === "resolucion_principal"
@@ -151,15 +153,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (tipoVotacionLimpio === "eleccion_lideres") {
-    const { error: errorGrupo } = await supabaseAdmin
-      .from("votaciones")
-      .update({ eleccion_grupo_id: eleccionGrupoId || votacionCreada.eleccion_grupo_id || votacionCreada.id })
-      .eq("id", votacionCreada.id)
-
-    if (errorGrupo) {
-      return NextResponse.json({ ok: false, error: errorGrupo.message }, { status: 500 })
-    }
-
     const { error: errorCandidatos } = await supabaseAdmin.from("candidatos").insert(
       candidatosLimpios.map((nombre) => ({
         votacion_id: votacionCreada.id,
@@ -171,9 +164,29 @@ export async function POST(req: NextRequest) {
     if (errorCandidatos) {
       return NextResponse.json({ ok: false, error: errorCandidatos.message }, { status: 500 })
     }
+
+    const { data: votacionPublicada, error: errorPublicar } = await supabaseAdmin
+      .from("votaciones")
+      .update({
+        estado: "abierta",
+        eleccion_grupo_id:
+          eleccionGrupoId || votacionCreada.eleccion_grupo_id || votacionCreada.id,
+      })
+      .eq("id", votacionCreada.id)
+      .select()
+      .single()
+
+    if (errorPublicar || !votacionPublicada) {
+      return NextResponse.json(
+        { ok: false, error: errorPublicar?.message || "ERROR_PUBLICAR_VOTACION" },
+        { status: 500 }
+      )
+    }
+
+    votacionFinal = votacionPublicada
   }
 
-  return NextResponse.json({ ok: true, votacion: votacionCreada })
+  return NextResponse.json({ ok: true, votacion: votacionFinal })
 }
 
 export async function PATCH(req: NextRequest) {

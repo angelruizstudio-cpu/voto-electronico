@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Printer } from "lucide-react"
+import { Pencil, Printer, Save, X } from "lucide-react"
 import QRCode from "qrcode"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { supabase } from "@/lib/supabaseClient"
@@ -31,6 +31,8 @@ type Asambleista = {
   presente: boolean
 }
 
+type DatosEdicion = Pick<Asambleista, "nombre" | "email" | "telefono" | "iglesia" | "distrito">
+
 export default function OficinaRegionalPage() {
   const { t } = useI18n()
   const {
@@ -51,6 +53,8 @@ export default function OficinaRegionalPage() {
   const [nuevoDistrito, setNuevoDistrito] = useState("")
   const [csvArchivo, setCsvArchivo] = useState<File | null>(null)
   const [csvProcesando, setCsvProcesando] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [datosEdicion, setDatosEdicion] = useState<DatosEdicion | null>(null)
 
   const imprimirCredenciales = async (credenciales: Asambleista[]) => {
     if (credenciales.length === 0) return
@@ -157,8 +161,13 @@ export default function OficinaRegionalPage() {
     setCargando(false)
 
     if (!res.ok || !data.ok) {
-      alert(data.error || t("No se pudo actualizar el asambleísta", "Could not update assembly member"))
-      return
+      const mensajes: Record<string, string> = {
+        NOMBRE_INVALIDO: t("Escribe un nombre válido", "Enter a valid name"),
+        EMAIL_INVALIDO: t("Escribe un email válido", "Enter a valid email"),
+        TELEFONO_INVALIDO: t("Escribe un celular válido", "Enter a valid mobile number"),
+      }
+      alert(mensajes[data.error] || data.error || t("No se pudo actualizar el asambleísta", "Could not update assembly member"))
+      return false
     }
 
     if (data.asambleista) {
@@ -170,6 +179,29 @@ export default function OficinaRegionalPage() {
     }
 
     await cargarAsambleistas()
+    return true
+  }
+
+  const iniciarEdicion = (asambleista: Asambleista) => {
+    setEditandoId(asambleista.id)
+    setDatosEdicion({
+      nombre: asambleista.nombre,
+      email: asambleista.email,
+      telefono: asambleista.telefono,
+      iglesia: asambleista.iglesia,
+      distrito: asambleista.distrito,
+    })
+  }
+
+  const guardarEdicion = async () => {
+    if (!editandoId || !datosEdicion) return
+
+    const guardado = await actualizarAsambleista(editandoId, datosEdicion)
+
+    if (guardado) {
+      setEditandoId(null)
+      setDatosEdicion(null)
+    }
   }
 
   const describirEnvioCredencial = (data: {
@@ -760,6 +792,65 @@ export default function OficinaRegionalPage() {
                       </span>
                     </div>
 
+                    {editandoId === a.id && datosEdicion ? (
+                      <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+                        <input
+                          value={datosEdicion.nombre}
+                          onChange={(e) => setDatosEdicion({ ...datosEdicion, nombre: e.target.value })}
+                          placeholder={t("Nombre y apellido", "Full name")}
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        />
+                        <input
+                          type="email"
+                          value={datosEdicion.email || ""}
+                          onChange={(e) => setDatosEdicion({ ...datosEdicion, email: e.target.value })}
+                          placeholder="Email"
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        />
+                        <input
+                          type="tel"
+                          value={datosEdicion.telefono || ""}
+                          onChange={(e) => setDatosEdicion({ ...datosEdicion, telefono: e.target.value })}
+                          placeholder={t("Celular", "Mobile")}
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        />
+                        <input
+                          value={datosEdicion.iglesia || ""}
+                          onChange={(e) => setDatosEdicion({ ...datosEdicion, iglesia: e.target.value })}
+                          placeholder={t("Iglesia", "Church")}
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        />
+                        <input
+                          value={datosEdicion.distrito || ""}
+                          onChange={(e) => setDatosEdicion({ ...datosEdicion, distrito: e.target.value })}
+                          placeholder={t("Distrito", "District")}
+                          className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={cargando}
+                            onClick={() => void guardarEdicion()}
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#16382f] px-3 text-sm font-bold text-white disabled:opacity-40"
+                          >
+                            <Save className="h-4 w-4" />
+                            {t("Guardar", "Save")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={cargando}
+                            onClick={() => {
+                              setEditandoId(null)
+                              setDatosEdicion(null)
+                            }}
+                            aria-label={t("Cancelar edición", "Cancel editing")}
+                            className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Email</p>
@@ -776,6 +867,7 @@ export default function OficinaRegionalPage() {
                         </p>
                       </div>
                     </div>
+                    )}
 
                     {a.dispositivo_alerta_en && (
                       <div
@@ -841,6 +933,15 @@ export default function OficinaRegionalPage() {
                       {t("Acciones", "Actions")}
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                    <button
+                      type="button"
+                      disabled={cargando}
+                      onClick={() => iniciarEdicion(a)}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      {t("Editar información", "Edit information")}
+                    </button>
                     <select
                       value={a.metodo_voto || "electronico"}
                       disabled={cargando}
