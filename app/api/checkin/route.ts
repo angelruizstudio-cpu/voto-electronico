@@ -250,7 +250,7 @@ export async function POST(req: Request) {
           token_hash: token,
           activo: true,
           bloqueado: false,
-          expira_en: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          expira_en: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
         },
         {
           onConflict: "asamblea_id,asambleista_id",
