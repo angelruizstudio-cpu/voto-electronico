@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { generarUUID } from "@/lib/uuid"
 
 type VotacionCerrada = {
   id: string
@@ -369,7 +370,7 @@ export function VotosManualesPanel({
   const agregarNombreManual = () => {
     setNombresManuales((actual) => [
       ...actual,
-      { id: crypto.randomUUID(), nombre: "", cantidad: 1 },
+      { id: generarUUID(), nombre: "", cantidad: 1 },
     ])
   }
 

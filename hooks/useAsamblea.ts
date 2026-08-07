@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import { supabase } from "@/lib/supabaseClient"
+import { generarUUID } from "@/lib/uuid"
 import { generarReporteCierreAsamblea, type FirmasCierreAsamblea } from "@/lib/reporteAsamblea"
 
 type AsambleaContextValue = ReturnType<typeof useAsambleaState>
@@ -361,7 +362,7 @@ function useAsambleaState() {
     })
 
     const canalAsambleas = supabase
-      .channel(`realtime-asamblea-activa-${crypto.randomUUID()}`)
+      .channel(`realtime-asamblea-activa-${generarUUID()}`)
       .on(
         "postgres_changes",
         {

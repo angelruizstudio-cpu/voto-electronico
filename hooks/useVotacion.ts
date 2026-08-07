@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
+import { generarUUID } from "@/lib/uuid"
 import type { Candidato, ConteoCandidato, ResultadoCerrado } from "@/lib/types"
 
 export function crearRecargaSerial() {
@@ -58,8 +59,11 @@ export function useVotacion(
   const [yaVoto, setYaVoto] = useState(false)
 
   const [resultadosCerrados, setResultadosCerrados] = useState<ResultadoCerrado[]>([])
+  const [sesionExpirada, setSesionExpirada] = useState(false)
+  const [asambleaEstado, setAsambleaEstado] = useState<string | null>(null)
 
   const cargarUnaVezRef = useRef<() => Promise<void>>(async () => {})
+  const forzarSiguienteRef = useRef(false)
   const [recargarSerial] = useState(() => crearRecargaSerial())
 
   const limpiarVotacion = useCallback(() => {
@@ -105,17 +109,37 @@ export function useVotacion(
     if (opciones.modoAsambleista && votacionId) params.set("actual", votacionId)
     if (opciones.incluirResultadosPublicados) params.set("resultados", "1")
 
+    // Fuerza una recarga completa (ignora "sinCambios") cuando algo cambió
+    // dentro de la misma votación abierta, p. ej. candidatos añadidos o hechos
+    // visibles por el moderador.
+    if (forzarSiguienteRef.current) {
+      params.set("forzar", "1")
+      forzarSiguienteRef.current = false
+    }
+
     const res = await fetch(`/api/votacion-activa?${params.toString()}`, {
       cache: "no-store",
       headers: tokenLocal ? { "x-voting-token": tokenLocal } : undefined,
     }).catch(() => null)
 
     if (!res?.ok) {
+      // En modo asambleista un 401 significa que el token expiró o fue
+      // invalidado; lo señalamos para que la página limpie la sesión y muestre
+      // de nuevo el check-in en vez de quedarse en un estado muerto.
+      if (opciones.modoAsambleista && res?.status === 401) {
+        setSesionExpirada(true)
+      }
       console.error("[Votacion] No se pudo actualizar la votacion activa", res?.status || "red")
       return
     }
 
+    setSesionExpirada(false)
+
     const respuesta = await res.json().catch(() => null)
+
+    if (respuesta?.asambleaEstado !== undefined) {
+      setAsambleaEstado(respuesta.asambleaEstado)
+    }
 
     if (respuesta?.sinCambios) return
 
@@ -156,6 +180,11 @@ export function useVotacion(
     await recargarSerial(cargarUnaVezRef.current)
   }, [recargarSerial])
 
+  const recargarForzado = useCallback(async () => {
+    forzarSiguienteRef.current = true
+    await recargarSerial(cargarUnaVezRef.current)
+  }, [recargarSerial])
+
   useEffect(() => {
     cargarUnaVezRef.current = cargarVotacionActivaUnaVez
   }, [cargarVotacionActivaUnaVez])
@@ -186,7 +215,7 @@ export function useVotacion(
     }
 
     const canalVotaciones = supabase
-      .channel(`realtime-votaciones-${asambleaId}-${crypto.randomUUID()}`)
+      .channel(`realtime-votaciones-${asambleaId}-${generarUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -212,10 +241,13 @@ export function useVotacion(
   useEffect(() => {
     if (!votacionId) return
 
-    if (opciones.modoAsambleista) return
+    // En modo asambleista forzamos la recarga para saltarnos el "sinCambios"
+    // del servidor cuando la lista de candidatos cambia dentro de la misma
+    // votación abierta (antes el votante se quedaba con la lista vieja).
+    const recargar = opciones.modoAsambleista ? recargarForzado : cargarVotacionActiva
 
     const canalCandidatos = supabase
-      .channel(`realtime-candidatos-${votacionId}-${crypto.randomUUID()}`)
+      .channel(`realtime-candidatos-${votacionId}-${generarUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -224,14 +256,14 @@ export function useVotacion(
           table: "candidatos",
           filter: `votacion_id=eq.${votacionId}`,
         },
-        () => void cargarVotacionActiva()
+        () => void recargar()
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(canalCandidatos)
     }
-  }, [cargarVotacionActiva, opciones.modoAsambleista, votacionId])
+  }, [cargarVotacionActiva, recargarForzado, opciones.modoAsambleista, votacionId])
 
   useEffect(() => {
     if (!asambleaId) return
@@ -313,6 +345,9 @@ export function useVotacion(
     setYaVoto,
     resultadosCerrados,
     setResultadosCerrados,
+    sesionExpirada,
+    setSesionExpirada,
+    asambleaEstado,
     cargarVotacionActiva,
   }
 }
