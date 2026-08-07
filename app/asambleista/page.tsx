@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
@@ -171,6 +171,21 @@ export default function AsambleistaPage() {
   // administrador (siempre 401 en el dispositivo del votante), así que tomamos
   // el estado que expone /api/votacion-activa y solo caemos al de useAsamblea.
   const estadoAsambleaVisible = asambleaEstado ?? estadoAsamblea
+
+  // Aviso al cerrarse la votación activa. El endpoint solo devuelve votaciones
+  // "abierta", así que al cerrar, la votación desaparece (votacionId -> null) en
+  // vez de llegar con estado "cerrada"; por eso el banner inline nunca se veía.
+  // Solo avisamos si la sesión sigue activa (token), para no confundirlo con un
+  // cierre de sesión.
+  const votacionIdPrevioRef = useRef<string | null>(null)
+  useEffect(() => {
+    const previo = votacionIdPrevioRef.current
+    votacionIdPrevioRef.current = votacionId
+
+    if (previo && !votacionId && token) {
+      setAviso(t("La votación fue cerrada.", "Voting has been closed."))
+    }
+  }, [votacionId, token, t])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -678,12 +693,6 @@ export default function AsambleistaPage() {
             {yaVoto && (
               <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-center text-sm font-bold text-emerald-700">
                 {t("Tu voto ya fue registrado.", "Your vote has already been registered.")}
-              </p>
-            )}
-
-            {estado === "cerrada" && titulo && (
-              <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
-                {t("La votación ha sido cerrada.", "Voting has been closed.")}
               </p>
             )}
 
