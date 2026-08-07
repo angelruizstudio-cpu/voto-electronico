@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { timingSafeEqual } from "crypto"
 import { ROLES_SISTEMA, verificarPassword, type RolSistema } from "@/lib/auth"
 import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
+import { firmarRespuestaSesion, obtenerSecretoSesion } from "@/lib/session"
 
 function crearSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// Comparación en tiempo constante para credenciales de entorno (owner y acceso
+// de emergencia), evitando fugas por tiempo del comparador `===`.
+function comparaSegura(a: string, b: string): boolean {
+  const ba = Buffer.from(a)
+  const bb = Buffer.from(b)
+
+  if (ba.length !== bb.length) return false
+
+  return timingSafeEqual(ba, bb)
 }
 
 async function buscarOrganizacionActiva(
@@ -79,7 +92,7 @@ export async function POST(req: NextRequest) {
       if (
         !ownerPassword ||
         String(username || "").trim().toLowerCase() !== ownerUsername.trim().toLowerCase() ||
-        String(password || "") !== ownerPassword
+        !comparaSegura(String(password || ""), ownerPassword)
       ) {
         return NextResponse.json({ ok: false, error: "ACCESO_DENEGADO" }, { status: 401 })
       }
@@ -97,12 +110,22 @@ export async function POST(req: NextRequest) {
         httpOnly: true,
         sameSite: "strict",
       })
+      await firmarRespuestaSesion(response, req, obtenerSecretoSesion())
       return response
     }
 
     const passwordCorrecta = process.env.MODERADOR_PASSWORD
+    // El acceso de emergencia es una contraseña compartida sin usuario que
+    // otorga sesión administrativa; puede desactivarse en producción con
+    // EMERGENCY_LOGIN_DISABLED=true. Se compara en tiempo constante.
+    const emergenciaDeshabilitada = process.env.EMERGENCY_LOGIN_DISABLED === "true"
 
-    if (!username && passwordCorrecta && password === passwordCorrecta) {
+    if (
+      !emergenciaDeshabilitada &&
+      !username &&
+      passwordCorrecta &&
+      comparaSegura(String(password || ""), passwordCorrecta)
+    ) {
       let organizacionEmergencia = {
         id: process.env.DEFAULT_ORGANIZATION_ID || null,
         nombre: process.env.DEFAULT_ORGANIZATION_NAME || "Kingdom Tech Group",
@@ -132,6 +155,7 @@ export async function POST(req: NextRequest) {
         rolesEmergencia,
         organizacionEmergencia
       )
+      await firmarRespuestaSesion(response, req, obtenerSecretoSesion())
       return response
     }
 
@@ -195,6 +219,7 @@ export async function POST(req: NextRequest) {
         codigo_acceso: usuario.organizaciones?.codigo_acceso,
       }
     )
+    await firmarRespuestaSesion(response, req, obtenerSecretoSesion())
 
     return response
   } catch (error) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { hashTokenVotacion } from "@/lib/tokenHash"
 
 
 export async function POST(req: Request) {
@@ -49,10 +50,12 @@ export async function POST(req: Request) {
       )
     }
 
+    // Doble-lectura: acepta el token ya hasheado (nuevos) o en claro (tokens
+    // legacy previos a este cambio), sin romper sesiones activas.
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
-      .select("asamblea_id, asambleista_id")
-      .eq("token_hash", token)
+      .select("token_hash, asamblea_id, asambleista_id")
+      .in("token_hash", [hashTokenVotacion(token), token])
       .eq("activo", true)
       .eq("bloqueado", false)
       .maybeSingle()
@@ -111,7 +114,7 @@ export async function POST(req: Request) {
     }
 
     const { data, error } = await supabaseAdmin.rpc("registrar_voto", {
-      p_token: token,
+      p_token: tokenRow.token_hash,
       p_votacion_id: votacionId,
       p_opcion: opcion ?? null,
       p_candidato_id: candidatoId ?? null,

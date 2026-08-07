@@ -15,6 +15,7 @@ export async function POST() {
     "auth_org_code",
     "auth_owner_session",
     "moderador_session",
+    "auth_sig",
   ]) {
     response.cookies.set(cookie, "", {
       path: "/",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { createHash } from "crypto"
 import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
+import { hashTokenVotacion } from "@/lib/tokenHash"
 
 type AsambleaCheckin = {
   id: string
@@ -239,7 +240,10 @@ export async function POST(req: Request) {
         .eq("token_hash", hashTokenAcceso(accessTokenLimpio))
     }
 
-    const token = crypto.randomUUID().replace(/-/g, "")
+    // El token en claro se entrega al dispositivo; en la base solo se guarda su
+    // SHA-256 para que leer la tabla no permita suplantar votantes.
+    const tokenPlano = crypto.randomUUID().replace(/-/g, "")
+    const tokenHash = hashTokenVotacion(tokenPlano)
 
     const { data: tokenGuardado, error } = await supabaseAdmin
       .from("tokens_acceso")
@@ -247,7 +251,7 @@ export async function POST(req: Request) {
         {
           asamblea_id: asamblea.id,
           asambleista_id: asambleista.id,
-          token_hash: token,
+          token_hash: tokenHash,
           activo: true,
           bloqueado: false,
           expira_en: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
@@ -256,7 +260,7 @@ export async function POST(req: Request) {
           onConflict: "asamblea_id,asambleista_id",
         }
       )
-      .select("token_hash")
+      .select("id")
       .single()
 
     if (error || !tokenGuardado) {
@@ -268,7 +272,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      token: tokenGuardado.token_hash,
+      token: tokenPlano,
       asamblea: {
         id: asamblea.id,
         organizacion: asamblea.organizacion,
