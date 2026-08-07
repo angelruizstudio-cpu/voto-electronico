@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   RefreshCw,
   ScanQrCode,
@@ -39,6 +41,8 @@ export default function PuertaPage() {
   const { t } = useI18n()
   const [asambleistas, setAsambleistas] = useState<Asambleista[]>([])
   const [busqueda, setBusqueda] = useState("")
+  const [pagina, setPagina] = useState(1)
+  const [porPagina, setPorPagina] = useState(25)
   const [seleccionado, setSeleccionado] = useState<Asambleista | null>(null)
   const [cargando, setCargando] = useState(false)
   const [escaneando, setEscaneando] = useState(false)
@@ -140,6 +144,7 @@ export default function PuertaPage() {
     ultimoEscaneoRef.current = { credencial, instante }
     const encontrado = buscarPorCredencial(credencial)
     setBusqueda(credencial)
+    setPagina(1)
 
     if (!encontrado) {
       setSeleccionado(null)
@@ -249,6 +254,11 @@ export default function PuertaPage() {
         .includes(texto)
     )
   }, [asambleistas, busqueda])
+
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / porPagina))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const inicioPagina = (paginaActual - 1) * porPagina
+  const paginados = visibles.slice(inicioPagina, inicioPagina + porPagina)
 
   const resetearDispositivo = async (asambleista: Asambleista) => {
     if (
@@ -428,6 +438,7 @@ export default function PuertaPage() {
                 value={busqueda}
                 onChange={(e) => {
                   setBusqueda(e.target.value)
+                  setPagina(1)
                   setSeleccionado(null)
                   setMensajeEscaneo("")
                 }}
@@ -439,6 +450,7 @@ export default function PuertaPage() {
                   type="button"
                   onClick={() => {
                     setBusqueda("")
+                    setPagina(1)
                     setSeleccionado(null)
                     setMensajeEscaneo("")
                   }}
@@ -566,12 +578,67 @@ export default function PuertaPage() {
         )}
 
         <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
+              {t("Mostrar", "Show")}
+              <select
+                value={porPagina}
+                onChange={(e) => {
+                  setPorPagina(Number(e.target.value))
+                  setPagina(1)
+                }}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-black text-slate-900"
+              >
+                {[25, 50, 75, 100, 125, 150, 175].map((cantidad) => (
+                  <option key={cantidad} value={cantidad}>{cantidad}</option>
+                ))}
+              </select>
+            </label>
+
+            <p className="text-sm font-semibold text-slate-500">
+              {visibles.length === 0
+                ? t("0 registros", "0 records")
+                : t(
+                    `${inicioPagina + 1}-${Math.min(inicioPagina + porPagina, visibles.length)} de ${visibles.length}`,
+                    `${inicioPagina + 1}-${Math.min(inicioPagina + porPagina, visibles.length)} of ${visibles.length}`
+                  )}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={paginaActual === 1}
+                onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+                aria-label={t("Página anterior", "Previous page")}
+                title={t("Página anterior", "Previous page")}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <span className="min-w-20 text-center text-sm font-black text-slate-700">
+                {paginaActual} / {totalPaginas}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={paginaActual === totalPaginas}
+                onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))}
+                aria-label={t("Página siguiente", "Next page")}
+                title={t("Página siguiente", "Next page")}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
           {visibles.length === 0 ? (
             <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500 shadow-sm">
               {t("No hay registros para mostrar.", "No records to show.")}
             </p>
           ) : (
-            visibles.slice(0, 20).map((a) => (
+            paginados.map((a) => (
               <button
                 type="button"
                 key={a.id}
