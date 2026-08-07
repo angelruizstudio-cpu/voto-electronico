@@ -3,6 +3,27 @@ import { createClient } from "@supabase/supabase-js"
 import { createHash } from "crypto"
 import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
 
+type AsambleaCheckin = {
+  id: string
+  organizacion: string
+  anio: number
+  lugar: string
+  estado: string
+  organizacion_id?: string | null
+  organizacion_slug?: string | null
+}
+
+type AsambleistaCheckin = {
+  id: string
+  nombre: string
+  credencial: string
+  habilitado: boolean
+  presente: boolean
+  metodo_voto: string
+  dispositivo_autorizado_id: string | null
+  dispositivo_alerta_en: string | null
+}
+
 
 function hashTokenAcceso(token: string) {
   return createHash("sha256").update(token).digest("hex")
@@ -43,8 +64,8 @@ export async function POST(req: Request) {
       organizacionId = organizacion?.id || null
     }
 
-    let asamblea: any = null
-    let asambleista: any = null
+    let asamblea: AsambleaCheckin | null = null
+    let asambleista: AsambleistaCheckin | null = null
 
     if (accessTokenLimpio) {
       const { data: enlaceAcceso, error: errorEnlace } = await supabaseAdmin
@@ -160,6 +181,13 @@ export async function POST(req: Request) {
 
     const credencialAuditada = asambleista.credencial || credencialNormalizada
 
+    if (asambleista.dispositivo_alerta_en) {
+      return NextResponse.json(
+        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
+        { status: 409 }
+      )
+    }
+
     if (!asambleista.dispositivo_autorizado_id) {
       await supabaseAdmin
         .from("asambleistas")
@@ -170,18 +198,38 @@ export async function POST(req: Request) {
         .eq("id", asambleista.id)
     } else if (asambleista.dispositivo_autorizado_id !== deviceIdNormalizado) {
       const detalle = `Check-in desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
+      const alertaEn = new Date().toISOString()
+      const [actualizacion, bloqueo, alerta] = await Promise.all([
+        supabaseAdmin
+          .from("asambleistas")
+          .update({ dispositivo_alerta_en: alertaEn, dispositivo_alerta_detalle: detalle })
+          .eq("id", asambleista.id),
+        supabaseAdmin
+          .from("tokens_acceso")
+          .update({ bloqueado: true })
+          .eq("asamblea_id", asamblea.id)
+          .eq("asambleista_id", asambleista.id),
+        supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+          asamblea_id: asamblea.id,
+          asambleista_id: asambleista.id,
+          credencial: credencialAuditada,
+          dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
+          dispositivo_intento_id: deviceIdNormalizado,
+          ip,
+          user_agent: userAgent,
+          accion: "bloqueado",
+          detalle,
+        }),
+      ])
 
-      await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
-        asamblea_id: asamblea.id,
-        asambleista_id: asambleista.id,
-        credencial: credencialAuditada,
-        dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
-        dispositivo_intento_id: deviceIdNormalizado,
-        ip,
-        user_agent: userAgent,
-        accion: "permitido",
-        detalle,
-      })
+      if (actualizacion.error || bloqueo.error || alerta.error) {
+        return NextResponse.json({ ok: false, error: "ERROR_BLOQUEO_DISPOSITIVO" }, { status: 500 })
+      }
+
+      return NextResponse.json(
+        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
+        { status: 409 }
+      )
     }
 
     if (accessTokenLimpio) {

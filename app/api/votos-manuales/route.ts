@@ -520,6 +520,15 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const { data: votosAnteriores, error: errorVotosAnteriores } = await supabaseAdmin
+    .from("votos_manuales")
+    .select("*")
+    .eq("votacion_id", votacionId)
+
+  if (errorVotosAnteriores) {
+    return NextResponse.json({ ok: false, error: errorVotosAnteriores.message }, { status: 500 })
+  }
+
   const { error: errorBorrar } = await supabaseAdmin
     .from("votos_manuales")
     .delete()
@@ -535,7 +544,20 @@ export async function POST(req: NextRequest) {
       .insert(filas)
 
     if (errorInsertar) {
-      return NextResponse.json({ ok: false, error: errorInsertar.message }, { status: 500 })
+      await supabaseAdmin.from("votos_manuales").delete().eq("votacion_id", votacionId)
+      const { error: errorRestaurar } = votosAnteriores?.length
+        ? await supabaseAdmin.from("votos_manuales").insert(votosAnteriores)
+        : { error: null }
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: errorRestaurar
+            ? `No se pudieron guardar ni restaurar los votos anteriores: ${errorRestaurar.message}`
+            : `No se guardaron los cambios; los votos anteriores fueron restaurados: ${errorInsertar.message}`,
+        },
+        { status: 500 }
+      )
     }
   }
 

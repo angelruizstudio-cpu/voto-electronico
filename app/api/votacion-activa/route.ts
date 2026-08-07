@@ -31,13 +31,17 @@ export async function GET(req: NextRequest) {
 
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
-      .select("id, asamblea_id")
+      .select("id, asamblea_id, expira_en")
       .eq("token_hash", token)
       .eq("activo", true)
       .eq("bloqueado", false)
       .maybeSingle()
 
-    if (!tokenRow || tokenRow.asamblea_id !== asambleaId) {
+    if (
+      !tokenRow ||
+      tokenRow.asamblea_id !== asambleaId ||
+      (tokenRow.expira_en && new Date(tokenRow.expira_en).getTime() <= Date.now())
+    ) {
       return NextResponse.json({ ok: false, error: "TOKEN_INVALIDO" }, { status: 401 })
     }
 

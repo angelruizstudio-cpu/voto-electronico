@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
+import { calcularResultadosVotacion } from "@/lib/resultadosVotacion"
 
 function validarSesion(req: NextRequest) {
   return req.cookies.get("moderador_session")?.value === "true"
@@ -39,7 +40,7 @@ async function obtenerVotacionPermitida(
 ) {
   const { data: votacion, error } = await supabaseAdmin
     .from("votaciones")
-    .select("id, asamblea_id, titulo")
+    .select("id, asamblea_id, titulo, estado, tipo_votacion, tipo_mayoria, ronda_numero, eleccion_grupo_id")
     .eq("id", votacionId)
     .maybeSingle()
 
@@ -88,9 +89,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
   }
 
-  const { votacionId, resultado } = await req.json()
+  const { votacionId } = await req.json()
 
-  if (!votacionId || !resultado || resultado.votacionId !== votacionId) {
+  if (!votacionId) {
     return NextResponse.json({ ok: false, error: "FALTAN_DATOS" }, { status: 400 })
   }
 
@@ -99,6 +100,22 @@ export async function POST(req: NextRequest) {
 
   if (!permitido) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 403 })
+  }
+
+  if (permitido.votacion.estado !== "cerrada") {
+    return NextResponse.json({ ok: false, error: "CIERRA_VOTACION_PRIMERO" }, { status: 400 })
+  }
+
+  const { resultado, error: errorResultado } = await calcularResultadosVotacion(
+    supabaseAdmin,
+    permitido.votacion
+  )
+
+  if (errorResultado || !resultado) {
+    return NextResponse.json(
+      { ok: false, error: errorResultado?.message || "ERROR_CALCULAR_RESULTADO" },
+      { status: 500 }
+    )
   }
 
   const certificadoPor = req.cookies.get("auth_name")?.value || "Comité de Escrutinio"

@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     const { data: asambleista } = await supabaseAdmin
       .from("asambleistas")
-      .select("habilitado, presente, metodo_voto")
+      .select("habilitado, presente, metodo_voto, dispositivo_autorizado_id, dispositivo_alerta_en")
       .eq("id", tokenRow.asambleista_id)
       .eq("asamblea_id", votacion.asamblea_id)
       .maybeSingle()
@@ -95,6 +95,17 @@ export async function POST(req: Request) {
     if (asambleista.metodo_voto === "manual") {
       return NextResponse.json(
         { ok: false, code: "VOTO_MANUAL" },
+        { status: 403 }
+      )
+    }
+
+    if (
+      asambleista.dispositivo_alerta_en ||
+      (asambleista.dispositivo_autorizado_id &&
+        asambleista.dispositivo_autorizado_id !== deviceId)
+    ) {
+      return NextResponse.json(
+        { ok: false, code: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
         { status: 403 }
       )
     }

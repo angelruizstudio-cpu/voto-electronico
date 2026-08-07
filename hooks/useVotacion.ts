@@ -110,7 +110,10 @@ export function useVotacion(
       headers: tokenLocal ? { "x-voting-token": tokenLocal } : undefined,
     }).catch(() => null)
 
-    if (!res?.ok) return
+    if (!res?.ok) {
+      console.error("[Votacion] No se pudo actualizar la votacion activa", res?.status || "red")
+      return
+    }
 
     const respuesta = await res.json().catch(() => null)
 
@@ -194,7 +197,11 @@ export function useVotacion(
         },
         programarRefresco
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          programarRefresco()
+        }
+      })
 
     return () => {
       if (refrescoProgramado !== null) window.clearTimeout(refrescoProgramado)
@@ -250,6 +257,22 @@ export function useVotacion(
       if (refresco !== null) window.clearTimeout(refresco)
     }
   }, [asambleaId, cargarVotacionActiva, opciones.modoAsambleista])
+
+  useEffect(() => {
+    if (!asambleaId) return
+
+    const refrescarAlVolver = () => {
+      if (document.visibilityState === "visible") void cargarVotacionActiva()
+    }
+
+    window.addEventListener("focus", refrescarAlVolver)
+    document.addEventListener("visibilitychange", refrescarAlVolver)
+
+    return () => {
+      window.removeEventListener("focus", refrescarAlVolver)
+      document.removeEventListener("visibilitychange", refrescarAlVolver)
+    }
+  }, [asambleaId, cargarVotacionActiva])
 
   return {
     estado,

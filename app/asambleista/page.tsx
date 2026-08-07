@@ -150,7 +150,7 @@ export default function AsambleistaPage() {
     }
     const desconectar = () => setEnLinea(false)
 
-    setEnLinea(navigator.onLine)
+    queueMicrotask(() => setEnLinea(navigator.onLine))
     window.addEventListener("online", conectar)
     window.addEventListener("offline", desconectar)
 

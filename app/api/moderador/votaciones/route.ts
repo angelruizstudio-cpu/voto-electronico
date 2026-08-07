@@ -14,6 +14,22 @@ function crearSupabaseAdmin() {
   )
 }
 
+async function buscarOtraVotacionAbierta(
+  supabaseAdmin: ReturnType<typeof crearSupabaseAdmin>,
+  asambleaId: string,
+  excluirId?: string
+) {
+  let query = supabaseAdmin
+    .from("votaciones")
+    .select("id, titulo")
+    .eq("asamblea_id", asambleaId)
+    .eq("estado", "abierta")
+
+  if (excluirId) query = query.neq("id", excluirId)
+
+  return query.limit(1).maybeSingle()
+}
+
 export async function POST(req: NextRequest) {
   if (!validarSesion(req)) {
     return NextResponse.json({ ok: false, error: "NO_AUTORIZADO" }, { status: 401 })
@@ -97,6 +113,24 @@ export async function POST(req: NextRequest) {
 
     if (errorCerrarAnterior) {
       return NextResponse.json({ ok: false, error: errorCerrarAnterior.message }, { status: 500 })
+    }
+  }
+
+  if (tipoVotacionLimpio === "eleccion_lideres") {
+    const { data: abierta, error: errorAbierta } = await buscarOtraVotacionAbierta(
+      supabaseAdmin,
+      asambleaId
+    )
+
+    if (errorAbierta) {
+      return NextResponse.json({ ok: false, error: errorAbierta.message }, { status: 500 })
+    }
+
+    if (abierta) {
+      return NextResponse.json(
+        { ok: false, error: "VOTACION_ACTIVA_EXISTE", votacion: abierta },
+        { status: 409 }
+      )
     }
   }
 
@@ -252,6 +286,23 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (cambiosPermitidos.estado === "abierta") {
+    const { data: abierta, error: errorAbierta } = await buscarOtraVotacionAbierta(
+      supabaseAdmin,
+      votacion.asamblea_id,
+      votacionId
+    )
+
+    if (errorAbierta) {
+      return NextResponse.json({ ok: false, error: errorAbierta.message }, { status: 500 })
+    }
+
+    if (abierta) {
+      return NextResponse.json(
+        { ok: false, error: "VOTACION_ACTIVA_EXISTE", votacion: abierta },
+        { status: 409 }
+      )
+    }
+
     cambiosPermitidos.cerrada_en = null
   }
 
@@ -263,6 +314,13 @@ export async function PATCH(req: NextRequest) {
     .single()
 
   if (errorActualizar || !votacionActualizada) {
+    if (errorActualizar?.code === "23505") {
+      return NextResponse.json(
+        { ok: false, error: "VOTACION_ACTIVA_EXISTE" },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json(
       { ok: false, error: errorActualizar?.message || "ERROR_ACTUALIZAR_VOTACION" },
       { status: 500 }

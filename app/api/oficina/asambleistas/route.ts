@@ -804,6 +804,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (asambleistaActual) {
+      await supabaseAdmin
+        .from("tokens_acceso")
+        .update({ activo: false, bloqueado: false })
+        .eq("asamblea_id", asambleistaActual.asamblea_id)
+        .eq("asambleista_id", asambleistaActual.id)
+
       await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
         asamblea_id: asambleistaActual.asamblea_id,
         asambleista_id: asambleistaActual.id,
@@ -910,6 +916,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (asambleistaActual) {
+      await supabaseAdmin
+        .from("tokens_acceso")
+        .update({ bloqueado: false })
+        .eq("asamblea_id", asambleistaActual.asamblea_id)
+        .eq("asambleista_id", asambleistaActual.id)
+
       await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
         asamblea_id: asambleistaActual.asamblea_id,
         asambleista_id: asambleistaActual.id,
@@ -969,6 +981,12 @@ export async function PATCH(req: NextRequest) {
         { status: 500 }
       )
     }
+
+    await supabaseAdmin
+      .from("tokens_acceso")
+      .update({ activo: false, bloqueado: false })
+      .eq("asamblea_id", asambleistaActual.asamblea_id)
+      .eq("asambleista_id", asambleistaActual.id)
 
     await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
       asamblea_id: asambleistaActual.asamblea_id,
