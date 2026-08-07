@@ -489,94 +489,6 @@ export default function PuertaPage() {
           )}
         </section>
 
-        {seleccionado && (
-          <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                <UserCheck className="h-7 w-7" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-black text-slate-950">{seleccionado.nombre}</p>
-                <p className="text-sm font-semibold text-slate-500">
-                  {seleccionado.credencial} · {seleccionado.iglesia || "N/A"} ·{" "}
-                  {seleccionado.distrito || "N/A"}
-                </p>
-                <p
-                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                    seleccionado.presente
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-red-50 text-red-700"
-                  }`}
-                >
-                  {seleccionado.presente ? t("PRESENTE", "PRESENT") : t("FUERA", "OUT")} ·{" "}
-                  {seleccionado.habilitado ? t("HABILITADO", "APPROVED") : t("NO HABILITADO", "NOT APPROVED")} ·{" "}
-                  {seleccionado.metodo_voto === "manual" ? t("VOTO MANUAL", "MANUAL VOTE") : t("VOTO ELECTRÓNICO", "ELECTRONIC VOTE")}
-                </p>
-                {seleccionado.dispositivo_alerta_en && (
-                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
-                    {t(
-                      "Alerta: esta credencial fue usada desde otro dispositivo. Verifica la identidad antes de validarla nuevamente.",
-                      "Alert: this credential was used from another device. Verify identity before validating it again."
-                    )}
-                  </p>
-                )}
-                {seleccionado.dispositivo_autorizado_id && !seleccionado.dispositivo_alerta_en && (
-                  <p className="mt-3 rounded-xl bg-indigo-50 p-3 text-sm font-bold text-indigo-700">
-                    {t("Esta credencial ya tiene un dispositivo autorizado.", "This credential already has an authorized device.")}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Button
-                disabled={cargando || seleccionado.presente || !seleccionado.habilitado}
-                onClick={() => actualizarPresencia(seleccionado, true)}
-                className="h-14 rounded-xl bg-emerald-600 text-base font-black hover:bg-emerald-700"
-              >
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                Check-in
-              </Button>
-
-              <Button
-                disabled={cargando || !seleccionado.presente}
-                onClick={() => actualizarPresencia(seleccionado, false)}
-                className="h-14 rounded-xl bg-red-600 text-base font-black hover:bg-red-700"
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                Check-out
-              </Button>
-
-              {seleccionado.dispositivo_alerta_en ? (
-                <>
-                  <Button
-                    disabled={cargando}
-                    onClick={() => resolverDispositivo(seleccionado, "mantener_dispositivo_actual")}
-                    className="h-14 rounded-xl bg-slate-700 text-base font-black hover:bg-slate-800"
-                  >
-                    {t("Mantener anterior", "Keep previous")}
-                  </Button>
-                  <Button
-                    disabled={cargando}
-                    onClick={() => resolverDispositivo(seleccionado, "autorizar_dispositivo_intento")}
-                    className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700"
-                  >
-                    {t("Autorizar nuevo", "Authorize new")}
-                  </Button>
-                </>
-              ) : seleccionado.dispositivo_autorizado_id ? (
-                <Button
-                  disabled={cargando}
-                  onClick={() => resetearDispositivo(seleccionado)}
-                  className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700 sm:col-span-2"
-                >
-                  {t("Liberar dispositivo", "Release device")}
-                </Button>
-              ) : null}
-            </div>
-          </section>
-        )}
-
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
@@ -638,36 +550,120 @@ export default function PuertaPage() {
               {t("No hay registros para mostrar.", "No records to show.")}
             </p>
           ) : (
-            paginados.map((a) => (
-              <button
-                type="button"
-                key={a.id}
-                onClick={() => {
-                  setSeleccionado(a)
-                  setMensajeEscaneo("")
-                }}
-                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#c8a957]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-lg font-black text-slate-950">{a.nombre}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      {a.credencial} · {a.iglesia || "N/A"}
-                    </p>
-                    <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">
-                      {a.metodo_voto === "manual" ? t("Voto manual", "Manual vote") : t("Voto electrónico", "Electronic vote")}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
-                      a.presente ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                    }`}
+            paginados.map((a) => {
+              const abierto = seleccionado?.id === a.id
+              const actual = abierto && seleccionado ? seleccionado : a
+
+              return (
+                <article
+                  key={a.id}
+                  className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                    abierto ? "border-emerald-200 ring-1 ring-emerald-100" : "border-slate-200"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    aria-expanded={abierto}
+                    onClick={() => {
+                      setSeleccionado(abierto ? null : a)
+                      setMensajeEscaneo("")
+                    }}
+                    className="w-full p-4 text-left transition hover:bg-slate-50"
                   >
-                    {a.presente ? t("Presente", "Present") : t("Fuera", "Out")}
-                  </span>
-                </div>
-              </button>
-            ))
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                        <UserCheck className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-lg font-black text-slate-950">{actual.nombre}</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-500">
+                              {actual.credencial} · {actual.iglesia || "N/A"} · {actual.distrito || "N/A"}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
+                              actual.presente ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                            }`}
+                          >
+                            {actual.presente ? t("Presente", "Present") : t("Fuera", "Out")}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                          {actual.habilitado ? t("Habilitado", "Approved") : t("No habilitado", "Not approved")} ·{" "}
+                          {actual.metodo_voto === "manual" ? t("Voto manual", "Manual vote") : t("Voto electrónico", "Electronic vote")}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {abierto && (
+                    <div className="border-t border-slate-100 p-4 pt-3">
+                      {actual.dispositivo_alerta_en && (
+                        <p className="mb-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+                          {t(
+                            "Alerta: esta credencial fue usada desde otro dispositivo. Verifica la identidad antes de validarla nuevamente.",
+                            "Alert: this credential was used from another device. Verify identity before validating it again."
+                          )}
+                        </p>
+                      )}
+                      {actual.dispositivo_autorizado_id && !actual.dispositivo_alerta_en && (
+                        <p className="mb-3 rounded-xl bg-indigo-50 p-3 text-sm font-bold text-indigo-700">
+                          {t("Esta credencial ya tiene un dispositivo autorizado.", "This credential already has an authorized device.")}
+                        </p>
+                      )}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Button
+                          disabled={cargando || actual.presente || !actual.habilitado}
+                          onClick={() => actualizarPresencia(actual, true)}
+                          className="h-14 rounded-xl bg-emerald-600 text-base font-black hover:bg-emerald-700"
+                        >
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                          Check-in
+                        </Button>
+                        <Button
+                          disabled={cargando || !actual.presente}
+                          onClick={() => actualizarPresencia(actual, false)}
+                          className="h-14 rounded-xl bg-red-600 text-base font-black hover:bg-red-700"
+                        >
+                          <LogOut className="mr-2 h-5 w-5" />
+                          Check-out
+                        </Button>
+
+                        {actual.dispositivo_alerta_en ? (
+                          <>
+                            <Button
+                              disabled={cargando}
+                              onClick={() => resolverDispositivo(actual, "mantener_dispositivo_actual")}
+                              className="h-14 rounded-xl bg-slate-700 text-base font-black hover:bg-slate-800"
+                            >
+                              {t("Mantener anterior", "Keep previous")}
+                            </Button>
+                            <Button
+                              disabled={cargando}
+                              onClick={() => resolverDispositivo(actual, "autorizar_dispositivo_intento")}
+                              className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700"
+                            >
+                              {t("Autorizar nuevo", "Authorize new")}
+                            </Button>
+                          </>
+                        ) : actual.dispositivo_autorizado_id ? (
+                          <Button
+                            disabled={cargando}
+                            onClick={() => resetearDispositivo(actual)}
+                            className="h-14 rounded-xl bg-amber-600 text-base font-black hover:bg-amber-700 sm:col-span-2"
+                          >
+                            {t("Liberar dispositivo", "Release device")}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              )
+            })
           )}
         </section>
       </div>
