@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { asambleaPerteneceAlTenant, obtenerTenantSesion } from "@/lib/tenant"
+import { hashTokenVotacion } from "@/lib/tokenHash"
 
 function crearSupabaseAdmin() {
   return createClient(
@@ -30,10 +31,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "TOKEN_REQUERIDO" }, { status: 401 })
     }
 
+    // Doble-lectura: token ya hasheado (nuevos) o en claro (legacy).
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
       .select("id, asamblea_id, expira_en")
-      .eq("token_hash", token)
+      .in("token_hash", [hashTokenVotacion(token), token])
       .eq("activo", true)
       .eq("bloqueado", false)
       .maybeSingle()

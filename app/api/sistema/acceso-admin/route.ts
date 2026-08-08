@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { firmarRespuestaSesion, obtenerSecretoSesion } from "@/lib/session"
 
 function esOwner(req: NextRequest) {
   return (
@@ -56,6 +57,10 @@ export async function POST(req: NextRequest) {
   response.cookies.set("auth_org_slug", organizacion.slug, opciones)
   response.cookies.set("auth_org_code", organizacion.codigo_acceso || organizacion.slug, opciones)
   response.cookies.set("moderador_session", "true", opciones)
+
+  // Se cambian roles y organización de la sesión: hay que re-firmar para que la
+  // firma coincida con los nuevos valores.
+  await firmarRespuestaSesion(response, req, obtenerSecretoSesion())
 
   return response
 }

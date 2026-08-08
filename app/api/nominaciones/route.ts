@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { hashTokenVotacion } from "@/lib/tokenHash"
 
 function crearSupabaseAdmin() {
   return createClient(
@@ -22,10 +23,11 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = crearSupabaseAdmin()
 
+    // Doble-lectura: token ya hasheado (nuevos) o en claro (legacy).
     const { data: tokenRow } = await supabaseAdmin
       .from("tokens_acceso")
-      .select("id, asamblea_id, asambleista_id, activo, bloqueado, expira_en")
-      .eq("token_hash", token)
+      .select("id, token_hash, asamblea_id, asambleista_id, activo, bloqueado, expira_en")
+      .in("token_hash", [hashTokenVotacion(token), token])
       .eq("activo", true)
       .eq("bloqueado", false)
       .gt("expira_en", new Date().toISOString())
@@ -137,7 +139,7 @@ export async function POST(req: Request) {
     }
 
     const { data: resultadoVoto, error: errorVoto } = await supabaseAdmin.rpc("registrar_voto", {
-      p_token: token,
+      p_token: tokenRow.token_hash,
       p_votacion_id: votacionId,
       p_opcion: null,
       p_candidato_id: candidato.id,
