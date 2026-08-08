@@ -20,6 +20,7 @@ import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { mostrarTipoVotacion } from "@/lib/votacionHelpers"
 import { supabase } from "@/lib/supabaseClient"
+import { generarUUID } from "@/lib/uuid"
 
 type AdminShellProps = {
   children: React.ReactNode
@@ -106,7 +107,7 @@ function AdminShellContent({ children, role }: AdminShellProps) {
     void cargarQuorum()
 
     const canalQuorum = supabase
-      .channel(`realtime-quorum-${asambleaId}-${crypto.randomUUID()}`)
+      .channel(`realtime-quorum-${asambleaId}-${generarUUID()}`)
       .on(
         "postgres_changes",
         {

@@ -1,3 +1,5 @@
+import { fetchConTimeout } from "@/lib/fetchConTimeout"
+
 export async function enviarVoto({
   token,
   votacionId,
@@ -11,7 +13,7 @@ export async function enviarVoto({
   candidatoId?: string | null
   deviceId: string
 }) {
-  const res = await fetch("/api/vote", {
+  const resultado = await fetchConTimeout("/api/vote", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -25,12 +27,19 @@ export async function enviarVoto({
     }),
   })
 
-  const data = await res.json()
-
-  if (!res.ok) {
+  if (!resultado.ok) {
     return {
       ok: false,
-      code: data.code || data.error || "ERROR_DESCONOCIDO",
+      code: resultado.motivo === "timeout" ? "TIEMPO_AGOTADO" : "SIN_CONEXION",
+    }
+  }
+
+  const data = await resultado.res.json().catch(() => null)
+
+  if (!resultado.res.ok || !data) {
+    return {
+      ok: false,
+      code: data?.code || data?.error || "ERROR_DESCONOCIDO",
     }
   }
 
