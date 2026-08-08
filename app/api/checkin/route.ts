@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { createHash } from "crypto"
 import { limpiarCodigoAccesoOrganizacion, limpiarSlugOrganizacion } from "@/lib/tenant"
 import { hashTokenVotacion } from "@/lib/tokenHash"
+import { limpiarRateLimit, rateLimit } from "@/lib/rateLimit"
 
 type AsambleaCheckin = {
   id: string
@@ -48,6 +49,15 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get("user-agent") || "unknown"
     const forwardedFor = req.headers.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
+
+    limpiarRateLimit()
+
+    if (!rateLimit(`checkin:${ip}`)) {
+      return NextResponse.json(
+        { ok: false, error: "DEMASIADOS_INTENTOS" },
+        { status: 429 }
+      )
+    }
 
     let organizacionId: string | null = null
     const orgParam = String(orgSlug || "").trim()
@@ -126,7 +136,13 @@ export async function POST(req: Request) {
         queryAsamblea = queryAsamblea.eq("organizacion_slug", orgSlugLimpio)
       }
 
-      const { data: asambleaPorCredencial } = await queryAsamblea.maybeSingle()
+      // Sin organización explícita puede haber más de una asamblea activa (varias
+      // organizaciones a la vez). limit(1) evita el error de maybeSingle con
+      // múltiples filas, que hacía que todos recibieran NO_HAY_ASAMBLEA.
+      const { data: asambleaPorCredencial } = await queryAsamblea
+        .order("anio", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
       if (!asambleaPorCredencial) {
         return NextResponse.json({ ok: false, error: "NO_HAY_ASAMBLEA" }, { status: 400 })
@@ -198,37 +214,29 @@ export async function POST(req: Request) {
         })
         .eq("id", asambleista.id)
     } else if (asambleista.dispositivo_autorizado_id !== deviceIdNormalizado) {
-      const detalle = `Check-in desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
-      const alertaEn = new Date().toISOString()
-      const [actualizacion, bloqueo, alerta] = await Promise.all([
-        supabaseAdmin
-          .from("asambleistas")
-          .update({ dispositivo_alerta_en: alertaEn, dispositivo_alerta_detalle: detalle })
-          .eq("id", asambleista.id),
-        supabaseAdmin
-          .from("tokens_acceso")
-          .update({ bloqueado: true })
-          .eq("asamblea_id", asamblea.id)
-          .eq("asambleista_id", asambleista.id),
-        supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
-          asamblea_id: asamblea.id,
-          asambleista_id: asambleista.id,
-          credencial: credencialAuditada,
-          dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
-          dispositivo_intento_id: deviceIdNormalizado,
-          ip,
-          user_agent: userAgent,
-          accion: "bloqueado",
-          detalle,
-        }),
-      ])
+      // Se niega el acceso al dispositivo nuevo y se registra para auditoría,
+      // pero NO se bloquea al dispositivo ya autorizado ni sus tokens. Antes,
+      // cualquier intento desde otro dispositivo expulsaba al votante legítimo;
+      // ahora el dispositivo autorizado sigue funcionando y quien intenta desde
+      // otro equipo debe pasar por la mesa de registro. La validación por
+      // dispositivo en cada voto (/api/vote) sigue impidiendo votar al equipo
+      // no autorizado.
+      const detalle = `Intento de check-in desde otro dispositivo. IP: ${ip}. Navegador: ${userAgent.slice(0, 220)}`
 
-      if (actualizacion.error || bloqueo.error || alerta.error) {
-        return NextResponse.json({ ok: false, error: "ERROR_BLOQUEO_DISPOSITIVO" }, { status: 500 })
-      }
+      await supabaseAdmin.from("asambleista_dispositivo_alertas").insert({
+        asamblea_id: asamblea.id,
+        asambleista_id: asambleista.id,
+        credencial: credencialAuditada,
+        dispositivo_autorizado_id: asambleista.dispositivo_autorizado_id,
+        dispositivo_intento_id: deviceIdNormalizado,
+        ip,
+        user_agent: userAgent,
+        accion: "intento_denegado",
+        detalle,
+      })
 
       return NextResponse.json(
-        { ok: false, error: "DISPOSITIVO_REVALIDACION_REQUERIDA" },
+        { ok: false, error: "DISPOSITIVO_NO_AUTORIZADO" },
         { status: 409 }
       )
     }

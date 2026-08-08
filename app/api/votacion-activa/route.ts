@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const modoAsambleista = req.nextUrl.searchParams.get("modo") === "asambleista"
   const incluirResultados = req.nextUrl.searchParams.get("resultados") === "1"
   const votacionActualId = req.nextUrl.searchParams.get("actual")
+  const forzar = req.nextUrl.searchParams.get("forzar") === "1"
 
   if (!asambleaId) {
     return NextResponse.json({ ok: false, error: "ASAMBLEA_REQUERIDA" }, { status: 400 })
@@ -68,6 +69,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Estado de la asamblea (abierta/receso/cerrada) para que el dispositivo del
+  // votante muestre el aviso de receso; /api/asambleas exige sesión de admin.
+  const { data: asambleaEstadoRow } = await supabaseAdmin
+    .from("asambleas")
+    .select("estado")
+    .eq("id", asambleaId)
+    .maybeSingle()
+  const asambleaEstado = asambleaEstadoRow?.estado ?? null
+
   const { data: votacion, error: errorVotacion } = await supabaseAdmin
     .from("votaciones")
     .select(
@@ -84,12 +94,15 @@ export async function GET(req: NextRequest) {
   }
 
   if (!votacion) {
-    return NextResponse.json({ ok: true, votacion: null }, { headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json(
+      { ok: true, votacion: null, asambleaEstado },
+      { headers: { "Cache-Control": "no-store" } }
+    )
   }
 
-  if (modoAsambleista && !incluirResultados && votacionActualId === votacion.id) {
+  if (modoAsambleista && !incluirResultados && !forzar && votacionActualId === votacion.id) {
     return NextResponse.json(
-      { ok: true, sinCambios: true },
+      { ok: true, sinCambios: true, asambleaEstado },
       { headers: { "Cache-Control": "no-store" } }
     )
   }
@@ -156,6 +169,7 @@ export async function GET(req: NextRequest) {
     {
       ok: true,
       votacion,
+      asambleaEstado,
       candidatos,
       conteoCandidatos,
       votosEmitidos,

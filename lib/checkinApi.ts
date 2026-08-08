@@ -1,51 +1,42 @@
-export async function hacerCheckin(credencial: string, deviceId: string, orgSlug?: string) {
-  const res = await fetch("/api/checkin", {
+import { fetchConTimeout } from "@/lib/fetchConTimeout"
+
+async function enviarCheckin(cuerpo: Record<string, unknown>) {
+  const resultado = await fetchConTimeout("/api/checkin", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ credencial, deviceId, orgSlug }),
+    body: JSON.stringify(cuerpo),
   })
 
-  const data = await res.json()
-
-  if (!res.ok) {
+  if (!resultado.ok) {
     return {
-      ok: false,
-      error: data.error || "ERROR_CHECKIN",
+      ok: false as const,
+      error: resultado.motivo === "timeout" ? "TIEMPO_AGOTADO" : "SIN_CONEXION",
+    }
+  }
+
+  const data = await resultado.res.json().catch(() => null)
+
+  if (!resultado.res.ok || !data?.ok) {
+    return {
+      ok: false as const,
+      error: data?.error || "ERROR_CHECKIN",
     }
   }
 
   return {
-    ok: true,
+    ok: true as const,
     token: data.token,
     asamblea: data.asamblea,
     asambleista: data.asambleista,
   }
 }
 
+export async function hacerCheckin(credencial: string, deviceId: string, orgSlug?: string) {
+  return enviarCheckin({ credencial, deviceId, orgSlug })
+}
+
 export async function hacerCheckinAutomatico(accessToken: string, deviceId: string, orgSlug?: string) {
-  const res = await fetch("/api/checkin", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ accessToken, deviceId, orgSlug }),
-  })
-
-  const data = await res.json()
-
-  if (!res.ok) {
-    return {
-      ok: false,
-      error: data.error || "ERROR_CHECKIN",
-    }
-  }
-
-  return {
-    ok: true,
-    token: data.token,
-    asamblea: data.asamblea,
-    asambleista: data.asambleista,
-  }
+  return enviarCheckin({ accessToken, deviceId, orgSlug })
 }

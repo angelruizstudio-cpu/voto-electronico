@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { useAsamblea } from "@/hooks/useAsamblea"
 import { useVotacion } from "@/hooks/useVotacion"
 import { hacerCheckin, hacerCheckinAutomatico } from "@/lib/checkinApi"
 import { enviarVoto } from "@/lib/voteApi"
+import { fetchConTimeout } from "@/lib/fetchConTimeout"
 import { getDeviceId } from "@/lib/deviceId"
 import { useI18n } from "@/lib/i18n"
 import { supabase } from "@/lib/supabaseClient"
@@ -45,6 +46,9 @@ const MENSAJES_VOTO: Record<string, string> = {
   CANDIDATO_INVALIDO: "El candidato seleccionado no pertenece a esta votación",
   CANDIDATO_NO_APLICA: "Esta votación no acepta candidatos",
   OPCION_NO_APLICA: "Esta votación requiere seleccionar un candidato",
+  TIEMPO_AGOTADO: "La red tardó demasiado. Verifica tu conexión e inténtalo de nuevo.",
+  SIN_CONEXION: "No hay conexión. Revisa tu señal e inténtalo de nuevo.",
+  DEMASIADOS_INTENTOS: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
 }
 
 const MENSAJES_NOMINACION: Record<string, string> = {
@@ -59,6 +63,9 @@ const MENSAJES_NOMINACION: Record<string, string> = {
   ASAMBLEA_RECESO: "La asamblea está en receso. Espera a que se reanuden los trabajos.",
   DISPOSITIVO_REVALIDACION_REQUERIDA:
     "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+  TIEMPO_AGOTADO: "La red tardó demasiado. Verifica tu conexión e inténtalo de nuevo.",
+  SIN_CONEXION: "No hay conexión. Revisa tu señal e inténtalo de nuevo.",
+  DEMASIADOS_INTENTOS: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
 }
 
 function obtenerOrganizacionDesdeNavegador(fallback: string) {
@@ -92,6 +99,9 @@ export default function AsambleistaPage() {
     conteoCandidatos,
     yaVoto,
     setYaVoto,
+    sesionExpirada,
+    setSesionExpirada,
+    asambleaEstado,
     cargarVotacionActiva,
   } = useVotacion(asambleaActivaId, {
     ocultarCandidatosPrimeraRonda: true,
@@ -133,6 +143,49 @@ export default function AsambleistaPage() {
     setAsambleaIdAcceso("")
     setYaVoto(false)
   }, [setYaVoto])
+
+  const cerrarSesionManual = useCallback(() => {
+    bloquearSesionPorRevalidacion()
+    setSesionExpirada(false)
+    setAviso(t("Sesión cerrada.", "Session closed."))
+  }, [bloquearSesionPorRevalidacion, setSesionExpirada, t])
+
+  // Si el token expira o es invalidado, limpiamos la sesión y mostramos de nuevo
+  // el check-in en vez de dejar el dispositivo atascado en "Acreditado".
+  useEffect(() => {
+    if (!sesionExpirada) return
+
+    queueMicrotask(() => {
+      bloquearSesionPorRevalidacion()
+      setSesionExpirada(false)
+      setAviso(
+        t(
+          "Tu sesión expiró. Vuelve a hacer check-in con tu credencial.",
+          "Your session expired. Please check in again with your credential."
+        )
+      )
+    })
+  }, [sesionExpirada, bloquearSesionPorRevalidacion, setSesionExpirada, t])
+
+  // Estado de asamblea visible para el votante: /api/asambleas exige sesión de
+  // administrador (siempre 401 en el dispositivo del votante), así que tomamos
+  // el estado que expone /api/votacion-activa y solo caemos al de useAsamblea.
+  const estadoAsambleaVisible = asambleaEstado ?? estadoAsamblea
+
+  // Aviso al cerrarse la votación activa. El endpoint solo devuelve votaciones
+  // "abierta", así que al cerrar, la votación desaparece (votacionId -> null) en
+  // vez de llegar con estado "cerrada"; por eso el banner inline nunca se veía.
+  // Solo avisamos si la sesión sigue activa (token), para no confundirlo con un
+  // cierre de sesión.
+  const votacionIdPrevioRef = useRef<string | null>(null)
+  useEffect(() => {
+    const previo = votacionIdPrevioRef.current
+    votacionIdPrevioRef.current = votacionId
+
+    if (previo && !votacionId && token) {
+      setAviso(t("La votación fue cerrada.", "Voting has been closed."))
+    }
+  }, [votacionId, token, t])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -203,6 +256,9 @@ export default function AsambleistaPage() {
             "Esta credencial requiere validacion nuevamente. Pase por la mesa de registro.",
           ASAMBLEA_NO_AUTORIZADA:
             "Este enlace no pertenece a la organizacion seleccionada.",
+          DEMASIADOS_INTENTOS: "Demasiados intentos. Espera un momento e intentalo de nuevo.",
+          TIEMPO_AGOTADO: "La red tardo demasiado. Verifica tu conexion e intentalo de nuevo.",
+          SIN_CONEXION: "No hay conexion. Revisa tu senal e intentalo de nuevo.",
           ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
           ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
         }
@@ -269,39 +325,46 @@ export default function AsambleistaPage() {
     }
 
     setCargando(true)
-    const resultado = await hacerCheckin(
-      credencial.trim().toUpperCase(),
-      getDeviceId(),
-      obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
-    )
-    setCargando(false)
 
-    if (!resultado.ok) {
-      const mensajes: Record<string, string> = {
-        FALTA_CREDENCIAL: "Ingresa una credencial válida",
-        NO_HAY_ASAMBLEA: "No hay una asamblea activa en este momento",
-        NO_EXISTE: "Credencial no encontrada",
-        NO_HABILITADO:
-          "No estás habilitado para hacer check-in. Pasa primero por la mesa de registro.",
-        VOTO_MANUAL:
-          "Tu participación está registrada para voto manual. Pasa por la mesa para recibir tu balota.",
-        PENDIENTE_CHECKIN_PRESENCIAL:
-          "Identidad confirmada. Debes completar el check-in presencial en Puerta.",
-        DISPOSITIVO_NO_AUTORIZADO:
-          "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
-        DISPOSITIVO_REVALIDACION_REQUERIDA:
-          "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
-        ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
-        ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
+    try {
+      const resultado = await hacerCheckin(
+        credencial.trim().toUpperCase(),
+        getDeviceId(),
+        obtenerOrganizacionDesdeNavegador(organizacionSlugSesion)
+      )
+
+      if (!resultado.ok) {
+        const mensajes: Record<string, string> = {
+          FALTA_CREDENCIAL: "Ingresa una credencial válida",
+          NO_HAY_ASAMBLEA: "No hay una asamblea activa en este momento",
+          NO_EXISTE: "Credencial no encontrada",
+          NO_HABILITADO:
+            "No estás habilitado para hacer check-in. Pasa primero por la mesa de registro.",
+          VOTO_MANUAL:
+            "Tu participación está registrada para voto manual. Pasa por la mesa para recibir tu balota.",
+          PENDIENTE_CHECKIN_PRESENCIAL:
+            "Identidad confirmada. Debes completar el check-in presencial en Puerta.",
+          DISPOSITIVO_NO_AUTORIZADO:
+            "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+          DISPOSITIVO_REVALIDACION_REQUERIDA:
+            "Esta credencial requiere validación nuevamente. Pase por la mesa de registro.",
+          TIEMPO_AGOTADO: "La red tardó demasiado. Verifica tu conexión e inténtalo de nuevo.",
+          SIN_CONEXION: "No hay conexión. Revisa tu señal e inténtalo de nuevo.",
+          DEMASIADOS_INTENTOS: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+          ERROR_TOKEN: "Error al generar el token, intenta de nuevo",
+          ERROR_SERVIDOR: "Error del servidor, intenta de nuevo",
+        }
+        setAviso(t(mensajes[resultado.error] || "Credencial inválida", "Invalid credential"))
+        return
       }
-      setAviso(t(mensajes[resultado.error] || "Credencial inválida", "Invalid credential"))
-      return
-    }
 
-    // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
-    guardarAcceso(resultado)
-    setAviso(t("Acceso concedido", "Access granted"))
-    await cargarVotacionActiva()
+      // Guardamos el token_hash, que es lo que espera la RPC registrar_voto
+      guardarAcceso(resultado)
+      setAviso(t("Acceso concedido", "Access granted"))
+      await cargarVotacionActiva()
+    } finally {
+      setCargando(false)
+    }
   }
 
   // Bug #3 corregido: usa /api/vote que llama a la RPC con token_hash
@@ -312,29 +375,33 @@ export default function AsambleistaPage() {
     }
 
     setCargando(true)
-    const resultado = await enviarVoto({
-      token,
-      votacionId,
-      opcion,
-      deviceId: getDeviceId(),
-    })
-    setCargando(false)
 
-    if (!resultado.ok) {
-      setAviso(
-        t(
-          MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
-          MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+    try {
+      const resultado = await enviarVoto({
+        token,
+        votacionId,
+        opcion,
+        deviceId: getDeviceId(),
+      })
+
+      if (!resultado.ok) {
+        setAviso(
+          t(
+            MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
+            MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+          )
         )
-      )
-      if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
-      if (resultado.code === "YA_VOTO") setYaVoto(true)
-      return
-    }
+        if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
+        if (resultado.code === "YA_VOTO") setYaVoto(true)
+        return
+      }
 
-    setYaVoto(true)
-    await cargarVotacionActiva()
-    setAviso(t("Voto registrado", "Vote registered"))
+      setYaVoto(true)
+      await cargarVotacionActiva()
+      setAviso(t("Voto registrado", "Vote registered"))
+    } finally {
+      setCargando(false)
+    }
   }
 
   const nominarCandidato = async () => {
@@ -350,42 +417,52 @@ export default function AsambleistaPage() {
 
     setCargando(true)
 
-    const res = await fetch("/api/nominaciones", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        token,
-        votacionId,
-        nombre: nominacion,
-        deviceId: getDeviceId(),
-      }),
-    })
+    try {
+      const resultado = await fetchConTimeout("/api/nominaciones", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          votacionId,
+          nombre: nominacion,
+          deviceId: getDeviceId(),
+        }),
+      })
 
-    const data = await res.json()
-    setCargando(false)
+      if (!resultado.ok) {
+        const codigoRed = resultado.motivo === "timeout" ? "TIEMPO_AGOTADO" : "SIN_CONEXION"
+        setAviso(t(MENSAJES_NOMINACION[codigoRed], MENSAJES_NOMINACION[codigoRed]))
+        return
+      }
 
-    if (!res.ok || !data.ok) {
-      setAviso(
-        t(
-          MENSAJES_NOMINACION[data.error] || "No se pudo registrar la nominación",
-          MENSAJES_NOMINACION[data.error] || "Could not register nomination"
+      const data = await resultado.res.json().catch(() => null)
+
+      if (!resultado.res.ok || !data?.ok) {
+        const codigo = data?.error || "ERROR_NOMINACION"
+        setAviso(
+          t(
+            MENSAJES_NOMINACION[codigo] || "No se pudo registrar la nominación",
+            MENSAJES_NOMINACION[codigo] || "Could not register nomination"
+          )
         )
-      )
-      if (data.error === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
-      if (data.error === "YA_VOTO") setYaVoto(true)
-      return
-    }
+        if (codigo === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
+        if (codigo === "YA_VOTO") setYaVoto(true)
+        return
+      }
 
-    setNominacion("")
-    setYaVoto(true)
-    await cargarVotacionActiva()
-    setAviso(
-      data.duplicado
-        ? t("Voto de primera ronda registrado", "First-round vote registered")
-        : t("Nominacion y voto registrados", "Nomination and vote registered")
-    )
+      setNominacion("")
+      setYaVoto(true)
+      await cargarVotacionActiva()
+      setAviso(
+        data.duplicado
+          ? t("Voto de primera ronda registrado", "First-round vote registered")
+          : t("Nominacion y voto registrados", "Nomination and vote registered")
+      )
+    } finally {
+      setCargando(false)
+    }
   }
 
   const votarCandidato = async (candidatoId: string) => {
@@ -395,29 +472,33 @@ export default function AsambleistaPage() {
     }
 
     setCargando(true)
-    const resultado = await enviarVoto({
-      token,
-      votacionId,
-      candidatoId,
-      deviceId: getDeviceId(),
-    })
-    setCargando(false)
 
-    if (!resultado.ok) {
-      setAviso(
-        t(
-          MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
-          MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+    try {
+      const resultado = await enviarVoto({
+        token,
+        votacionId,
+        candidatoId,
+        deviceId: getDeviceId(),
+      })
+
+      if (!resultado.ok) {
+        setAviso(
+          t(
+            MENSAJES_VOTO[resultado.code] || `No se pudo registrar el voto: ${resultado.code}`,
+            MENSAJES_VOTO[resultado.code] || `Could not register vote: ${resultado.code}`
+          )
         )
-      )
-      if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
-      if (resultado.code === "YA_VOTO") setYaVoto(true)
-      return
-    }
+        if (resultado.code === "DISPOSITIVO_REVALIDACION_REQUERIDA") bloquearSesionPorRevalidacion()
+        if (resultado.code === "YA_VOTO") setYaVoto(true)
+        return
+      }
 
-    setYaVoto(true)
-    await cargarVotacionActiva()
-    setAviso(t("Voto registrado", "Vote registered"))
+      setYaVoto(true)
+      await cargarVotacionActiva()
+      setAviso(t("Voto registrado", "Vote registered"))
+    } finally {
+      setCargando(false)
+    }
   }
 
   return (
@@ -532,12 +613,23 @@ export default function AsambleistaPage() {
 
           {token && asambleistaNombre && (
             <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-                {t("Sesión acreditada", "Session checked in")}
-              </p>
-              <p className="mt-1 text-xl font-black text-slate-950">
-                {asambleistaNombre}
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+                    {t("Sesión acreditada", "Session checked in")}
+                  </p>
+                  <p className="mt-1 text-xl font-black text-slate-950">
+                    {asambleistaNombre}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={cerrarSesionManual}
+                  className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  {t("Salir", "Sign out")}
+                </button>
+              </div>
               <p className="mt-1 text-sm text-slate-500">
                 {t(
                   "Tu identidad confirma acceso a la sesión; tu voto permanece secreto.",
@@ -549,14 +641,14 @@ export default function AsambleistaPage() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`mb-5 flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-black tracking-wide ${
-              estadoAsamblea === "receso"
+              estadoAsambleaVisible === "receso"
                 ? "bg-amber-50 text-amber-700"
                 : estado === "abierta"
                 ? "bg-emerald-50 text-emerald-700"
                 : "bg-amber-50 text-amber-700"
             }`}>
-              <span className={`size-2.5 rounded-full ${estado === "abierta" && estadoAsamblea !== "receso" ? "bg-emerald-500" : "bg-amber-500"}`} />
-              {estadoAsamblea === "receso"
+              <span className={`size-2.5 rounded-full ${estado === "abierta" && estadoAsambleaVisible !== "receso" ? "bg-emerald-500" : "bg-amber-500"}`} />
+              {estadoAsambleaVisible === "receso"
                 ? t("ASAMBLEA EN RECESO", "ASSEMBLY IN RECESS")
                 : estado === "abierta"
                   ? t("VOTACIÓN ACTIVA", "ACTIVE VOTE")
@@ -589,7 +681,7 @@ export default function AsambleistaPage() {
               </p>
             )}
 
-            {estadoAsamblea === "receso" && (
+            {estadoAsambleaVisible === "receso" && (
               <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
                 {t(
                   "La asamblea está en receso. La votación continuará cuando el moderador reanude los trabajos.",
@@ -604,13 +696,7 @@ export default function AsambleistaPage() {
               </p>
             )}
 
-            {estado === "cerrada" && titulo && (
-              <p className="mt-4 rounded-lg bg-amber-50 p-3 text-center text-sm font-bold text-amber-700">
-                {t("La votación ha sido cerrada.", "Voting has been closed.")}
-              </p>
-            )}
-
-            {tipoVotacion === "resolucion" && estado === "abierta" && estadoAsamblea !== "receso" && (
+            {tipoVotacion === "resolucion" && estado === "abierta" && estadoAsambleaVisible !== "receso" && (
               <div className="mt-5 space-y-3">
                 <Button
                   onClick={() => votarResolucion("favor")}
@@ -650,7 +736,7 @@ export default function AsambleistaPage() {
               </div>
             )}
 
-            {tipoVotacion === "eleccion_lideres" && estado === "abierta" && estadoAsamblea !== "receso" && (
+            {tipoVotacion === "eleccion_lideres" && estado === "abierta" && estadoAsambleaVisible !== "receso" && (
               <div className="mt-5 space-y-3">
                 {rondaNumero === 1 && !yaVoto && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

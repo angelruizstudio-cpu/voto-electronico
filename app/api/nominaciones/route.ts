@@ -101,11 +101,16 @@ export async function POST(req: Request) {
       }
     }
 
+    // Escapamos los comodines de LIKE (%, _, \) para que el nombre se compare
+    // literal. Sin esto, nominar "%" coincidía con cualquier candidato ya
+    // existente y registraba el voto para el primero que apareciera.
+    const nombreParaBuscar = nombreLimpio.replace(/([\\%_])/g, "\\$1")
+
     const { data: candidatoExistente } = await supabaseAdmin
       .from("candidatos")
       .select("id, nombre, visible_asambleistas")
       .eq("votacion_id", votacionId)
-      .ilike("nombre", nombreLimpio)
+      .ilike("nombre", nombreParaBuscar)
       .order("visible_asambleistas", { ascending: false })
       .limit(1)
       .maybeSingle()
